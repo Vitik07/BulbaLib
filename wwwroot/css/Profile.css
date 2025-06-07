@@ -1,0 +1,209 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #282828;
+    color: white;
+    overflow-x: hidden;
+}
+
+.header {
+    margin-top: 60px;
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #555;
+    animation: fadeIn 0.6s ease-out;
+}
+
+.avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 20px;
+    transition: transform 0.3s ease;
+}
+
+    .avatar:hover {
+        transform: scale(1.05);
+    }
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.username {
+    font-size: 24px;
+    font-weight: bold;
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.back-button {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    background-color: #373737;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 15px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s, transform 0.3s;
+}
+
+    .back-button:hover {
+        background-color: #505050;
+        transform: scale(1.05);
+    }
+
+.tabs {
+    margin: 20px;
+    display: flex;
+    gap: 10px;
+    animation: fadeInUp 0.4s ease-out;
+}
+
+.tab {
+    padding: 10px 20px;
+    background-color: #373737;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.3s;
+}
+
+    .tab:hover {
+        background-color: #505050;
+        transform: scale(1.05);
+    }
+
+    .tab.active {
+        background-color: #646464;
+    }
+
+.action-button {
+    margin-top: 10px;
+    padding: 10px 20px;
+    background-color: #373737;
+    color: white;
+    border: none;
+    border-radius: 15px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s, transform 0.3s;
+}
+
+    .action-button:hover {
+        background-color: #505050;
+        transform: scale(1.05);
+    }
+
+.content {
+    margin: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.novel-card {
+    background-color: transparent;
+    border-radius: 8px;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+    width: 150px;
+    text-align: center;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeInUp 0.4s ease forwards;
+    animation-delay: calc(var(--i) * 0.05s);
+}
+
+    .novel-card:hover {
+        background-color: #444;
+        box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+        transform: translateY(-5px) scale(1.05);
+    }
+
+    .novel-card img:hover {
+        transform: scale(1.03);
+    }
+
+    .novel-card img {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 375 / 530;
+        object-fit: cover;
+        border-radius: 8px;
+        transition: transform 0.3s;
+    }
+
+        .novel-card img:hover {
+            transform: scale(1.03);
+        }
+
+    .novel-card .title-wrapper {
+        position: relative;
+        display: inline-block;
+        width: 150px;
+    }
+
+    .novel-card .title,
+    .novel-title {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 14px;
+        font-weight: bold;
+        margin-top: 8px;
+    }
+
+    .novel-card .tooltip {
+        visibility: hidden;
+        background-color: #333;
+        color: #fff;
+        text-align: center;
+        padding: 5px 10px;
+        border-radius: 6px;
+        position: absolute;
+        z-index: 1;
+        bottom: 120%;
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.3s;
+        white-space: normal;
+        max-width: 300px;
+        box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+    }
+
+    .novel-card .title-wrapper:hover .tooltip {
+        visibility: visible;
+        opacity: 1;
+    }
+
+@keyframes fadeIn {
+    from {
+        opacity: 0
+    }
+
+    to {
+        opacity: 1
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

@@ -1,0 +1,91 @@
+﻿body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #282828;
+    color: white;
+    padding-top: 60px;
+}
+
+.back-button {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    margin-left: -20px;
+    transition: transform 0.2s ease;
+}
+
+    .back-button:hover {
+        transform: translateX(-4px);
+    }
+
+.header-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 20px 30px;
+    background-color: #373737;
+    border-bottom: 1px solid #555;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
+    z-index: 1000;
+    transition: top 0.4s ease-in-out, background-color 0.3s;
+}
+
+    .header-bar.hidden {
+        top: -100px;
+    }
+
+.header-title {
+    font-size: 20px;
+    font-weight: bold;
+    flex-grow: 1;
+    text-align: left;
+    max-width: calc(100% - 60px);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transform: translateY(-10px);
+    animation: fadeSlideIn 0.4s ease forwards;
+    animation-delay: 0.2s;
+}
+
+.bookmark-icon {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+    .bookmark-icon:hover {
+        transform: scale(1.2);
+    }
+
+.scroll-view {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 16px;
+    line-height: 1.6;
+    padding: 20px;
+    opacity: 0;
+    animation: fadeIn 0.6s ease forwards;
+    animation-delay: 0.3s;
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeSlideIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

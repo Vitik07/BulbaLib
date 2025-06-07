@@ -1,0 +1,205 @@
+﻿@{
+    ViewData["Title"] = "Новелла — BulbaLib";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Новелла — BulbaLib</title>
+    <style>
+        <link rel="stylesheet" href="~/css/Novel.css" / >
+    </style>
+    <script>
+        const baseUrl = window.location.origin;
+
+        function getNovelIdFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id') || '1';
+        }
+        const novelId = getNovelIdFromUrl();
+        const userId = localStorage.getItem('userId');
+
+        // Загрузка текущего статуса
+        async function loadUserStatus() {
+            if (!userId) return;
+            try {
+                const res = await fetch(`${baseUrl}/api/users/${userId}/status?novelId=${novelId}`);
+                const data = await res.json();
+                document.querySelectorAll('.status-btn').forEach(btn => btn.classList.remove('active'));
+                if (data.status) {
+                    const activeBtn = document.querySelector(`.status-btn[data-status="${data.status}"]`);
+                    if (activeBtn) activeBtn.classList.add('active');
+                }
+            } catch (err) {
+                console.error("Ошибка загрузки статуса:", err);
+            }
+        }
+
+        // Обработчики кликов по кнопкам
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.status-btn').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const status = button.dataset.status;
+                    if (!userId) {
+                        alert("Войдите, чтобы установить статус");
+                        window.location.href = '/auth/login';
+                        return;
+                    }
+                    try {
+                        const response = await fetch(`${baseUrl}/api/users/${userId}/status`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ novelId, status })
+                        });
+                        if (response.ok) {
+                            document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+                            button.classList.add('active');
+                        } else {
+                            const error = await response.json();
+                            alert(error.message || 'Не удалось обновить статус');
+                        }
+                    } catch (err) {
+                        console.error("Ошибка сети:", err);
+                        alert("Не удалось обновить статус");
+                    }
+                });
+            });
+            loadUserStatus();
+        });
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            document.getElementById(`${tabName}-content`).classList.add('active');
+        }
+
+        function openDownloadPage() {
+            window.location.href = `/download?id=${novelId}`;
+        }
+
+        async function loadNovelData(novelId) {
+            try {
+                const userId = localStorage.getItem('userId');
+                const response = await fetch(`${baseUrl}/api/novels/${novelId}?userId=${userId}`);
+                if (!response.ok) throw new Error('Ошибка загрузки данных');
+                const novel = await response.json();
+
+                // Обложка
+                if (novel.image) {
+                    const img = document.createElement('img');
+                    img.className = 'novel-image';
+                    img.src = 'data:image/jpeg;base64,' + novel.image;
+                    img.alt = 'Обложка новеллы';
+                    const desc = document.getElementById('description-content');
+                    desc.insertBefore(img, desc.firstChild);
+                }
+
+                // Название и описание
+                const titleElement = document.querySelector('h2');
+                titleElement.textContent = novel.title;
+
+                if (novel.bookmarked) {
+                    const bookmarkIcon = document.createElement('img');
+                    bookmarkIcon.src = '/Resource/bookmark-icon.png';
+                    bookmarkIcon.alt = 'Закладка';
+                    bookmarkIcon.style.width = '20px';
+                    bookmarkIcon.style.height = '20px';
+                    bookmarkIcon.style.marginLeft = '10px';
+                    bookmarkIcon.style.verticalAlign = 'middle';
+                    titleElement.appendChild(bookmarkIcon);
+                }
+                document.querySelector('#description-content p').textContent = novel.description;
+
+                // Жанры
+                const genres = novel.genres ? novel.genres.split(',').map(g => g.trim()) : [];
+                const tags = novel.tags ? novel.tags.split(',').map(t => t.trim()) : [];
+
+                const genreContainer = document.querySelectorAll('.tag-list')[0];
+                const tagContainer = document.querySelectorAll('.tag-list')[1];
+
+                genreContainer.innerHTML = '';
+                genres.forEach(g => {
+                    const div = document.createElement('div');
+                    div.className = 'tag-item';
+                    div.textContent = g;
+                    genreContainer.appendChild(div);
+                });
+
+                tagContainer.innerHTML = '';
+                tags.forEach(t => {
+                    const div = document.createElement('div');
+                    div.className = 'tag-item';
+                    div.textContent = t;
+                    tagContainer.appendChild(div);
+                });
+
+                // Главы
+                const chaptersList = document.querySelector('.chapter-list');
+                chaptersList.innerHTML = '';
+                if (Array.isArray(novel.chapters)) {
+                    novel.chapters.forEach(chapter => {
+                        const li = document.createElement('li');
+                        li.className = 'chapter-item';
+                        li.textContent = `Глава ${chapter.number} – ${chapter.title}`;
+
+                        if (Boolean(chapter.bookmarked)) {
+                            const img = document.createElement('img');
+                            img.src = '/Resource/bookmark-icon.png';
+                            img.alt = 'Закладка';
+                            li.appendChild(img);
+                        }
+
+                        li.onclick = () => {
+                            location.href = `/chapter?chapterId=${chapter.id}`;
+                        };
+
+                        chaptersList.appendChild(li);
+                    });
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Не удалось загрузить данные новеллы.');
+            }
+        }
+
+        window.onload = () => {
+            switchTab('description');
+            loadNovelData(getNovelIdFromUrl());
+        };
+    </script>
+</head>
+<body>
+    <div class="top-bar">
+        <button class="custom-button menu-button" onclick="location.href='/'">
+            <img src="/Resource/bulba.png" alt="Logo" />
+            <span>Главное меню</span>
+        </button>
+        <div class="tabs">
+            <button class="custom-button" onclick="openDownloadPage()">Скачать</button>
+            <button class="custom-button status-btn" data-status="reading">Читаю</button>
+            <button class="custom-button status-btn" data-status="read">Прочитано</button>
+            <button class="custom-button status-btn" data-status="favorites">Любимое</button>
+            <button class="custom-button status-btn" data-status="abandoned">Заброшено</button>
+        </div>
+    </div>
+    <div class="tab-container">
+        <div class="tab active" id="description-tab" onclick="switchTab('description')">Описание</div>
+        <div class="tab" id="chapters-tab" onclick="switchTab('chapters')">Главы</div>
+    </div>
+    <div class="tab-background-rect">
+        <div class="tab-content active" id="description-content">
+            <h2>Название Новеллы</h2>
+            <p>Загрузка описания...</p>
+            <div class="section-title">Жанры:</div>
+            <div class="tag-list"></div>
+            <div class="section-title">Теги:</div>
+            <div class="tag-list"></div>
+        </div>
+        <div class="tab-content" id="chapters-content">
+            <ul class="chapter-list"></ul>
+        </div>
+    </div>
+</body>
+</html>

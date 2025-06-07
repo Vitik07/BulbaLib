@@ -1,0 +1,272 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #282828;
+    color: white;
+}
+
+.top-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 10px auto;
+    gap: 10px;
+    opacity: 0;
+    transform: translateY(-10px);
+    animation: fadeSlideIn 0.6s ease-out forwards;
+}
+
+input[type="text"] {
+    background-color: #373737;
+    color: white;
+    border: none;
+    padding: 10px;
+    font-size: 14px;
+    width: 300px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 0 2px transparent;
+}
+
+    input[type="text"]:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px #888;
+    }
+
+.button {
+    background-color: #373737;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 15px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s ease;
+}
+
+    .button:hover {
+        background-color: #505050;
+        transform: scale(1.05);
+    }
+
+.login-button {
+    position: absolute;
+    top: 16px;
+    left: 15px;
+    background-color: #373737;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 15px;
+    font-size: 14px;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(-10px);
+    animation: fadeSlideIn 0.6s ease-out forwards;
+    pointer-events: none;
+    visibility: hidden;
+    z-index: 1000;
+}
+
+    .login-button:hover {
+        background-color: #505050;
+        transform: scale(1.05);
+    }
+
+.profile-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: white;
+    opacity: 0;
+    transform: translateY(-10px);
+    animation: fadeSlideIn 0.6s ease-out forwards;
+    animation-delay: 0.3s;
+}
+
+    .profile-button img {
+        width: 50px;
+        height: 50px;
+        margin-right: 8px;
+        border-radius: 50%;
+        object-fit: cover;
+        transition: transform 0.3s;
+    }
+
+    .profile-button:hover img {
+        transform: scale(1.1);
+    }
+
+.background-rect {
+    background-color: #383838;
+    border-radius: 20px;
+    min-height: 90vh;
+    max-width: 1900px;
+    width: 98%;
+    margin: 20px auto;
+    padding: 20px;
+    box-sizing: border-box;
+    opacity: 0;
+    animation: fadeIn 0.8s ease forwards;
+    animation-delay: 0.5s;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.6);
+}
+
+.modal-content {
+    background-color: #2f2f2f;
+    margin: 10% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 90%;
+    max-width: 500px;
+    border-radius: 12px;
+    color: white;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+    animation: fadeIn 0.4s ease;
+}
+
+    .modal-content h2 {
+        margin-top: 0;
+        color: #fff;
+    }
+
+    .modal-content a {
+        color: #aad;
+        text-decoration: underline;
+    }
+
+.close {
+    color: #ccc;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+    .close:hover {
+        color: white;
+    }
+
+.novel-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 15.3px;
+    margin: 0;
+    padding: 0;
+}
+
+.novel-card {
+    width: 150px;
+    text-align: center;
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.95);
+    animation: fadePop 0.4s ease forwards;
+    background-color: transparent;
+    border-radius: 8px;
+    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+    .novel-card:hover {
+        background-color: #444;
+        box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
+        transform: scale(1.05);
+    }
+
+    .novel-card:nth-child(n) {
+        animation-delay: calc(0.05s * var(--i));
+    }
+
+    .novel-card img {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 375 / 530;
+        object-fit: cover;
+        border-radius: 8px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .novel-card:hover img {
+        transform: scale(1.1);
+        box-shadow: 0 6px 18px rgba(255, 255, 255, 0.4);
+    }
+
+.title-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 150px;
+}
+
+.title {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+    font-weight: bold;
+    color: white;
+    margin-top: 8px;
+}
+
+.tooltip {
+    visibility: hidden;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    padding: 5px 10px;
+    border-radius: 6px;
+    position: absolute;
+    z-index: 1;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: normal;
+    max-width: 300px;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+}
+
+.title-wrapper:hover .tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeSlideIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadePop {
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

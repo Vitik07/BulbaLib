@@ -1,0 +1,138 @@
+﻿@{
+    ViewData["Title"] = "Профиль";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Профиль</title>
+    <style>
+        <link rel="stylesheet" href="~/css/Profile.css" / >
+    </style>
+</head>
+<body>
+
+    <!-- Кнопка "Главное меню" -->
+    <button class="back-button" onclick="window.location.href='/'">← Главное меню</button>
+
+    <!-- Информация о пользователе -->
+    <div class="header">
+        <img id="profileAvatar" src="/Resource/default-avatar.jpg" alt="Avatar" class="avatar" />
+        <div class="user-info">
+            <span class="username" id="profileName">Имя пользователя</span>
+            <button class="action-button" onclick="loadAvatar()">Загрузить аватар</button>
+            <button class="action-button" onclick="logout()">Выйти из аккаунта</button>
+        </div>
+    </div>
+
+    <!-- Вкладки -->
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('reading')">Читаю</div>
+        <div class="tab" onclick="switchTab('read')">Прочитано</div>
+        <div class="tab" onclick="switchTab('favorites')">Любимое</div>
+        <div class="tab" onclick="switchTab('abandoned')">Заброшено</div>
+    </div>
+
+    <!-- Список новелл -->
+    <div class="content" id="novelList"></div>
+
+    <script>
+        const baseUrl = window.location.origin;
+
+        const novelList = document.getElementById('novelList');
+        const profileName = document.getElementById('profileName');
+        const profileAvatar = document.getElementById('profileAvatar');
+
+        // Загрузка данных профиля
+        async function loadProfile(userId) {
+            const response = await fetch(`${baseUrl}/api/profile?userId=${userId}`);
+            const data = await response.json();
+            profileName.textContent = data.user.login;
+            profileAvatar.src = data.user.hasAvatar
+                ? `${baseUrl}/api/users/${userId}/avatar`
+                : '/Resource/default-avatar.jpg';
+
+            window.profileData = data;
+            switchTab('reading');
+        }
+
+        // Переключение между вкладками
+        function switchTab(tab) {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(t => t.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
+
+            const novels = window.profileData?.[tab] || [];
+            novelList.innerHTML = '';
+
+            if (!novels.length) {
+                novelList.innerHTML = '<p>Нет новелл</p>';
+                return;
+            }
+
+            novels.forEach((novel, index) => {
+                const card = document.createElement('div');
+                card.className = 'novel-card';
+                card.style.setProperty('--i', index);
+                card.onclick = () => {
+                    window.location.href = `/novel?id=${novel.Id}`;
+                };
+
+                const imageUrl = novel.Image
+                    ? `data:image/jpeg;base64,${novel.Image}`
+                    : '/Resource/default.jpg';
+
+                card.innerHTML = `
+                    <img src="${imageUrl}" alt="${novel.Title}" onerror="this.onerror=null; this.src='/Resource/default.jpg';">
+                    <div class="title-wrapper">
+                        <div class="title">${novel.Title}</div>
+                        <div class="tooltip">${novel.Title}</div>
+                    </div>
+                `;
+                novelList.appendChild(card);
+            });
+        }
+
+        function logout() {
+            localStorage.removeItem('userId');
+            window.location.href = '/auth/login';
+        }
+
+        // Загрузка аватара
+        async function loadAvatar() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async () => {
+                const file = input.files[0];
+                const formData = new FormData();
+                formData.append('avatar', file);
+
+                const userId = localStorage.getItem('userId');
+                await fetch(`${baseUrl}/api/users/${userId}/avatar`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                alert('Аватар обновлён!');
+                location.reload();
+            };
+            input.click();
+        }
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.   ocation.search);
+            const userId = urlParams.get('userId') || localStorage.getItem('userId');
+
+            if (!userId) {
+                alert('Не авторизован');
+                window.location.href = '/auth/login';
+            } else {
+                loadProfile(userId);
+            }
+        });
+    </script>
+</body>
+</html>

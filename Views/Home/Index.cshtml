@@ -1,0 +1,180 @@
+﻿@{
+    ViewData["Title"] = "BulbaLib";
+    Layout = null; // Отключаем стандартный layout, если нужен отдельный, укажите _Layout
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>BulbaLib</title>
+    <style>
+        <link rel="stylesheet" href="~/css/Index.css" / >
+    </style>
+</head>
+<body>
+    <button class="login-button" id="loginButton">Авторизоваться</button>
+    <div class="top-bar">
+        <input id="searchInput" type="text" placeholder="Поиск..." />
+        <button class="button" id="randomButton">Случайная</button>
+        <button class="button" id="devInfoButton">О разработчике</button>
+    </div>
+    <div class="background-rect">
+        <div class="novel-list" id="novelList"></div>
+    </div>
+    <div class="modal" id="devModal">
+        <div class="modal-content">
+            <span class="close" id="closeModal">&times;</span>
+            <h2>О разработчике</h2>
+            <p>Привет! Меня зовут Витя Унербаев. Я разработчик BulbaLib — сервиса для чтения визуальных новелл.</p>
+            <p>Связаться со мной можно через почту <a href="https://mail.google.com/mail/?view=cm&to=vitya.unerbaev@gmail.com" target="_blank"> vitya.unerbaev@gmail.com </a> или в Telegram: <a href="https://t.me/vitik13" target="_blank">@@vitik13</a>.</p>
+            <p>Спасибо, что пользуетесь моим сайтом! 😊</p>
+        </div>
+    </div>
+    <button class="profile-button" id="profileButton">
+        <img id="profileAvatar" src="~/Resource/default-avatar.jpg" alt="Avatar" />
+        <span id="profileName">Имя пользователя</span>
+    </button>
+    <script>
+        const baseUrl = window.location.origin;
+
+        const novelList = document.getElementById('novelList');
+        const searchInput = document.getElementById('searchInput');
+        const profileName = document.getElementById('profileName');
+        const profileAvatar = document.getElementById('profileAvatar');
+        const profileButton = document.getElementById('profileButton');
+        const loginButton = document.getElementById('loginButton');
+        const devButton = document.getElementById('devInfoButton');
+        const devModal = document.getElementById('devModal');
+        const closeModal = document.getElementById('closeModal');
+        const randomButton = document.getElementById('randomButton');
+
+        let allNovels = [];
+
+        devButton.addEventListener('click', () => {
+            devModal.style.display = 'block';
+        });
+
+        closeModal.addEventListener('click', () => {
+            devModal.style.display = 'none';
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === devModal) {
+                devModal.style.display = 'none';
+            }
+        });
+
+        async function loadAllNovels() {
+            try {
+                const response = await fetch(`${baseUrl}/api/novels`);
+                allNovels = await response.json();
+                showNovels(allNovels);
+            } catch (error) {
+                console.error("❌ Не удалось загрузить список новелл", error);
+                novelList.innerHTML = '<p>Ошибка загрузки данных</p>';
+            }
+        }
+
+        function showNovels(novels) {
+            novelList.innerHTML = '';
+
+            if (!novels.length) {
+                novelList.innerHTML = '<p>Новеллы не найдены</p>';
+                return;
+            }
+
+            novels.forEach((novel, index) => {
+                const card = document.createElement('div');
+                card.className = 'novel-card';
+                card.style.setProperty('--i', index);
+                card.onclick = () => {
+                    location.href = `/novel/${novel.id}`;
+                };
+
+                const imageUrl = novel.image
+                    ? `data:image/jpeg;base64,${novel.image}`
+                    : '/Resource/default.jpg';
+
+                card.innerHTML = `
+                    <img src="${imageUrl}" alt="${novel.title}" onerror="this.onerror=null; this.src='/Resource/default.jpg';">
+                    <div class="title-wrapper">
+                        <div class="title">${novel.title}</div>
+                        <div class="tooltip">${novel.title}</div>
+                    </div>
+                `;
+                novelList.appendChild(card);
+            });
+        }
+
+        function filterNovels(term) {
+            if (!term.trim()) {
+                showNovels(allNovels);
+                return;
+            }
+
+            const search = term.toLowerCase();
+            const results = allNovels.filter(novel =>
+                novel.title.toLowerCase().includes(search)
+            );
+            showNovels(results);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAllNovels();
+
+            searchInput.addEventListener('input', (e) => {
+                filterNovels(e.target.value);
+            });
+
+            randomButton.addEventListener('click', () => {
+                if (allNovels.length === 0) {
+                    alert("Нет новелл");
+                    return;
+                }
+                const randomNovel = allNovels[Math.floor(Math.random() * allNovels.length)];
+                window.location.href = `/novel/${randomNovel.id}`;
+            });
+
+            // Проверяем userId из localStorage
+            const userId = localStorage.getItem('userId');
+            if (!userId) {
+                profileName.textContent = 'Гость';
+                profileAvatar.src = '/Resource/default-avatar.jpg';
+                loginButton.style.visibility = 'visible';
+                loginButton.style.opacity = '1';
+                loginButton.style.pointerEvents = 'auto';
+                loginButton.onclick = () => {
+                    window.location.href = '/login';
+                };
+            } else {
+                loginButton.style.visibility = 'hidden';
+                loginButton.style.opacity = '0';
+                loginButton.style.pointerEvents = 'none';
+            }
+
+            if (userId) {
+                fetch(`${baseUrl}/api/users/${userId}`)
+                    .then(res => res.json())
+                    .then(user => {
+                        profileName.textContent = user.login;
+                        profileAvatar.src = `${baseUrl}/api/users/${userId}/avatar`;
+                    })
+                    .catch(err => {
+                        console.error("Ошибка загрузки профиля", err);
+                        profileName.textContent = 'Ошибка';
+                        profileAvatar.src = '/Resource/default-avatar.jpg';
+                    });
+            }
+
+            profileButton.addEventListener('click', () => {
+                if (userId) {
+                    window.location.href = `/profile/${userId}`;
+                } else {
+                    alert('Пользователь не авторизован');
+                    window.location.href = '/login';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

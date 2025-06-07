@@ -1,0 +1,76 @@
+﻿@{
+    ViewData["Title"] = "Регистрация — BulbaLib";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Регистрация — BulbaLib</title>
+    <style>
+        <link rel="stylesheet" href="~/css/Register.css" / >
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <h2>Регистрация в BulbaLib</h2>
+        <form id="registerForm" autocomplete="off">
+            <input type="text" name="login" placeholder="Логин" required />
+            <input type="password" name="password" placeholder="Пароль" required />
+            <button type="submit">Зарегистрироваться</button>
+        </form>
+        <div id="message"></div>
+        <a href="/auth/login">Есть аккаунт? Войти</a>
+    </div>
+
+    <script>
+        const baseUrl = window.location.origin;
+
+        const form = document.getElementById('registerForm');
+        const messageDiv = document.getElementById('message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            messageDiv.textContent = '';
+            messageDiv.className = '';
+
+            const login = form.login.value.trim();
+            const password = form.password.value.trim();
+
+            if (!login || !password) {
+                messageDiv.textContent = 'Пожалуйста, заполните все поля.';
+                messageDiv.className = 'error';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${baseUrl}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ login, password })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    messageDiv.textContent = data.message || 'Регистрация прошла успешно!';
+                    messageDiv.className = 'success';
+                    form.reset();
+
+                    setTimeout(() => {
+                        window.location.href = '/auth/login';
+                    }, 1500);
+                } else {
+                    messageDiv.textContent = data.error || 'Ошибка при регистрации.';
+                    messageDiv.className = 'error';
+                }
+            } catch (err) {
+                messageDiv.textContent = 'Ошибка сети.';
+                messageDiv.className = 'error';
+            }
+        });
+    </script>
+
+</body>
+</html>
