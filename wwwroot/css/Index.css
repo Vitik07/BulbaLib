@@ -52,7 +52,32 @@ body {
     box-shadow: 0 2px 16px var(--shadow-soft);
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 5001; /* Value higher than .search-panel's z-index */
+    padding: 8px 25px; /* Adjusted padding */
+}
+
+/* New main-nav structure styles */
+.main-nav-left {
+    display: flex;
+    align-items: center;
+}
+
+/* REMOVED: .main-nav-left .nav-catalog (button moved) */
+
+.main-nav-center {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Rule for .main-nav-center .nav-catalog is REMOVED as button moved to dropdown */
+
+.main-nav-right {
+    display: flex;
+    align-items: center;
+    /* gap: 15px; /* Removed as only one child now */ */
+    /* flex-shrink: 0; */ /* Let it size by content */
 }
 
 .logo {
@@ -75,10 +100,14 @@ body {
         text-shadow: 0 2px 8px var(--shadow-soft);
     }
 
+/* .nav-actions rule can be removed or commented if no longer used elsewhere */
+/* For now, assume it might be used by other elements or can be cleaned later */
 .nav-actions {
     display: flex;
+    align-items: center;
     gap: 16px;
 }
+
 
 .nav-btn {
     background: #232337;
@@ -104,6 +133,17 @@ body {
     border: none;
     cursor: pointer;
     margin-left: 12px;
+    display: flex; /* Arrange items in a row */
+    align-items: center; /* Vertically align items in the center */
+    background-color: transparent; /* Ensure button background is not interfering */
+    padding: 0; /* Reset padding if any was inherited */
+}
+
+.profile-login-text {
+    margin-right: 8px; /* Space between login name and avatar */
+    color: var(--text-primary); /* Use existing variable for text color */
+    font-weight: 600; /* Slightly bolder */
+    font-size: 1.4em; /* Apply user's specified font size */
 }
 
 #profileAvatar {
@@ -146,17 +186,17 @@ body {
     padding: 8px 7px 11px 7px;
     cursor: pointer;
     text-align: center;
-    transition: background 0.14s, transform 0.13s, box-shadow 0.17s;
+    transition: background 0.13s, box-shadow 0.13s, border-color 0.13s; /* Adjusted to match update-item more closely */
     box-shadow: 0 4px 22px #0004;
     border: 1.5px solid #27273a;
 }
 
     .slider-novel-card:hover {
-        background: var(--accent-blue-light);
-        color: #fff;
-        border-color: var(--accent-blue-light);
-        transform: scale(1.08);
-        box-shadow: 0 8px 28px #2360d199, 0 2px 18px #0008;
+        background: #2c3140; /* From update-item:hover */
+        /* color: #fff; Removed to match update-item */
+        border-color: var(--accent-blue-light); /* From update-item:hover */
+        /* transform: scale(1.08); Removed to match update-item */
+        box-shadow: 0 4px 22px #2360d199, 0 2px 8px #0004; /* From update-item:hover */
     }
 
     .slider-novel-card img {
@@ -275,8 +315,9 @@ body {
 /* --- ������� --- */
 .novelties-list {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 32px 28px;
+    /* Adjusted to prevent overflow by allowing column count to adapt */
+    grid-template-columns: repeat(auto-fit, minmax(162px, 1fr));
+    gap: 32px 15px; /* Apply user's specified gap */
     justify-items: center;
     align-items: stretch;
 }
@@ -288,7 +329,7 @@ body {
     text-align: center;
     padding: 14px 7px 17px 7px;
     cursor: pointer;
-    transition: background 0.13s, transform 0.13s, box-shadow 0.16s;
+    transition: background 0.13s, box-shadow 0.13s, border-color 0.13s; /* Adjusted to match update-item */
     margin-bottom: 6px;
     border: 1.3px solid #232337;
     box-shadow: 0 2px 8px #0004;
@@ -300,11 +341,11 @@ body {
 }
 
     .novelty-card:hover {
-        background: var(--accent-blue-light);
-        color: #fff;
-        border-color: var(--accent-blue-light);
-        transform: scale(1.07);
-        box-shadow: 0 8px 28px #2360d199, 0 2px 10px #0008;
+        background: #2c3140; /* From update-item:hover */
+        /* color: #fff; Removed to match update-item */
+        border-color: var(--accent-blue-light); /* From update-item:hover */
+        /* transform: scale(1.07); Removed to match update-item */
+        box-shadow: 0 4px 22px #2360d199, 0 2px 8px #0004; /* From update-item:hover */
     }
 
     .novelty-card img {
@@ -359,36 +400,100 @@ body {
     width: 100vw;
     height: 100vh;
     background: rgba(24,24,28,0.98);
-    animation: fadeIn 0.35s;
+    animation: fadeIn 0.3s; /* Keep animation */
+    overflow-y: auto; /* Allow scrolling if content is long */
 }
 
 .search-panel-content {
-    max-width: 700px;
-    margin: 60px auto;
-    background: var(--fg);
-    border-radius: var(--radius-card);
-    padding: 24px 26px 30px 26px;
-    box-shadow: 0 8px 32px #0009;
+    display: block;
     position: relative;
+    visibility: visible;
+    opacity: 1;
+    width: 100%;
+    max-width: 750px;
+    margin: 70px auto 30px auto;
+    padding: 25px;
+    background-color: #232337; /* Theme-appropriate background */
+    border-radius: 8px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.3);
 }
 
 #searchInput {
+    display: block;
     width: 100%;
-    padding: 13px 16px;
-    font-size: 18px;
-    border-radius: 8px;
-    background: #232337;
-    border: 1.3px solid #2d2d3f;
+    max-width: 550px;
+    /* position: relative; /* REMOVED */ */ height: 40px;
+    padding: 8px 15px; /* Symmetrical padding */
+
+    font-size: 16px;
+    border-radius: 20px;
+    background: #252530;
+    border: 1px solid #3b3b48;
     color: var(--text-primary);
-    margin-bottom: 18px;
-    transition: border .15s, background .15s;
+    margin-left: 0;
+    transition: border-color .2s, box-shadow .2s;
+    box-sizing: border-box;
 }
 
     #searchInput:focus {
-        outline: 2px solid var(--accent-blue-light);
-        border-color: var(--accent-blue-light);
-        background: #232337;
+        outline: none;
+        border-color: var(--accent-blue);
+        background-color: #252530;
+        box-shadow: 0 0 0 2px rgba(58, 139, 253, 0.3);
     }
+
+/* New Dropdown Styles */
+.logo-dropdown-container {
+    position: relative;
+    display: inline-block;
+}
+
+.logo-dropdown-panel {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-base);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    min-width: 180px;
+    padding: 8px;
+    z-index: 5002;
+    box-shadow: 0 4px 12px var(--shadow-soft);
+}
+
+.logo-dropdown-container:hover .logo-dropdown-panel {
+    display: block;
+}
+
+.dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 10px 15px;
+    background-color: transparent;
+    border: none;
+    color: var(--text-primary);
+    text-align: left;
+    border-radius: calc(var(--radius) / 2);
+    cursor: pointer;
+    transition: background-color 0.15s;
+    font-size: 0.95em;
+}
+
+    .dropdown-item:hover {
+        background-color: var(--fg);
+    }
+
+    .dropdown-item.nav-catalog {
+        /* Potentially different font-weight or color if needed */
+    }
+
+/* Adjustments for items in .main-nav-right if needed */
+.main-nav-right .nav-catalog {
+    /* margin-right: 15px; /* This is handled by the gap in .main-nav-right now */
+}
+/* .main-nav-right .nav-profile can have margin-left if gap is not enough or preferred */
 
 .search-section {
     margin-bottom: 16px;

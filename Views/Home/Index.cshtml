@@ -1,4 +1,4 @@
-﻿@{
+﻿﻿@{
     ViewData["Title"] = "BulbaLib";
     Layout = null;
 }
@@ -12,22 +12,35 @@
 <body>
     <!-- Top nav bar -->
     <div class="main-nav">
-        <div class="logo">
-            <img src="/Resource/bulbalib-logo.png" alt="BulbaLib" />
-            <span>BulbaLib</span>
+        <div class="main-nav-left">
+            <div class="logo-dropdown-container">
+                <!-- Wrapper for logo and dropdown -->
+                <div class="logo">
+                    <img src="favicon.ico" alt="BulbaLib" />
+                    <span>BulbaLib</span>
+                </div>
+                <div class="dropdown-panel logo-dropdown-panel">
+                    <!-- Dropdown menu -->
+                    <button class="dropdown-item nav-catalog" onclick="location.href='/catalog'">Каталог</button>
+                    <!-- Other dropdown items can be added here later -->
+                </div>
+            </div>
         </div>
-        <div class="nav-actions">
-            <button class="nav-btn nav-catalog" onclick="location.href='/catalog'">Каталог</button>
-            <button class="nav-btn nav-search" id="openSearchPanel">Поиск</button>
+        <div class="main-nav-center">
+            <!-- Only searchInput -->
+            <input id="searchInput" type="text" placeholder="Введите название новеллы..." autocomplete="off" />
         </div>
-        <button class="nav-profile" id="profileButton">
-            <img id="profileAvatar" src="/Resource/default-avatar.jpg" alt="Avatar" />
-        </button>
+        <div class="main-nav-right">
+            <!-- Profile button -->
+            <button class="nav-profile" id="profileButton">
+                <span id="profileLogin" class="profile-login-text"></span>
+                <img id="profileAvatar" src="/Resource/default-avatar.jpg" alt="Avatar" />
+            </button>
+        </div>
     </div>
     <!-- Search panel -->
     <div class="search-panel" id="searchPanel">
         <div class="search-panel-content" id="searchPanelContent">
-            <input id="searchInput" type="text" placeholder="Введите название новеллы..." autocomplete="off" />
             <div class="search-results-block">
                 <div class="search-section" id="recentlyReadSection">
                     <div class="search-section-title">Недавно читали</div>
@@ -44,6 +57,7 @@
     <!-- Main content area -->
     <div class="main-content-container">
         <div class="central-block">
+            <div class="section-title main-slider-title" style="display: none;">Недавнее</div>
             <div class="main-slider" id="mainSlider"></div>
         </div>
         <div class="main-row">
@@ -63,15 +77,23 @@
         // ======= Profile (аватар и кнопка профиля) =======
         const profileAvatar = document.getElementById('profileAvatar');
         const profileButton = document.getElementById('profileButton');
+        const profileLoginText = document.getElementById('profileLogin'); // Get reference here
+
         async function fillProfileButton() {
             try {
                 const res = await fetch(`${baseUrl}/api/users/me`, { credentials: "include" });
                 if (!res.ok) throw new Error();
                 const user = await res.json();
                 profileAvatar.src = `${baseUrl}/api/users/avatar`;
+                if (profileLoginText) {
+                    profileLoginText.textContent = user.login;
+                }
                 profileButton.onclick = () => window.location.href = `/profile/${user.id}`;
             } catch {
                 profileAvatar.src = '/Resource/default-avatar.jpg';
+                if (profileLoginText) {
+                    profileLoginText.textContent = ''; // Clear the login name
+                }
                 profileButton.onclick = () => window.location.href = '/login';
             }
         }
@@ -84,16 +106,25 @@
         const searchResultsList = document.getElementById('searchResultsList');
         const recentlyReadList = document.getElementById('recentlyReadList');
 
-        openSearchPanel.addEventListener('click', () => {
+        // openSearchPanel.addEventListener('click', () => { // Button is now hidden
+        // searchPanel.style.display = 'block';
+        // searchInput.focus();
+        // updateRecentlyRead();
+        // });
+
+        searchInput.addEventListener('focus', () => {
             searchPanel.style.display = 'block';
-            searchInput.focus();
             updateRecentlyRead();
         });
+
         searchPanel.addEventListener('mousedown', function (e) {
-            if (!searchPanelContent.contains(e.target)) {
+            // If the click is outside the content area of the panel,
+            // and also not on the searchInput itself (which is now in the nav bar),
+            // then close the panel.
+            if (searchPanelContent && !searchPanelContent.contains(e.target) && e.target !== searchInput) {
                 searchPanel.style.display = 'none';
-                searchInput.value = '';
-                searchResultsList.innerHTML = '';
+                searchInput.value = ''; // Clear search input on close (as per original logic)
+                if (searchResultsList) searchResultsList.innerHTML = ''; // Clear results on close
             }
         });
 
@@ -116,9 +147,9 @@
                 const card = document.createElement('div');
                 card.className = 'search-novel-card';
                 card.innerHTML = `
-                                    <img src="${getCover(novel)}" alt="${novel.title}">
-                                    <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
-                                `;
+                                            <img src="${getCover(novel)}" alt="${novel.title}">
+                                            <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
+                                        `;
                 card.onclick = () => window.location.href = `/novel/${novel.id}`;
                 searchResultsList.appendChild(card);
             }
@@ -165,9 +196,9 @@
                     const card = document.createElement('div');
                     card.className = 'recent-novel-card';
                     card.innerHTML = `
-                                <img src="${getCover(novel)}" alt="${novel.title}">
-                                <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
-                            `;
+                                        <img src="${getCover(novel)}" alt="${novel.title}">
+                                        <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
+                                    `;
                     card.onclick = () => window.location.href = `/novel/${novel.id}`;
                     recentlyReadList.appendChild(card);
                 }
@@ -200,13 +231,13 @@
                     const item = document.createElement('div');
                     item.className = 'update-item';
                     item.innerHTML = `
-                                        <img class="update-cover" src="${getCover(novel)}" alt="${novel.title}">
-                                        <div class="update-info">
-                                            <div class="update-title">${novel.title}</div>
-                                            <div class="update-chapter">${ch.number ? ch.number + " " : ""}${ch.title}</div>
-                                            <div class="update-date">${formatRelativeTime(ch.date)}</div>
-                                        </div>
-                                    `;
+                                                <img class="update-cover" src="${getCover(novel)}" alt="${novel.title}">
+                                                <div class="update-info">
+                                                    <div class="update-title">${novel.title}</div>
+                                                    <div class="update-chapter">${ch.number ? ch.number + " " : ""}${ch.title}</div>
+                                                    <div class="update-date">${formatRelativeTime(ch.date)}</div>
+                                                </div>
+                                            `;
                     item.onclick = () => window.location.href = `/novel/${novel.id}?chapter=${ch.id}`;
                     updatesList.appendChild(item);
                 }
@@ -229,9 +260,9 @@
                     const card = document.createElement('div');
                     card.className = 'novelty-card';
                     card.innerHTML = `
-                                <img src="${getCover(novel)}" alt="${novel.title}">
-                                <div class="novelty-title" title="${novel.title}">${novel.title}</div>
-                            `;
+                                        <img src="${getCover(novel)}" alt="${novel.title}">
+                                        <div class="novelty-title" title="${novel.title}">${novel.title}</div>
+                                    `;
                     card.onclick = () => window.location.href = `/novel/${novel.id}`;
                     noveltiesList.appendChild(card);
                 }
@@ -243,17 +274,99 @@
             }
         }
 
-        function updateMainSlider() {
+        async function updateMainSlider() {
             const mainSlider = document.getElementById('mainSlider');
-            mainSlider.innerHTML = '';
-            const novels = [...allNovels].sort((a, b) => b.date - a.date || a.title.localeCompare(b.title, 'ru')).slice(0, 7);
-            for (let novel of novels) {
+            const mainSliderTitle = document.querySelector('.main-slider-title');
+            const centralBlock = mainSlider.closest('.central-block');
+
+            mainSlider.innerHTML = ''; // Clear previous content
+
+            // Initially hide all parts. If any condition below fails, they remain hidden.
+            if (mainSliderTitle) mainSliderTitle.style.display = 'none';
+            if (centralBlock) centralBlock.style.display = 'none';
+            mainSlider.style.display = 'none';
+
+            let user;
+            try {
+                const res = await fetch(`${baseUrl}/api/users/me`, { credentials: "include" });
+                if (!res.ok) {
+                    mainSlider.style.display = 'none';
+                    return;
+                }
+                user = await res.json();
+            } catch (error) {
+                mainSlider.style.display = 'none';
+                return;
+            }
+
+            if (!user) {
+                mainSlider.style.display = 'none';
+                return;
+            }
+
+            let bookmarks;
+            try {
+                const res = await fetch(`${baseUrl}/api/users/bookmarks`, { credentials: "include" });
+                if (!res.ok) {
+                    mainSlider.style.display = 'none';
+                    return;
+                }
+                bookmarks = await res.json();
+            } catch (error) {
+                mainSlider.style.display = 'none';
+                return;
+            }
+
+            if (!bookmarks || Object.keys(bookmarks).length === 0) {
+                mainSlider.style.display = 'none';
+                return;
+            }
+
+            let novelsForSlider = [];
+            if (bookmarks && Object.keys(bookmarks).length > 0) {
+                Object.entries(bookmarks).forEach(([novelIdStr, bookmarkEntries]) => {
+                    if (bookmarkEntries && bookmarkEntries.length > 0) {
+                        const lastBookmark = bookmarkEntries.reduce((prev, curr) =>
+                            (!prev || curr.date > prev.date) ? curr : prev,
+                            null);
+
+                        if (lastBookmark) {
+                            const novelId = parseInt(novelIdStr);
+                            const novelDetails = allNovels.find(n => n.id === novelId);
+                            if (novelDetails) {
+                                novelsForSlider.push({
+                                    ...novelDetails, // Spread novel properties
+                                    lastBookmarkDate: lastBookmark.date
+                                });
+                            }
+                        }
+                    }
+                });
+
+                novelsForSlider.sort((a, b) => b.lastBookmarkDate - a.lastBookmarkDate);
+            }
+
+            if (novelsForSlider.length === 0) {
+                mainSlider.innerHTML = ''; // Already cleared at the beginning, but good practice
+                mainSlider.style.display = 'none';
+                console.log('Main slider hidden: No valid bookmarked novels to display.');
+                return;
+            }
+
+            // Ensure mainSlider and its related components are visible if we have novels.
+            if (centralBlock) centralBlock.style.display = ''; // Reset to default
+            if (mainSliderTitle) mainSliderTitle.style.display = ''; // Reset to default
+            mainSlider.style.display = ''; // Reset to default display (e.g., 'flex', 'block' as per CSS)
+
+            // Render novel cards
+            const novelsToDisplay = novelsForSlider.slice(0, 7);
+            for (let novel of novelsToDisplay) {
                 const card = document.createElement('div');
                 card.className = 'slider-novel-card';
                 card.innerHTML = `
-                                    <img src="${getCover(novel)}" alt="${novel.title}">
-                                    <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
-                                `;
+                            <img src="${getCover(novel)}" alt="${novel.title}">
+                            <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
+                        `;
                 card.onclick = () => window.location.href = `/novel/${novel.id}`;
                 mainSlider.appendChild(card);
             }
@@ -279,7 +392,7 @@
             await fillProfileButton();
             await updateUpdatesList();
             await updateNoveltiesList();
-            await updateMainSlider();
+            await updateMainSlider(); // This is already await, no change needed here actually. The function itself was made async.
         }
         mainLoad();
 
