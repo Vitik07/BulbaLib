@@ -7,17 +7,40 @@ namespace BulbaLib.Controllers
     [Route("api/[controller]")]
     public class ChaptersController : ControllerBase
     {
-        private readonly SqliteService _db;
+        private readonly MySqlService _db;
 
-        public ChaptersController(SqliteService db)
+        public ChaptersController(MySqlService db)
         {
             _db = db;
         }
 
-        // GET /api/chapters?novelId=...
+        // GET /api/chapters?novelId=... или /api/chapters?all=1
         [HttpGet]
-        public IActionResult GetChapters([FromQuery] int novelId)
+        public IActionResult GetChapters([FromQuery] int novelId = 0, [FromQuery] int all = 0)
         {
+            // Новый блок: если all=1 — вернуть все главы всех новелл
+            if (all == 1)
+            {
+                var novels = _db.GetNovels();
+                var allChapters = new List<Chapter>();
+                foreach (var novel in novels)
+                    allChapters.AddRange(_db.GetChaptersByNovel(novel.Id));
+
+                return Ok(new
+                {
+                    chapters = allChapters.Select(ch => new
+                    {
+                        id = ch.Id,
+                        novelId = ch.NovelId,
+                        number = ch.Number,
+                        title = ch.Title,
+                        content = ch.Content,
+                        date = ch.Date
+                    })
+                });
+            }
+
+            // Обычный режим — главы конкретной новеллы
             if (novelId == 0)
                 return BadRequest(new { error = "novelId обязателен" });
 
@@ -46,13 +69,29 @@ namespace BulbaLib.Controllers
             var chapter = _db.GetChapter(id);
             if (chapter == null)
                 return NotFound(new { error = "Глава не найдена" });
+
+            string chapterText = "";
+            if (!string.IsNullOrEmpty(chapter.Content))
+            {
+                var wwwroot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                var filePath = Path.Combine(wwwroot, chapter.Content.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                if (System.IO.File.Exists(filePath))
+                {
+                    chapterText = System.IO.File.ReadAllText(filePath);
+                }
+                else
+                {
+                    chapterText = "[Текст главы не найден: " + filePath + "]";
+                }
+            }
+
             return Ok(new
             {
                 id = chapter.Id,
                 novelId = chapter.NovelId,
                 number = chapter.Number,
                 title = chapter.Title,
-                content = chapter.Content,
+                content = chapterText,
                 date = chapter.Date
             });
         }
@@ -61,7 +100,7 @@ namespace BulbaLib.Controllers
         [HttpPost]
         public IActionResult CreateChapter([FromBody] ChapterCreateRequest req)
         {
-            if (req.NovelId == 0 || req.Number == 0 || string.IsNullOrWhiteSpace(req.Title))
+            if (req.NovelId == 0 || string.IsNullOrWhiteSpace(req.Number) || string.IsNullOrWhiteSpace(req.Title))
                 return BadRequest(new { error = "NovelId, number и title обязательны" });
 
             var chapter = new Chapter
@@ -87,7 +126,6 @@ namespace BulbaLib.Controllers
             chapter.Number = req.Number ?? chapter.Number;
             chapter.Title = req.Title ?? chapter.Title;
             chapter.Content = req.Content ?? chapter.Content;
-            // Date не обновляем специально (оставляем оригинал)
             _db.UpdateChapter(chapter);
             return Ok(new { message = "Chapter updated" });
         }
@@ -99,20 +137,39 @@ namespace BulbaLib.Controllers
             _db.DeleteChapter(id);
             return Ok(new { message = "Chapter deleted" });
         }
+
+        [HttpPost("{chapterId}/upload-image")]
+        public async Task<IActionResult> UploadImage(int chapterId, IFormFile image)
+        {
+            if (image == null || image.Length == 0)
+                return BadRequest(new { error = "Файл не выбран" });
+
+            var uploadDir = Path.Combine("wwwroot", "uploads", "chapters", chapterId.ToString());
+            Directory.CreateDirectory(uploadDir);
+            var fileName = Guid.NewGuid() + Path.GetExtension(image.FileName);
+            var filePath = Path.Combine(uploadDir, fileName);
+
+            using (var stream = System.IO.File.Create(filePath))
+            {
+                await image.CopyToAsync(stream);
+            }
+            var url = $"/uploads/chapters/{chapterId}/{fileName}";
+            return Ok(new { url });
+        }
     }
 
     // DTOs для создания/обновления главы
     public class ChapterCreateRequest
     {
         public int NovelId { get; set; }
-        public int Number { get; set; }
+        public string Number { get; set; }
         public string Title { get; set; }
         public string Content { get; set; }
         public long? Date { get; set; }
     }
     public class ChapterUpdateRequest
     {
-        public int? Number { get; set; }
+        public string Number { get; set; }
         public string Title { get; set; }
         public string Content { get; set; }
     }

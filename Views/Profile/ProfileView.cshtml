@@ -1,0 +1,142 @@
+﻿@{
+    ViewData["Title"] = "Профиль пользователя";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"] — BulbaLib</title>
+    <link rel="stylesheet" href="~/css/Novel.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="~/css/ProfileView.css" />
+</head>
+<body>
+    <div class="novel-header-bar">
+        <div class="header-logo-btn" onclick="window.location.href='/'" role="button" tabindex="0" aria-label="К главной">
+            <img src="/favicon.ico" alt="logo" />
+            <span class="header-logo-text">BulbaLib</span>
+        </div>
+    </div>
+    <div class="profile-main-bg">
+        <div class="profile-main-container">
+            <!-- SIDEBAR -->
+            <aside class="profile-sidebar" aria-label="Боковая панель пользователя">
+                <div class="profile-avatar-wrap">
+                    <img class="profile-avatar" src="/img/no-avatar.png" alt="Аватар пользователя" id="profile-avatar" />
+                </div>
+                <div class="profile-user-info">
+                    <div class="profile-username" id="profile-username"></div>
+                    <!-- КНОПКИ (если надо, добавь сюда для своего профиля) -->
+                </div>
+            </aside>
+            <!-- MAIN -->
+            <main class="profile-content-block" aria-label="Содержимое профиля">
+                <div class="profile-tabs-header">
+                    <button class="profile-tab-btn active" id="tab-favorites-btn" onclick="showTab('favorites')">Любимые</button>
+                    <button class="profile-tab-btn" id="tab-reading-btn" onclick="showTab('reading')">Читаю</button>
+                    <button class="profile-tab-btn" id="tab-completed-btn" onclick="showTab('completed')">Прочитано</button>
+                    <button class="profile-tab-btn" id="tab-dropped-btn" onclick="showTab('dropped')">Брошено</button>
+                </div>
+                <div class="profile-tabs-content">
+                    <div class="tab-pane" id="tab-favorites" style="display:block;">
+                        <div class="block-title">Любимые новеллы</div>
+                        <div class="novel-short-list" id="favorites-list"></div>
+                    </div>
+                    <div class="tab-pane" id="tab-reading" style="display:none;">
+                        <div class="block-title">Читаю</div>
+                        <div class="novel-short-list" id="reading-list"></div>
+                    </div>
+                    <div class="tab-pane" id="tab-completed" style="display:none;">
+                        <div class="block-title">Прочитано</div>
+                        <div class="novel-short-list" id="completed-list"></div>
+                    </div>
+                    <div class="tab-pane" id="tab-dropped" style="display:none;">
+                        <div class="block-title">Брошено</div>
+                        <div class="novel-short-list" id="dropped-list"></div>
+                    </div>
+                </div>
+                <div class="novel-main-error" style="display:none;color:#e74c3c;margin-top:2em;" role="alert">
+                    Ошибка загрузки профиля.
+                </div>
+            </main>
+        </div>
+    </div>
+    <script>
+        function getProfileIdFromUrl() {
+            const match = window.location.pathname.match(/profile\/(\d+)/);
+            return match ? match[1] : null;
+        }
+        function showTab(tab) {
+            document.getElementById('tab-favorites').style.display = (tab === 'favorites') ? 'block' : 'none';
+            document.getElementById('tab-reading').style.display = (tab === 'reading') ? 'block' : 'none';
+            document.getElementById('tab-completed').style.display = (tab === 'completed') ? 'block' : 'none';
+            document.getElementById('tab-dropped').style.display = (tab === 'dropped') ? 'block' : 'none';
+
+            document.getElementById('tab-favorites-btn').classList.toggle('active', tab === 'favorites');
+            document.getElementById('tab-reading-btn').classList.toggle('active', tab === 'reading');
+            document.getElementById('tab-completed-btn').classList.toggle('active', tab === 'completed');
+            document.getElementById('tab-dropped-btn').classList.toggle('active', tab === 'dropped');
+        }
+        // Вернуть последнюю обложку или /img/no-cover.png
+        function getLastCover(novel) {
+            if (Array.isArray(novel.covers) && novel.covers.length)
+                return novel.covers[novel.covers.length - 1];
+            if (novel.cover) // если cover как строка (backward compat)
+                return novel.cover;
+            if (novel.image)
+                return 'data:image/jpeg;base64,' + novel.image;
+            return '/img/no-cover.png';
+        }
+        function renderUserProfile(user, novelsByStatus) {
+            document.getElementById('profile-username').textContent = user.login || 'Пользователь';
+            document.getElementById('profile-avatar').src = user.avatar ? ('data:image/jpeg;base64,' + user.avatar) : '/img/no-avatar.png';
+
+            renderNovelShortList("favorites-list", novelsByStatus.favorites);
+            renderNovelShortList("reading-list", novelsByStatus.reading);
+            renderNovelShortList("completed-list", novelsByStatus.read);
+            renderNovelShortList("dropped-list", novelsByStatus.abandoned);
+        }
+        function renderNovelShortList(listId, novels) {
+            const list = document.getElementById(listId);
+            list.innerHTML = '';
+            if (!novels || !novels.length) {
+                list.innerHTML = '<div class="novel-short-empty">Нет новелл</div>';
+                return;
+            }
+            for (const novel of novels) {
+                const card = document.createElement('div');
+                card.className = 'novel-short-card';
+                card.innerHTML = `
+                            <a href="/novel/${novel.id}" style="text-decoration:none;">
+                                <img class="novel-short-cover" src="${getLastCover(novel)}" alt="">
+                                <div class="novel-short-title">${novel.title || 'Без названия'}</div>
+                            </a>
+                        `;
+                list.appendChild(card);
+            }
+        }
+        async function loadProfile(userId) {
+            try {
+                const res = await fetch(`/api/profile/${userId}`);
+                if (!res.ok) throw new Error('Ошибка загрузки');
+                const profile = await res.json();
+                renderUserProfile(profile.user, profile.novelsByStatus);
+            } catch (error) {
+                document.querySelector('.novel-main-error').style.display = '';
+                console.error(error);
+            }
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            const userId = getProfileIdFromUrl();
+            if (!userId) {
+                document.querySelector('.novel-main-error').style.display = '';
+                return;
+            }
+            loadProfile(userId);
+        });
+    </script>
+</body>
+</html>

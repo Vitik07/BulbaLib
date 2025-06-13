@@ -1,209 +1,308 @@
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background-color: #282828;
-    color: white;
-    overflow-x: hidden;
+@charset "UTF-8";
+/* === ���������� � ������� ����� === */
+:root {
+    --bg: #18181c;
+    --fg: #23232a;
+    --card-bg: #202026;
+    --border-base: #252538;
+    --text-primary: #e1e1e6;
+    --text-secondary: #8a8a8e;
+    --link: #369bf6;
+    --accent-blue: #2360d1;
+    --accent-blue-light: #3a8bfd;
+    --accent-pink: #fa6565;
+    --accent-orange: #ffb47b;
+    --radius: 12px;
+    --radius-card: 16px;
+    --shadow: rgba(0,0,0,0.7);
+    --shadow-soft: rgba(0,0,0,0.4);
+    --gap: 16px;
+    --font: "Open Sans", sans-serif;
 }
 
-.header {
-    margin-top: 60px;
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font);
+    color: var(--text-primary);
+    background: var(--bg);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* === ����� === */
+.novel-header-bar {
+    background: var(--fg);
+    height: 60px;
     display: flex;
     align-items: center;
-    padding: 20px;
-    border-bottom: 1px solid #555;
-    animation: fadeIn 0.6s ease-out;
+    padding: 0 24px;
+    font-size: 1.4rem;
+    font-weight: bold;
+    box-shadow: 0 2px 16px var(--shadow-soft);
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
-.avatar {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-right: 20px;
-    transition: transform 0.3s ease;
+.header-logo-btn {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-    .avatar:hover {
-        transform: scale(1.05);
+    .header-logo-btn img {
+        width: 2em;
+        height: 2em;
+        border-radius: 20%;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
-.user-info {
+.header-logo-text {
+    color: var(--link);
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 8px var(--shadow-soft);
+}
+
+/* === �������� ��� � ��������� ������� === */
+.profile-main-bg {
+    background: linear-gradient(180deg, var(--fg) 0, var(--fg) 170px, var(--bg) 100%);
+    min-height: 100vh;
+}
+
+.profile-main-container {
+    display: flex;
+    align-items: flex-start;
+    max-width: 1200px;
+    margin: 44px auto;
+    gap: 36px;
+    padding: 0 24px;
+}
+
+@media (max-width: 900px) {
+    .profile-main-container {
+        flex-direction: column;
+        gap: 18px;
+    }
+}
+
+@media (max-width: 600px) {
+    .profile-main-container {
+        padding: 0 8px;
+    }
+}
+
+/* === ����� ������ ������� === */
+.profile-sidebar {
+    flex: 0 0 300px;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
+    gap: 16px;
 }
 
-.username {
-    font-size: 24px;
-    font-weight: bold;
-    animation: fadeInUp 0.6s ease-out;
+.profile-avatar-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
 }
 
-.back-button {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    z-index: 1000;
-    background-color: #373737;
-    color: white;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 15px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s, transform 0.3s;
+.profile-avatar {
+    width: 128px;
+    height: 128px;
+    object-fit: cover;
+    border-radius: 50%;
+    box-shadow: 0 6px 32px var(--shadow);
+    border: 3px solid var(--accent-blue);
+    background: var(--card-bg);
 }
 
-    .back-button:hover {
-        background-color: #505050;
-        transform: scale(1.05);
+.profile-user-info {
+    background: var(--fg);
+    border-radius: 16px;
+    box-shadow: 0 4px 32px #000a, 0 1.5px 0 #363657;
+    padding: 18px 20px 14px 20px;
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 1.05rem;
+    border: 1.5px solid #282845;
+    color: var(--text-primary);
+}
+
+.profile-username {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--accent-blue-light);
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+    text-align: center;
+}
+
+.profile-userid {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    text-align: center;
+    margin-bottom: 2px;
+}
+
+/* === ����������� ���� ������� === */
+.profile-content-block {
+    flex: 1;
+    background: var(--fg);
+    border-radius: var(--radius-card);
+    box-shadow: 0 4px 24px var(--shadow);
+    padding: 32px;
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    .profile-content-block {
+        padding: 16px 6px;
     }
+}
 
-.tabs {
-    margin: 20px;
+@media (max-width: 600px) {
+    .profile-content-block {
+        padding: 7px 3px;
+    }
+}
+
+.profile-tabs-header {
     display: flex;
     gap: 10px;
-    animation: fadeInUp 0.4s ease-out;
+    margin-bottom: 20px;
 }
 
-.tab {
-    padding: 10px 20px;
-    background-color: #373737;
-    border-radius: 15px;
-    cursor: pointer;
-    transition: background-color 0.3s, transform 0.3s;
-}
-
-    .tab:hover {
-        background-color: #505050;
-        transform: scale(1.05);
-    }
-
-    .tab.active {
-        background-color: #646464;
-    }
-
-.action-button {
-    margin-top: 10px;
-    padding: 10px 20px;
-    background-color: #373737;
-    color: white;
+.profile-tab-btn {
+    background: var(--card-bg, #23232a);
     border: none;
-    border-radius: 15px;
+    color: var(--text-secondary, #8a8a8e);
+    font-size: 1.05rem;
+    font-weight: 600;
+    padding: 10px 32px;
+    border-radius: 10px 10px 0 0;
     cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.3s, transform 0.3s;
+    transition: background 0.15s, color 0.15s;
+    box-shadow: 0 2px 8px #0002;
+    outline: none;
 }
 
-    .action-button:hover {
-        background-color: #505050;
-        transform: scale(1.05);
-    }
-
-.content {
-    margin: 20px;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 15px;
-}
-
-.novel-card {
-    background-color: transparent;
-    border-radius: 8px;
-    transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
-    width: 150px;
-    text-align: center;
-    cursor: pointer;
-    opacity: 0;
-    transform: translateY(20px);
-    animation: fadeInUp 0.4s ease forwards;
-    animation-delay: calc(var(--i) * 0.05s);
-}
-
-    .novel-card:hover {
-        background-color: #444;
-        box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
-        transform: translateY(-5px) scale(1.05);
-    }
-
-    .novel-card img:hover {
-        transform: scale(1.03);
-    }
-
-    .novel-card img {
-        width: 100%;
-        height: auto;
-        aspect-ratio: 375 / 530;
-        object-fit: cover;
-        border-radius: 8px;
-        transition: transform 0.3s;
-    }
-
-        .novel-card img:hover {
-            transform: scale(1.03);
-        }
-
-    .novel-card .title-wrapper {
-        position: relative;
-        display: inline-block;
-        width: 150px;
-    }
-
-    .novel-card .title,
-    .novel-title {
-        display: block;
-        width: 100%;
-        max-width: 100%;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        font-size: 14px;
-        font-weight: bold;
-        margin-top: 8px;
-    }
-
-    .novel-card .tooltip {
-        visibility: hidden;
-        background-color: #333;
+    .profile-tab-btn.active {
+        background: var(--fg, #18181c);
         color: #fff;
-        text-align: center;
-        padding: 5px 10px;
-        border-radius: 6px;
-        position: absolute;
-        z-index: 1;
-        bottom: 120%;
-        left: 50%;
-        transform: translateX(-50%);
-        opacity: 0;
-        transition: opacity 0.3s;
-        white-space: normal;
-        max-width: 300px;
-        box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+        border-bottom: 2.5px solid var(--accent-blue, #2360d1);
+        z-index: 2;
     }
 
-    .novel-card .title-wrapper:hover .tooltip {
-        visibility: visible;
-        opacity: 1;
-    }
-
-@keyframes fadeIn {
-    from {
-        opacity: 0
-    }
-
-    to {
-        opacity: 1
-    }
+.profile-tabs-content {
+    border-radius: 0 0 16px 16px;
+    padding: 12px 6px 18px 6px;
+    margin-top: -2px;
+    transition: background 0.2s;
 }
 
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
+/* === ������ �������� ������ === */
+.novel-short-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+}
+
+.novel-short-card {
+    background: #24243b;
+    border-radius: 13px;
+    box-shadow: 0 2px 12px #0009;
+    padding: 12px 13px 13px 13px;
+    width: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: box-shadow 0.18s, transform 0.13s;
+    cursor: pointer;
+}
+
+    .novel-short-card:hover {
+        box-shadow: 0 8px 26px #2360d199, 0 2px 18px #0008;
+        transform: translateY(-3px) scale(1.03);
     }
 
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.novel-short-cover {
+    width: 100%;
+    max-width: 110px;
+    aspect-ratio: 3/4;
+    object-fit: cover;
+    border-radius: 7px 7px 13px 13px;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 10px #0008;
+    background: #23232a;
 }
+
+.novel-short-title {
+    font-size: 0.99em;
+    color: #e1e1e6;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 2px;
+}
+
+.novel-short-empty {
+    color: #888;
+    font-size: 1.08em;
+    padding: 32px 0;
+    text-align: center;
+}
+
+/* === ����-����� � ������ === */
+.block-title {
+    font-size: 1.07em;
+    font-weight: 600;
+    color: #a8a8b6;
+    margin-bottom: 10px;
+    margin-top: 34px;
+    letter-spacing: 0.02em;
+}
+
+.novel-main-error {
+    color: var(--accent-pink);
+    margin-top: 2em;
+    font-size: 1.1em;
+    text-align: center;
+}
+
+
+/* === ������ "��������� ������" � "����� �� ��������" ===*/
+.profile-action-btn {
+    background: var(--accent-blue);
+    color: #fff;
+    margin: 7px 0 0 0;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.07em;
+    font-weight: 600;
+    padding: 9px 15px;
+    cursor: pointer;
+    box-shadow: 0 2px 12px #0004;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.18s;
+}
+
+    .profile-action-btn:hover {
+        background: var(--accent-blue-light);
+    }

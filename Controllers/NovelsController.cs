@@ -1,17 +1,22 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BulbaLib.Services;
 using System.IO;
+using System.Collections.Generic;
+using System.Linq;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace BulbaLib.Controllers
 {
+    [AllowAnonymous]
     [ApiController]
     [Route("api/[controller]")]
     public class NovelsController : ControllerBase
     {
-        private readonly SqliteService _db;
+        private readonly MySqlService _db;
         private readonly IWebHostEnvironment _env;
 
-        public NovelsController(SqliteService db, IWebHostEnvironment env)
+        public NovelsController(MySqlService db, IWebHostEnvironment env)
         {
             _db = db;
             _env = env;
@@ -22,70 +27,121 @@ namespace BulbaLib.Controllers
         public IActionResult GetNovels([FromQuery] string search = "")
         {
             var novels = _db.GetNovels(search);
-            // Для фронта: image отдаём как base64 (или null)
             return Ok(novels.Select(n => new {
                 id = n.Id,
                 title = n.Title,
                 description = n.Description,
-                image = n.Image != null ? Convert.ToBase64String(n.Image) : null,
+                covers = n.CoversList, // массив ссылок
                 genres = n.Genres,
-                tags = n.Tags
+                tags = n.Tags,
+                type = n.Type,
+                format = n.Format,
+                releaseYear = n.ReleaseYear,
+                authorId = n.AuthorId,
+                translatorId = n.TranslatorId,
+                alternativeTitles = n.AlternativeTitles,
+                relatedNovelIds = n.RelatedNovelIds,
+                date = n.Date // <<<<<< ДОБАВЛЕНО для фронта!
             }));
         }
 
         // GET /api/novels/{id}
         [HttpGet("{id}")]
-        public IActionResult GetNovel(int id, [FromQuery] int? userId = null)
+        public IActionResult GetNovel(int id)
         {
             var novel = _db.GetNovel(id);
             if (novel == null)
                 return NotFound(new { error = "Новелла не найдена" });
 
-            var chapters = _db.GetChaptersByNovel(id);
-            // Можно добавить тут userId для отметки bookmarked (если потребуется)
+            var chapters = _db.GetChaptersByNovel(id) ?? new List<Chapter>();
+            int chapterCount = chapters.Count;
+
+            HashSet<int> bookmarkedChapters = null;
+            int? bookmarkChapterId = null;
+
+            // Если пользователь авторизован, получаем его закладки
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+                var bookmarks = _db.GetBookmarks(userId);
+                if (bookmarks != null && bookmarks.ContainsKey(id.ToString()))
+                {
+                    bookmarkedChapters = bookmarks[id.ToString()].Select(b => b.ChapterId).ToHashSet();
+                    bookmarkChapterId = bookmarks[id.ToString()]
+                        .OrderByDescending(b => b.Date)
+                        .Select(b => (int?)b.ChapterId)
+                        .FirstOrDefault();
+                }
+            }
+
+            var author = novel.AuthorId.HasValue ? _db.GetUser(novel.AuthorId.Value) : null;
+
+            // --- Переводчики как список объектов {id, login}
+            List<dynamic> translatorsList = new List<dynamic>();
+            if (!string.IsNullOrWhiteSpace(novel.TranslatorId))
+            {
+                var ids = novel.TranslatorId.Split(',', System.StringSplitOptions.RemoveEmptyEntries)
+                                .Select(s => s.Trim())
+                                .Where(s => int.TryParse(s, out _))
+                                .Select(int.Parse);
+                foreach (var uid in ids)
+                {
+                    var tr = _db.GetUser(uid);
+                    if (tr != null)
+                        translatorsList.Add(new { id = tr.Id, login = tr.Login });
+                }
+            }
+
+            var chaptersResult = chapters.Select(ch => new {
+                id = ch.Id,
+                novelId = ch.NovelId,
+                number = ch.Number,
+                title = ch.Title,
+                content = ch.Content,
+                date = ch.Date,
+                bookmarked = bookmarkedChapters != null && bookmarkedChapters.Contains(ch.Id)
+            }).ToList();
 
             return Ok(new
             {
                 id = novel.Id,
                 title = novel.Title,
                 description = novel.Description,
-                image = novel.Image != null ? Convert.ToBase64String(novel.Image) : null,
+                covers = novel.CoversList, // массив ссылок
                 genres = novel.Genres,
                 tags = novel.Tags,
-                chapters = chapters.Select(ch => new {
-                    id = ch.Id,
-                    novelId = ch.NovelId,
-                    number = ch.Number,
-                    title = ch.Title,
-                    content = ch.Content,
-                    date = ch.Date
-                })
+                type = novel.Type,
+                format = novel.Format,
+                releaseYear = novel.ReleaseYear,
+                chapterCount,
+                author = author != null ? new { id = author.Id, login = author.Login } : null,
+                alternativeTitles = novel.AlternativeTitles,
+                translators = translatorsList,
+                chapters = chaptersResult,
+                relatedNovelIds = novel.RelatedNovelIds,
+                bookmarkChapterId = bookmarkChapterId,
+                date = novel.Date // <<<<<< ДОБАВЛЕНО для фронта!
             });
-        }
-
-        // GET /api/novels/{id}/image
-        [HttpGet("{id}/image")]
-        public IActionResult GetNovelImage(int id)
-        {
-            var novel = _db.GetNovel(id);
-            if (novel == null || novel.Image == null)
-                return NotFound(new { error = "Image not found" });
-            // По умолчанию jpeg. Если другой формат, поменяй content-type
-            return File(novel.Image, "image/jpeg");
         }
 
         // POST /api/novels
         [HttpPost]
-        public IActionResult CreateNovel([FromForm] NovelCreateRequest req)
+        public IActionResult CreateNovel([FromBody] NovelCreateRequest req)
         {
-            var imageBytes = req.Image != null ? ReadBytes(req.Image) : null;
             var novel = new Novel
             {
                 Title = req.Title,
                 Description = req.Description,
-                Image = imageBytes,
+                CoversList = req.Covers,
                 Genres = req.Genres,
-                Tags = req.Tags
+                Tags = req.Tags,
+                Type = req.Type,
+                Format = req.Format,
+                ReleaseYear = req.ReleaseYear,
+                AuthorId = req.AuthorId,
+                TranslatorId = req.TranslatorId,
+                AlternativeTitles = req.AlternativeTitles,
+                Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds() // гарантируем заполнение даты
             };
             _db.CreateNovel(novel);
             return StatusCode(201, new { message = "Novel created" });
@@ -98,11 +154,20 @@ namespace BulbaLib.Controllers
             var novel = _db.GetNovel(id);
             if (novel == null)
                 return NotFound(new { error = "Novel not found" });
+
             novel.Title = req.Title ?? novel.Title;
             novel.Description = req.Description ?? novel.Description;
+            if (req.Covers != null) novel.CoversList = req.Covers;
             novel.Genres = req.Genres ?? novel.Genres;
             novel.Tags = req.Tags ?? novel.Tags;
-            // Для Image можно реализовать обновление через отдельный endpoint или через base64 строку
+            novel.Type = req.Type ?? novel.Type;
+            novel.Format = req.Format ?? novel.Format;
+            novel.ReleaseYear = req.ReleaseYear ?? novel.ReleaseYear;
+            novel.AuthorId = req.AuthorId ?? novel.AuthorId;
+            novel.TranslatorId = req.TranslatorId ?? novel.TranslatorId;
+            novel.AlternativeTitles = req.AlternativeTitles ?? novel.AlternativeTitles;
+            // не обновляем дату при редактировании, только при создании
+
             _db.UpdateNovel(novel);
             return Ok(new { message = "Novel updated" });
         }
@@ -114,13 +179,6 @@ namespace BulbaLib.Controllers
             _db.DeleteNovel(id);
             return Ok(new { message = "Novel deleted" });
         }
-
-        private byte[] ReadBytes(IFormFile file)
-        {
-            using var ms = new MemoryStream();
-            file.CopyTo(ms);
-            return ms.ToArray();
-        }
     }
 
     // DTOs для создания/обновления
@@ -128,16 +186,28 @@ namespace BulbaLib.Controllers
     {
         public string Title { get; set; }
         public string Description { get; set; }
-        public IFormFile Image { get; set; }
+        public List<string> Covers { get; set; } // список ссылок
         public string Genres { get; set; }
         public string Tags { get; set; }
+        public string Type { get; set; }
+        public string Format { get; set; }
+        public int? ReleaseYear { get; set; }
+        public int? AuthorId { get; set; }
+        public string TranslatorId { get; set; }
+        public string AlternativeTitles { get; set; }
     }
     public class NovelUpdateRequest
     {
         public string Title { get; set; }
         public string Description { get; set; }
+        public List<string> Covers { get; set; }
         public string Genres { get; set; }
         public string Tags { get; set; }
-        // Для Image можно добавить base64, если нужно
+        public string Type { get; set; }
+        public string Format { get; set; }
+        public int? ReleaseYear { get; set; }
+        public int? AuthorId { get; set; }
+        public string TranslatorId { get; set; }
+        public string AlternativeTitles { get; set; }
     }
 }

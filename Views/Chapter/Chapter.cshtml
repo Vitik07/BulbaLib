@@ -7,151 +7,200 @@
 <head>
     <meta charset="UTF-8" />
     <title>Глава</title>
-    <style>
-        <link rel="stylesheet" href="~/css/Chapter.css" / >
-    </style>
+    <link rel="stylesheet" href="~/css/Chapter.css" />
 </head>
 <body>
 
-<!-- Закреплённая верхняя панель -->
-<div class="header-bar" id="headerBar">
-    <!-- Кнопка "Назад" -->
-    <button class="back-button" id="backButton">←</button>
+    <div class="header-bar" id="headerBar">
+        <button class="back-button" id="backButton" title="К списку глав">←</button>
+        <div class="header-title-wrap">
+            <button class="prev-chapter-btn chapter-nav-btn" id="prevChapterBtn" title="Предыдущая глава">‹</button>
+            <div class="header-title" id="chapterFullTitle" title="">Загрузка...</div>
+            <button class="next-chapter-btn chapter-nav-btn" id="nextChapterBtn" title="Следующая глава">›</button>
+        </div>
+        <img class="bookmark-icon" id="bookmarkButton"
+             src="/Resource/bookmark-empty.png"
+             alt="Добавить закладку" />
+    </div>
 
-    <!-- Название главы -->
-    <div class="header-title" id="chapterFullTitle">Загрузка...</div>
+    <div class="scroll-view" id="chapterContent">Содержание главы будет загружено сюда...</div>
 
-    <!-- Иконка закладки -->
-    <img class="bookmark-icon" id="bookmarkButton"
-         src="/Resource/bookmark-empty.png"
-         alt="Добавить закладку" />
-</div>
+    <script>
+        const baseUrl = window.location.origin;
 
-<!-- Текст главы прямо на странице -->
-<div class="scroll-view" id="chapterContent">
-    Содержание главы будет загружено сюда...
-</div>
-
-<script>
-    const baseUrl = window.location.origin;
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const chapterId = urlParams.get('chapterId');
-    const userId = localStorage.getItem('userId');
-
-    const chapterFullTitle = document.getElementById('chapterFullTitle');
-    const chapterContent = document.getElementById('chapterContent');
-    const bookmarkButton = document.getElementById('bookmarkButton');
-    const headerBar = document.getElementById('headerBar');
-
-    let chapter = null; // ✅ Глобально
-    let lastScrollY = window.scrollY;
-
-    // Показ/скрытие хедера
-    function handleScroll() {
-        const currentScrollY = window.scrollY;
-        if (currentScrollY <= 0 || currentScrollY < lastScrollY) {
-            headerBar.classList.remove('hidden');
-        } else {
-            headerBar.classList.add('hidden');
+        function getChapterIdFromUrl() {
+            const match = window.location.pathname.match(/^\/chapter\/(\d+)/);
+            return match ? match[1] : null;
         }
-        lastScrollY = currentScrollY;
-    }
+        const chapterId = getChapterIdFromUrl();
 
-    // Показать хедер при наведении мыши к верху
-    document.addEventListener('mousemove', (e) => {
-        if (e.clientY < 60) {
-            headerBar.classList.remove('hidden');
-        }
-    });
+        const chapterFullTitle = document.getElementById('chapterFullTitle');
+        const chapterContent = document.getElementById('chapterContent');
+        const bookmarkButton = document.getElementById('bookmarkButton');
+        const headerBar = document.getElementById('headerBar');
+        const prevBtn = document.getElementById('prevChapterBtn');
+        const nextBtn = document.getElementById('nextChapterBtn');
 
-    window.addEventListener('scroll', handleScroll);
+        let chapter = null;
+        let chaptersList = null;
+        let lastScrollY = window.scrollY;
 
-    async function loadChapter() {
-        if (!chapterId) {
-            chapterFullTitle.textContent = 'Ошибка: ID главы не указан';
-            chapterContent.textContent = 'Пожалуйста, откройте главу через список.';
-            return;
+        function handleScroll() {
+            const currentScrollY = window.scrollY;
+            if (currentScrollY <= 0 || currentScrollY < lastScrollY) {
+                headerBar.classList.remove('hidden');
+            } else {
+                headerBar.classList.add('hidden');
+            }
+            lastScrollY = currentScrollY;
         }
 
-        try {
-            const responseChapter = await fetch(`${baseUrl}/api/chapters/${chapterId}`);
-            chapter = await responseChapter.json();
+        document.addEventListener('mousemove', (e) => {
+            if (e.clientY < 60) {
+                headerBar.classList.remove('hidden');
+            }
+        });
 
-            const responseNovel = await fetch(`${baseUrl}/api/novels/${chapter.novelId}`);
-            const novelData = await responseNovel.json();
+        window.addEventListener('scroll', handleScroll);
 
-            chapterFullTitle.innerHTML =
-                `${novelData.title}. Глава ${chapter.number} — ${chapter.title}`;
+        // Проверка авторизации пользователя через claims
+        async function isUserAuthenticated() {
+            try {
+                const res = await fetch(`${baseUrl}/api/users/me`, { credentials: "include" });
+                return res.ok;
+            } catch {
+                return false;
+            }
+        }
 
-            chapterContent.textContent = chapter.content;
-
-            if (userId) {
-                const responseBookmark = await fetch(`${baseUrl}/api/users/${userId}/bookmarks`);
-                const bookmarks = await responseBookmark.json();
-                const novelBookmarks = bookmarks[String(chapter.novelId)];
-                const hasBookmark = Array.isArray(novelBookmarks) && novelBookmarks.includes(Number(chapter.id));
-                let isBookmarked = hasBookmark;
-
-                bookmarkButton.src = isBookmarked
-                    ? '/Resource/bookmark-filled.png'
-                    : '/Resource/bookmark-empty.png';
-
-                bookmarkButton.onclick = async () => {
-                    if (!isBookmarked) {
-                        try {
-                            const payload = {
-                                novelId: parseInt(chapter.novelId),
-                                chapterId: parseInt(chapter.id)
-                            };
-
-                            const response = await fetch(`${baseUrl}/api/users/${userId}/bookmarks`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload)
-                            });
-
-                            const result = await response.json();
-
-                            if (response.ok) {
-                                isBookmarked = true;
-                                bookmarkButton.src = '/Resource/bookmark-filled.png';
-                                alert('Закладка добавлена');
-                            } else if (response.status === 409) {
-                                alert('Эта глава уже в закладках');
-                            } else {
-                                throw new Error(result.message || 'Неизвестная ошибка');
-                            }
-
-                        } catch (err) {
-                            console.error("Ошибка при добавлении закладки:", err);
-                            alert("Не удалось обновить закладку");
-                        }
-                    }
-                };
+        async function loadChapter() {
+            if (!chapterId) {
+                chapterFullTitle.textContent = 'Ошибка: ID главы не указан';
+                chapterContent.textContent = 'Пожалуйста, откройте главу через список.';
+                return;
             }
 
-        } catch (error) {
-            console.error("🚫 Ошибка загрузки главы:", error);
-            chapterFullTitle.textContent = "Ошибка загрузки";
-            chapterContent.textContent = "Не удалось загрузить данные главы.";
+            try {
+                // Получаем объект главы
+                const responseChapter = await fetch(`${baseUrl}/api/chapters/${chapterId}`);
+                chapter = await responseChapter.json();
+
+                // Получаем объект новеллы и список глав (с bookmarked)
+                const responseNovel = await fetch(`${baseUrl}/api/novels/${chapter.novelId}`);
+                const novelData = await responseNovel.json();
+
+                chaptersList = Array.isArray(novelData.chapters) ? novelData.chapters : [];
+
+                const idx = chaptersList.findIndex(ch => String(ch.id) === String(chapter.id));
+                let prevChapter = null;
+                let nextChapter = null;
+                if (idx !== -1) {
+                    if (idx > 0) prevChapter = chaptersList[idx - 1];
+                    if (idx < chaptersList.length - 1) nextChapter = chaptersList[idx + 1];
+                }
+
+                if (prevChapter) {
+                    prevBtn.disabled = false;
+                    prevBtn.onclick = () => window.location.href = `/chapter/${prevChapter.id}`;
+                } else {
+                    prevBtn.disabled = true;
+                    prevBtn.onclick = null;
+                }
+                if (nextChapter) {
+                    nextBtn.disabled = false;
+                    nextBtn.onclick = () => window.location.href = `/chapter/${nextChapter.id}`;
+                } else {
+                    nextBtn.disabled = true;
+                    nextBtn.onclick = null;
+                }
+
+                const fullTitle = `${novelData.title}. ${chapter.number}${chapter.title && chapter.title.trim() ? ' — ' + chapter.title : ''}`;
+                chapterFullTitle.textContent = fullTitle;
+                chapterFullTitle.title = fullTitle;
+
+                function renderChapterContent(raw) {
+                    return raw.replace(/\[img:([^\]]+)\]/g, (match, url) =>
+                        `<img src="${url.trim()}" alt="картинка" style="max-width:100%;">`
+                    );
+                }
+                chapterContent.innerHTML = renderChapterContent(chapter.content || "");
+
+                // --------- Закладки ---------
+                const isAuth = await isUserAuthenticated();
+                // ищем текущую главу в списке глав с bookmarked
+                const currentChapterInfo = chaptersList.find(ch => String(ch.id) === String(chapter.id));
+                let isBookmarked = !!(currentChapterInfo && currentChapterInfo.bookmarked);
+
+                if (isAuth) {
+                    bookmarkButton.src = isBookmarked
+                        ? '/Resource/bookmark-filled.png'
+                        : '/Resource/bookmark-empty.png';
+
+                    bookmarkButton.style.opacity = "1";
+                    bookmarkButton.title = isBookmarked
+                        ? "Закладка установлена"
+                        : "Добавить закладку";
+
+                    bookmarkButton.onclick = async () => {
+                        if (!isBookmarked) {
+                            try {
+                                const payload = {
+                                    novelId: parseInt(chapter.novelId),
+                                    chapterId: parseInt(chapter.id)
+                                };
+
+                                const response = await fetch(`${baseUrl}/api/users/bookmarks`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload),
+                                    credentials: "include"
+                                });
+
+                                const result = await response.json();
+
+                                if (response.ok) {
+                                    isBookmarked = true;
+                                    bookmarkButton.src = '/Resource/bookmark-filled.png';
+                                    bookmarkButton.title = "Закладка установлена";
+                                    alert('Закладка добавлена');
+                                } else if (response.status === 409) {
+                                    alert('Эта глава уже в закладках');
+                                } else {
+                                    throw new Error(result.message || 'Неизвестная ошибка');
+                                }
+                            } catch (err) {
+                                console.error("Ошибка при добавлении закладки:", err);
+                                alert("Не удалось обновить закладку");
+                            }
+                        }
+                    };
+                } else {
+                    bookmarkButton.src = '/Resource/bookmark-empty.png';
+                    bookmarkButton.style.opacity = "0.5";
+                    bookmarkButton.title = "Войдите, чтобы ставить закладки";
+                    bookmarkButton.onclick = () => alert("Войдите, чтобы ставить закладки!");
+                }
+                // ----------------------------
+
+            } catch (error) {
+                console.error("🚫 Ошибка загрузки главы:", error);
+                chapterFullTitle.textContent = "Ошибка загрузки";
+                chapterContent.textContent = "Не удалось загрузить данные главы.";
+            }
         }
-    }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        loadChapter();
-    });
+        document.addEventListener('DOMContentLoaded', () => {
+            loadChapter();
+        });
 
-    document.getElementById('backButton').addEventListener('click', () => {
-        const novelId = chapter?.novelId || localStorage.getItem('lastNovelId');
-
-        if (novelId) {
-            window.location.href = `/novel?id=${novelId}`;
-        } else {
-            window.location.href = '/';
-        }
-    });
-</script>
-
+        document.getElementById('backButton').addEventListener('click', () => {
+            const novelId = chapter?.novelId || localStorage.getItem('lastNovelId');
+            if (novelId) {
+                window.location.href = `/novel/${novelId}`;
+            } else {
+                window.location.href = '/';
+            }
+        });
+    </script>
 </body>
 </html>

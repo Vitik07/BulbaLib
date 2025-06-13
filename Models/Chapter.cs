@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System;
 
 namespace BulbaLib.Models
 {
@@ -6,7 +6,7 @@ namespace BulbaLib.Models
     {
         public int Id { get; set; }
         public int NovelId { get; set; }
-        public int Number { get; set; }
+        public string Number { get; set; } // было int, теперь string
         public string Title { get; set; }
         public string Content { get; set; }
         public long Date { get; set; }

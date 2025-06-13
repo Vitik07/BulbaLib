@@ -1,5 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BulbaLib.Services;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace BulbaLib.Controllers
 {
@@ -7,10 +10,10 @@ namespace BulbaLib.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly SqliteService _db;
+        private readonly MySqlService _db;
         private readonly IWebHostEnvironment _env;
 
-        public AuthController(SqliteService db, IWebHostEnvironment env)
+        public AuthController(MySqlService db, IWebHostEnvironment env)
         {
             _db = db;
             _env = env;
@@ -25,7 +28,6 @@ namespace BulbaLib.Controllers
             if (_db.UserExists(req.Login))
                 return Conflict(new { error = "User already exists" });
 
-            // Загружаем дефолтный аватар
             var avatarPath = Path.Combine(_env.WebRootPath, "Resource", "default-avatar.jpg");
             var avatar = System.IO.File.Exists(avatarPath) ? System.IO.File.ReadAllBytes(avatarPath) : null;
             _db.CreateUser(req.Login, req.Password, avatar);
@@ -34,23 +36,42 @@ namespace BulbaLib.Controllers
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginRequest req)
+        public async Task<IActionResult> Login([FromBody] LoginRequest req)
         {
             var user = _db.AuthenticateUser(req.Login, req.Password);
             if (user == null)
                 return Unauthorized(new { error = "Invalid credentials" });
 
+            // Генерируем клаймы пользователя
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Login),
+                new Claim(ClaimTypes.Role, user.Role ?? "User")
+            };
+
+            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = new ClaimsPrincipal(identity);
+
+            // Устанавливаем куку авторизации
+            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+
             return Ok(new
             {
                 message = "Login successful",
-                userId = user.Id,
-                role = user.Role,
-                hasAvatar = user.Avatar != null
+                user = new { id = user.Id, login = user.Login, role = user.Role, hasAvatar = user.Avatar != null }
             });
+        }
+
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return Ok(new { message = "Logout successful" });
         }
     }
 
-    // DTOs (их лучше вынести в отдельную папку Models/DTO)
+    // DTOs
     public class RegisterRequest
     {
         public string Login { get; set; }

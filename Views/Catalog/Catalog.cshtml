@@ -1,0 +1,127 @@
+﻿@{
+    ViewData["Title"] = "Каталог новелл";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>Каталог новелл — BulbaLib</title>
+    <link rel="stylesheet" href="~/css/Catalog.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+</head>
+<body>
+    <div class="novel-header-bar">
+        <div class="header-logo-btn" onclick="window.location.href='/'" role="button" tabindex="0" aria-label="К главной">
+            <img src="/favicon.ico" alt="logo" />
+            <span class="header-logo-text">BulbaLib</span>
+        </div>
+    </div>
+    <main>
+        <div class="catalog-main-bg">
+            <div class="catalog-main-container">
+                <h1 class="catalog-title">Каталог новелл</h1>
+                <div class="catalog-filters">
+                    <input id="searchInput" type="text" placeholder="Поиск по названию..." />
+                    <select id="sortSelect">
+                        <option value="title_asc">Название (А-Я)</option>
+                        <option value="title_desc">Название (Я-А)</option>
+                    </select>
+                    <select id="genreSelect">
+                        <option value="">Все жанры</option>
+                    </select>
+                    <select id="tagSelect">
+                        <option value="">Все теги</option>
+                    </select>
+                </div>
+                <div class="novel-list-outer">
+                    <div class="novel-list" id="novelList"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script>
+        const baseUrl = window.location.origin;
+
+        async function loadGenres() {
+            const res = await fetch(`${baseUrl}/api/catalog/genres`);
+            const genres = await res.json();
+            const genreSelect = document.getElementById('genreSelect');
+            genreSelect.innerHTML = `<option value="">Все жанры</option>`;
+            genres.forEach(g => {
+                genreSelect.innerHTML += `<option value="${g}">${g}</option>`;
+            });
+        }
+        async function loadTags() {
+            const res = await fetch(`${baseUrl}/api/catalog/tags`);
+            const tags = await res.json();
+            const tagSelect = document.getElementById('tagSelect');
+            tagSelect.innerHTML = `<option value="">Все теги</option>`;
+            tags.forEach(t => {
+                tagSelect.innerHTML += `<option value="${t}">${t}</option>`;
+            });
+        }
+
+        async function loadCatalog() {
+            const params = new URLSearchParams();
+            params.append("search", document.getElementById('searchInput').value);
+            params.append("sort", document.getElementById('sortSelect').value);
+            if (document.getElementById('genreSelect').value)
+                params.append("genre", document.getElementById('genreSelect').value);
+            if (document.getElementById('tagSelect').value)
+                params.append("tag", document.getElementById('tagSelect').value);
+
+            const res = await fetch(`${baseUrl}/api/catalog?${params.toString()}`);
+            const novels = await res.json();
+            renderNovels(novels);
+        }
+
+        function getLastCover(novel) {
+            if (Array.isArray(novel.covers) && novel.covers.length)
+                return novel.covers[novel.covers.length - 1];
+            return '/img/no-cover.png';
+        }
+
+        function renderNovels(novels) {
+            const list = document.getElementById('novelList');
+            list.innerHTML = '';
+            if (!novels.length) {
+                list.innerHTML = '<div class="novel-empty">Новеллы не найдены</div>';
+                return;
+            }
+            novels.forEach(novel => {
+                const card = document.createElement('div');
+                card.className = 'novel-card';
+                card.onclick = () => window.location.href = `/novel/${novel.id}`;
+                card.innerHTML = `
+                            <div class="novel-cover-wrap">
+                                <img class="novel-cover" src="${getLastCover(novel)}" alt="${novel.title}">
+                            </div>
+                            <div class="novel-info">
+                                <div class="novel-title" title="${novel.title}">${novel.title}</div>
+                                <div class="novel-meta">
+                                    ${(novel.releaseYear ? `<span class="novel-meta-item"><i class="fa-solid fa-calendar"></i> ${novel.releaseYear}</span>` : '')}
+                                    ${(novel.type ? `<span class="novel-meta-item"><i class="fa-solid fa-book"></i> ${novel.type}</span>` : '')}
+                                    ${(novel.format ? `<span class="novel-meta-item"><i class="fa-solid fa-file-lines"></i> ${novel.format}</span>` : '')}
+                                </div>
+                            </div>
+                        `;
+                list.appendChild(card);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGenres();
+            loadTags();
+            loadCatalog();
+
+            document.getElementById('searchInput').addEventListener('input', () => loadCatalog());
+            document.getElementById('sortSelect').addEventListener('change', () => loadCatalog());
+            document.getElementById('genreSelect').addEventListener('change', () => loadCatalog());
+            document.getElementById('tagSelect').addEventListener('change', () => loadCatalog());
+        });
+    </script>
+</body>
+</html>

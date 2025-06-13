@@ -17,6 +17,16 @@
   },
   {
     "ContainingType": "BulbaLib.Controllers.AuthController",
+    "Method": "Logout",
+    "RelativePath": "api/Auth/logout",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "BulbaLib.Controllers.AuthController",
     "Method": "Register",
     "RelativePath": "api/Auth/register",
     "HttpMethod": "POST",
@@ -32,6 +42,57 @@
     "ReturnTypes": []
   },
   {
+    "ContainingType": "BulbaLib.Controllers.CatalogController",
+    "Method": "GetCatalog",
+    "RelativePath": "api/catalog",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "search",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "sort",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "genre",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "tag",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "BulbaLib.Controllers.CatalogController",
+    "Method": "GetGenres",
+    "RelativePath": "api/catalog/genres",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "BulbaLib.Controllers.CatalogController",
+    "Method": "GetTags",
+    "RelativePath": "api/catalog/tags",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
     "ContainingType": "BulbaLib.Controllers.ChaptersController",
     "Method": "GetChapters",
     "RelativePath": "api/Chapters",
@@ -41,6 +102,11 @@
     "Parameters": [
       {
         "Name": "novelId",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "all",
         "Type": "System.Int32",
         "IsRequired": false
       }
@@ -59,6 +125,27 @@
         "Name": "req",
         "Type": "BulbaLib.Controllers.ChapterCreateRequest",
         "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "BulbaLib.Controllers.ChaptersController",
+    "Method": "UploadImage",
+    "RelativePath": "api/Chapters/{chapterId}/upload-image",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "chapterId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "image",
+        "Type": "Microsoft.AspNetCore.Http.IFormFile",
+        "IsRequired": false
       }
     ],
     "ReturnTypes": []
@@ -157,29 +244,9 @@
     "Order": 0,
     "Parameters": [
       {
-        "Name": "Title",
-        "Type": "System.String",
-        "IsRequired": false
-      },
-      {
-        "Name": "Description",
-        "Type": "System.String",
-        "IsRequired": false
-      },
-      {
-        "Name": "Image",
-        "Type": "Microsoft.AspNetCore.Http.IFormFile",
-        "IsRequired": false
-      },
-      {
-        "Name": "Genres",
-        "Type": "System.String",
-        "IsRequired": false
-      },
-      {
-        "Name": "Tags",
-        "Type": "System.String",
-        "IsRequired": false
+        "Name": "req",
+        "Type": "BulbaLib.Controllers.NovelCreateRequest",
+        "IsRequired": true
       }
     ],
     "ReturnTypes": []
@@ -196,11 +263,6 @@
         "Name": "id",
         "Type": "System.Int32",
         "IsRequired": true
-      },
-      {
-        "Name": "userId",
-        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
-        "IsRequired": false
       }
     ],
     "ReturnTypes": []
@@ -243,9 +305,19 @@
     "ReturnTypes": []
   },
   {
-    "ContainingType": "BulbaLib.Controllers.NovelsController",
-    "Method": "GetNovelImage",
-    "RelativePath": "api/Novels/{id}/image",
+    "ContainingType": "BulbaLib.Controllers.ProfileController",
+    "Method": "GetOwnProfile",
+    "RelativePath": "api/profile",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "BulbaLib.Controllers.ProfileController",
+    "Method": "GetPublicProfile",
+    "RelativePath": "api/profile/{id}",
     "HttpMethod": "GET",
     "IsController": true,
     "Order": 0,
@@ -259,24 +331,8 @@
     "ReturnTypes": []
   },
   {
-    "ContainingType": "BulbaLib.Controllers.ProfileController",
-    "Method": "GetProfile",
-    "RelativePath": "api/Profile",
-    "HttpMethod": "GET",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "userId",
-        "Type": "System.Int32",
-        "IsRequired": false
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "bulbalib.Controllers.UsersController",
-    "Method": "GetUser",
+    "ContainingType": "BulbaLib.Controllers.UsersController",
+    "Method": "GetPublicUser",
     "RelativePath": "api/users/{userId}",
     "HttpMethod": "GET",
     "IsController": true,
@@ -291,108 +347,85 @@
     "ReturnTypes": []
   },
   {
-    "ContainingType": "bulbalib.Controllers.UsersController",
+    "ContainingType": "BulbaLib.Controllers.UsersController",
     "Method": "GetUserAvatar",
-    "RelativePath": "api/users/{userId}/avatar",
+    "RelativePath": "api/users/avatar",
     "HttpMethod": "GET",
     "IsController": true,
     "Order": 0,
-    "Parameters": [
-      {
-        "Name": "userId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      }
-    ],
+    "Parameters": [],
     "ReturnTypes": []
   },
   {
-    "ContainingType": "bulbalib.Controllers.UsersController",
+    "ContainingType": "BulbaLib.Controllers.UsersController",
     "Method": "UploadUserAvatar",
-    "RelativePath": "api/users/{userId}/avatar",
+    "RelativePath": "api/users/avatar",
     "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
-    "Parameters": [
-      {
-        "Name": "userId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      }
-    ],
+    "Parameters": [],
     "ReturnTypes": []
   },
   {
-    "ContainingType": "bulbalib.Controllers.UsersController",
+    "ContainingType": "BulbaLib.Controllers.UsersController",
     "Method": "GetBookmarks",
-    "RelativePath": "api/users/{userId}/bookmarks",
+    "RelativePath": "api/users/bookmarks",
     "HttpMethod": "GET",
     "IsController": true,
     "Order": 0,
-    "Parameters": [
-      {
-        "Name": "userId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      }
-    ],
+    "Parameters": [],
     "ReturnTypes": []
   },
   {
-    "ContainingType": "bulbalib.Controllers.UsersController",
+    "ContainingType": "BulbaLib.Controllers.UsersController",
     "Method": "AddOrUpdateBookmark",
-    "RelativePath": "api/users/{userId}/bookmarks",
+    "RelativePath": "api/users/bookmarks",
     "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
     "Parameters": [
-      {
-        "Name": "userId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      },
       {
         "Name": "req",
-        "Type": "BulbaLib.Models.BookmarkRequest",
+        "Type": "BulbaLib.Controllers.BookmarkRequest",
         "IsRequired": true
       }
     ],
     "ReturnTypes": []
   },
   {
-    "ContainingType": "bulbalib.Controllers.UsersController",
+    "ContainingType": "BulbaLib.Controllers.UsersController",
     "Method": "RemoveBookmark",
-    "RelativePath": "api/users/{userId}/bookmarks",
+    "RelativePath": "api/users/bookmarks",
     "HttpMethod": "DELETE",
     "IsController": true,
     "Order": 0,
     "Parameters": [
       {
-        "Name": "userId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      },
-      {
         "Name": "req",
-        "Type": "BulbaLib.Models.BookmarkRequest",
+        "Type": "BulbaLib.Controllers.BookmarkRequest",
         "IsRequired": true
       }
     ],
     "ReturnTypes": []
   },
   {
-    "ContainingType": "bulbalib.Controllers.UsersController",
+    "ContainingType": "BulbaLib.Controllers.UsersController",
+    "Method": "GetUser",
+    "RelativePath": "api/users/me",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "BulbaLib.Controllers.UsersController",
     "Method": "GetUserNovelStatus",
-    "RelativePath": "api/users/{userId}/status",
+    "RelativePath": "api/users/status",
     "HttpMethod": "GET",
     "IsController": true,
     "Order": 0,
     "Parameters": [
-      {
-        "Name": "userId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      },
       {
         "Name": "novelId",
         "Type": "System.Int32",
@@ -402,21 +435,16 @@
     "ReturnTypes": []
   },
   {
-    "ContainingType": "bulbalib.Controllers.UsersController",
+    "ContainingType": "BulbaLib.Controllers.UsersController",
     "Method": "UpdateStatus",
-    "RelativePath": "api/users/{userId}/status",
+    "RelativePath": "api/users/status",
     "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
     "Parameters": [
       {
-        "Name": "userId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      },
-      {
         "Name": "req",
-        "Type": "BulbaLib.Models.StatusRequest",
+        "Type": "BulbaLib.Controllers.StatusRequest",
         "IsRequired": true
       }
     ],

@@ -1,205 +1,591 @@
 ﻿@{
-    ViewData["Title"] = "Новелла — BulbaLib";
+    ViewData["Title"] = "Новелла";
     Layout = null;
 }
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8" />
-    <title>Новелла — BulbaLib</title>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"] — BulbaLib</title>
+    <link rel="stylesheet" href="~/css/Novel.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light.css" />
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/animations/shift-away.css" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <style>
-        <link rel="stylesheet" href="~/css/Novel.css" / >
+        .novel-author-link {
+            color: var(--link, #369bf6);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.15s;
+        }
+
+            .novel-author-link:hover {
+                color: var(--accent-blue-light, #3a8bfd);
+                text-decoration: underline;
+            }
+
+        /* Модалка просмотра обложек */
+        .cover-modal {
+            display: none;
+            position: fixed;
+            z-index: 10001;
+            padding-top: 40px;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.87);
+            text-align: center;
+        }
+
+        .cover-modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90vw;
+            max-height: 85vh;
+            border-radius: 12px;
+            box-shadow: 0 8px 40px #000a;
+        }
+
+        .cover-modal-close {
+            position: absolute;
+            top: 18px;
+            right: 40px;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10002;
+        }
+
+        .cover-modal-prev, .cover-modal-next {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            border: none;
+            font-size: 48px;
+            padding: 16px 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10002;
+        }
+
+        .cover-modal-prev {
+            left: 60px;
+        }
+
+        .cover-modal-next {
+            right: 60px;
+        }
     </style>
+</head>
+<body>
+    <div class="novel-header-bar">
+        <div class="header-logo-btn" onclick="goToMainMenu()" role="button" tabindex="0" aria-label="Перейти на главную">
+            <img src="/favicon.ico" alt="logo" />
+            <span class="header-logo-text">BulbaLib</span>
+        </div>
+    </div>
+    <div class="novel-main-bg">
+        <div class="novel-main-container">
+            <!-- SIDEBAR -->
+            <aside class="novel-sidebar" aria-label="Боковая панель новеллы">
+                <div class="novel-cover-wrap">
+                    <img class="novel-cover" id="novel-cover-img" src="/img/no-cover.png" alt="Обложка новеллы" style="cursor:pointer;" />
+                </div>
+                <!-- Модалка для обложек -->
+                <div id="cover-modal" class="cover-modal">
+                    <span class="cover-modal-close" id="cover-modal-close">&times;</span>
+                    <img class="cover-modal-content" id="cover-modal-img">
+                    <button class="cover-modal-prev" id="cover-modal-prev">&lt;</button>
+                    <button class="cover-modal-next" id="cover-modal-next">&gt;</button>
+                </div>
+                <button class="sidebar-btn read-btn" type="button" id="read-btn">
+                    <i class="fa-solid fa-book-open fa-fw"></i>
+                    <span id="read-btn-text">Продолжить читать</span>
+                </button>
+                <div class="status-dropdown" id="status-dropdown">
+                    <button class="status-select-btn status-none" type="button" id="status-btn">
+                        <i class="fa-solid fa-plus"></i>
+                        <span id="status-btn-text">+ добавить в планы</span>
+                        <i class="fa-solid fa-caret-down"></i>
+                    </button>
+                    <div class="status-dropdown-list" id="status-list">
+                        <button class="status-option status-reading" data-status="reading">
+                            <i class="fa-solid fa-book-open"></i>Читаю
+                        </button>
+                        <button class="status-option status-completed" data-status="completed">
+                            <i class="fa-solid fa-check"></i>Прочитано
+                        </button>
+                        <button class="status-option status-favorite" data-status="favorite">
+                            <i class="fa-solid fa-heart"></i>Любимое
+                        </button>
+                        <button class="status-option status-dropped" data-status="dropped">
+                            <i class="fa-solid fa-ban"></i>Брошено
+                        </button>
+                    </div>
+                </div>
+                <div class="novel-info-panel">
+                    <div class="novel-info-row">
+                        <span class="novel-info-label">Тип</span>
+                        <span class="novel-info-value" id="sidebar-type">-</span>
+                    </div>
+                    <div class="novel-info-row">
+                        <span class="novel-info-label">Формат</span>
+                        <span class="novel-info-value" id="sidebar-format">-</span>
+                    </div>
+                    <div class="novel-info-row">
+                        <span class="novel-info-label">Выпуск</span>
+                        <span class="novel-info-value" id="sidebar-release">-</span>
+                    </div>
+                    <div class="novel-info-row">
+                        <span class="novel-info-label">Глав</span>
+                        <span class="novel-info-value" id="sidebar-chapters">-</span>
+                    </div>
+                    <div class="novel-info-row" id="novel-author-row" style="display:none;">
+                        <span class="novel-info-label">Автор</span>
+                        <span class="novel-info-value" id="sidebar-author">-</span>
+                    </div>
+                    <div class="novel-info-row" id="novel-translators-row" style="display:none;">
+                        <span class="novel-info-label">Переводчик</span>
+                        <span class="novel-info-value" id="sidebar-translators">-</span>
+                    </div>
+                </div>
+            </aside>
+            <main class="novel-content-block" aria-label="Основное содержимое новеллы">
+                <div class="novel-tabs" style="margin-top:0;">
+                    <div class="novel-tabs-header">
+                        <button class="novel-tab-btn active" id="tab-description-btn" onclick="showTab('description')">Описание</button>
+                        <button class="novel-tab-btn" id="tab-chapters-btn" onclick="showTab('chapters')">Главы</button>
+                    </div>
+                    <div class="novel-tabs-content">
+                        <div class="tab-pane" id="tab-description" style="display:block;">
+                            <h1 class="novel-page-title novel-title"></h1>
+                            <div class="novel-alt-title text-secondary" aria-label="Альтернативное название"></div>
+                            <div class="novel-description" id="novel-description"></div>
+                            <div class="novel-tags-block" aria-label="Информация о жанрах и тегах">
+                                <div class="genres-block">
+                                    <div class="block-title">Жанры</div>
+                                    <div class="novel-genres novel-tag-list"></div>
+                                </div>
+                                <div class="tags-block">
+                                    <div class="block-title">Теги</div>
+                                    <div class="novel-tags novel-tag-list"></div>
+                                </div>
+                            </div>
+                            <div class="related-block">
+                                <div class="block-title">Связанное</div>
+                                <div class="related-list" id="related-list">
+                                    <!-- Карточки связанного будут вставляться тут -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane" id="tab-chapters" style="display:none;">
+                            <div class="block-title" style="margin-top:0;">Список глав</div>
+                            <div class="chapter-list" id="chapter-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="novel-main-error" style="display:none;color:#e74c3c;margin-top:2em;" role="alert">
+                    Ошибка загрузки новеллы.
+                </div>
+            </main>
+        </div>
+    </div>
+    <script src="https://unpkg.com/@@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js"></script>
     <script>
         const baseUrl = window.location.origin;
 
         function getNovelIdFromUrl() {
-            const params = new URLSearchParams(window.location.search);
-            return params.get('id') || '1';
+            const match = window.location.pathname.match(/novel\/(\d+)/);
+            return match ? match[1] : '1';
         }
-        const novelId = getNovelIdFromUrl();
-        const userId = localStorage.getItem('userId');
+        function goToMainMenu() {
+            window.location.href = baseUrl + "/";
+        }
 
-        // Загрузка текущего статуса
-        async function loadUserStatus() {
-            if (!userId) return;
-            try {
-                const res = await fetch(`${baseUrl}/api/users/${userId}/status?novelId=${novelId}`);
-                const data = await res.json();
-                document.querySelectorAll('.status-btn').forEach(btn => btn.classList.remove('active'));
-                if (data.status) {
-                    const activeBtn = document.querySelector(`.status-btn[data-status="${data.status}"]`);
-                    if (activeBtn) activeBtn.classList.add('active');
-                }
-            } catch (err) {
-                console.error("Ошибка загрузки статуса:", err);
+        // --- КАРТИНКИ (обложки) ---
+        let covers = [];
+        let currentCoverIdx = 0; // индекс текущей мини-картинки
+        let modalCoverIdx = 0;   // индекс текущей картинки в модалке
+
+        // Функция для отображения мини-картинки (и обновления текущего индекса!)
+        function setSidebarCover(idx) {
+            if (!covers.length) {
+                document.getElementById('novel-cover-img').src = '/img/no-cover.png';
+                currentCoverIdx = 0;
+            } else {
+                if (typeof idx === "undefined" || idx < 0 || idx >= covers.length) idx = covers.length - 1;
+                document.getElementById('novel-cover-img').src = covers[idx];
+                currentCoverIdx = idx;
             }
         }
 
-        // Обработчики кликов по кнопкам
+        // --- Модальное окно ---
         document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('.status-btn').forEach(button => {
-                button.addEventListener('click', async () => {
-                    const status = button.dataset.status;
-                    if (!userId) {
-                        alert("Войдите, чтобы установить статус");
-                        window.location.href = '/auth/login';
-                        return;
-                    }
-                    try {
-                        const response = await fetch(`${baseUrl}/api/users/${userId}/status`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ novelId, status })
-                        });
-                        if (response.ok) {
-                            document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
-                            button.classList.add('active');
-                        } else {
-                            const error = await response.json();
-                            alert(error.message || 'Не удалось обновить статус');
-                        }
-                    } catch (err) {
-                        console.error("Ошибка сети:", err);
-                        alert("Не удалось обновить статус");
-                    }
-                });
-            });
-            loadUserStatus();
+            // Открыть модалку с текущей мини-картинкой
+            document.getElementById('novel-cover-img').onclick = function () {
+                if (!covers.length) return;
+                modalCoverIdx = currentCoverIdx;
+                showModalCover(modalCoverIdx);
+                document.getElementById('cover-modal').style.display = 'block';
+            };
+            // Закрыть
+            document.getElementById('cover-modal-close').onclick = function () {
+                document.getElementById('cover-modal').style.display = 'none';
+            };
+            // Цикличное листание назад
+            document.getElementById('cover-modal-prev').onclick = function () {
+                if (!covers.length) return;
+                modalCoverIdx = (modalCoverIdx - 1 + covers.length) % covers.length;
+                showModalCover(modalCoverIdx);
+            };
+            // Цикличное листание вперед
+            document.getElementById('cover-modal-next').onclick = function () {
+                if (!covers.length) return;
+                modalCoverIdx = (modalCoverIdx + 1) % covers.length;
+                showModalCover(modalCoverIdx);
+            };
         });
 
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(`${tabName}-tab`).classList.add('active');
-            document.getElementById(`${tabName}-content`).classList.add('active');
+        function showModalCover(idx) {
+            document.getElementById('cover-modal-img').src = covers[idx];
         }
 
-        function openDownloadPage() {
-            window.location.href = `/download?id=${novelId}`;
+        // --- renderNovel с поддержкой нескольких обложек ---
+        function renderNovel(novel) {
+            covers = Array.isArray(novel.covers) ? novel.covers : [];
+            setSidebarCover(covers.length - 1);
+
+            // ... остальной renderNovel без изменений ...
+            currentCoverIdx = covers.length ? covers.length - 1 : 0;
+
+            document.getElementById('novel-cover-img').src = covers.length ? covers[currentCoverIdx] : '/img/no-cover.png';
+            document.getElementById('sidebar-type').textContent = novel.type || '-';
+            document.getElementById('sidebar-format').textContent = novel.format || '-';
+            document.getElementById('sidebar-release').textContent = novel.releaseYear ? novel.releaseYear + ' г.' : '-';
+            document.getElementById('sidebar-chapters').textContent = (novel.chapters && novel.chapters.length) || novel.chapterCount || '-';
+
+            // --- Автор ---
+            const authorRow = document.getElementById('novel-author-row');
+            const authorSpan = document.getElementById('sidebar-author');
+            authorRow.style.display = '';
+            if (novel.author && novel.author.id && novel.author.login) {
+                authorSpan.innerHTML = `<a href="/profile/${novel.author.id}" class="novel-author-link">${novel.author.login}</a>`;
+            } else {
+                authorSpan.textContent = '-';
+            }
+
+            // --- Переводчики ---
+            const translatorsRow = document.getElementById('novel-translators-row');
+            const translatorsSpan = document.getElementById('sidebar-translators');
+            translatorsRow.style.display = '';
+            if (novel.translators && Array.isArray(novel.translators) && novel.translators.length) {
+                translatorsSpan.innerHTML = novel.translators
+                    .map(tr => `<a href="/profile/${tr.id}" class="novel-author-link">${tr.login}</a>`)
+                    .join(', ');
+            } else {
+                translatorsSpan.textContent = '-';
+            }
+
+            // Заголовки и описание
+            document.querySelector('.novel-page-title').textContent = novel.title || '';
+            document.querySelector('.novel-alt-title').textContent = novel.altTitle || '';
+            const descBlock = document.getElementById('novel-description');
+            const fullDescription = novel.description || '';
+            const shortDesc = fullDescription.slice(0, 400);
+
+            if (fullDescription.length > 400) {
+                descBlock.innerHTML = `
+                            <span class="desc-short">${shortDesc}...</span>
+                            <span class="desc-full" style="display:none;">${fullDescription}</span>
+                            <a href="#" class="desc-more" id="desc-toggle" onclick="toggleDesc(); return false;">Подробнее...</a>
+                        `;
+            } else {
+                descBlock.textContent = fullDescription;
+            }
+
+            // Жанры
+            const genresBlock = document.querySelector('.novel-genres');
+            genresBlock.innerHTML = (novel.genres || '')
+                .split(',')
+                .filter(Boolean)
+                .map(g => `<span class="novel-tag genre">${g.trim()}</span>`)
+                .join('');
+            // Теги
+            const tagsBlock = document.querySelector('.novel-tags');
+            tagsBlock.innerHTML = (novel.tags || '')
+                .split(',')
+                .filter(Boolean)
+                .map(t => `<span class="novel-tag tag">#${t.trim()}</span>`)
+                .join('');
+
+            // --- вкладка главы с отметкой закладки ---
+            renderChaptersWithBookmark(novel.chapters || []);
+
+            // --- вкладка связанное ---
+            let relatedIds = [];
+            if (novel.relatedNovelIds) {
+                if (Array.isArray(novel.relatedNovelIds)) {
+                    relatedIds = novel.relatedNovelIds;
+                } else if (typeof novel.relatedNovelIds === "string") {
+                    relatedIds = novel.relatedNovelIds.split(',').map(x => x.trim()).filter(Boolean);
+                }
+            }
+            renderRelatedNovels(relatedIds);
+
+            // --- Обработка кнопки "Читать" с учетом закладки ---
+            const readBtnText = document.getElementById('read-btn-text');
+            const readBtn = document.getElementById('read-btn');
+            let chapterId = "";
+
+            if (novel.bookmarkChapterId && novel.bookmarkChapterId > 0) {
+                readBtnText.textContent = 'Продолжить читать';
+                chapterId = novel.bookmarkChapterId;
+            } else if (novel.chapters && novel.chapters.length) {
+                readBtnText.textContent = 'Начать читать';
+                chapterId = novel.chapters[0].id;
+            } else {
+                readBtnText.textContent = 'Начать читать';
+                chapterId = "";
+            }
+            readBtn.dataset.chapterId = chapterId;
         }
+
+        function toggleDesc() {
+            var shortDesc = document.querySelector('.desc-short');
+            var fullDesc = document.querySelector('.desc-full');
+            var toggle = document.getElementById('desc-toggle');
+            if (shortDesc.style.display !== 'none') {
+                shortDesc.style.display = 'none';
+                fullDesc.style.display = '';
+                toggle.textContent = "Свернуть";
+            } else {
+                shortDesc.style.display = '';
+                fullDesc.style.display = 'none';
+                toggle.textContent = "Подробнее...";
+            }
+        }
+
+        function showTab(tab) {
+            document.getElementById('tab-description').style.display = (tab === 'description') ? 'block' : 'none';
+            document.getElementById('tab-chapters').style.display = (tab === 'chapters') ? 'block' : 'none';
+            document.getElementById('tab-description-btn').classList.toggle('active', tab === 'description');
+            document.getElementById('tab-chapters-btn').classList.toggle('active', tab === 'chapters');
+        }
+
+        function renderChaptersWithBookmark(chapters) {
+            const list = document.getElementById('chapter-list');
+            list.innerHTML = '';
+            if (!chapters || !chapters.length) {
+                list.innerHTML = '<div style="color:#888;">Главы отсутствуют</div>';
+                return;
+            }
+            for (const ch of chapters) {
+                const el = document.createElement('div');
+                el.className = 'chapter-card';
+                el.innerHTML = `
+                    <span class="chapter-number">${ch.number ? ch.number : ''}</span>
+                    <span class="chapter-title">
+                        <a href="/chapter/${ch.id}" style="color:inherit;text-decoration:none;">
+                            ${ch.title || 'Без названия'}
+                        </a>
+                        ${ch.bookmarked ? '<i class="fa fa-bookmark" style="color:#fa6565;margin-left:6px;" title="Ваша закладка"></i>' : ''}
+                    </span>
+                    ${ch.date ? `<span class="chapter-date">${formatChapterDate(ch.date)}</span>` : ''}
+                `;
+                list.appendChild(el);
+            }
+        }
+
+        function formatChapterDate(unix) {
+            if (!unix) return '';
+            const d = new Date(unix * 1000);
+            return d.toLocaleDateString('ru-RU');
+        }
+
+        function renderRelatedNovels(relatedIds) {
+            const relatedList = document.getElementById('related-list');
+            relatedList.innerHTML = '';
+            if (!relatedIds || !relatedIds.length) {
+                relatedList.innerHTML = '<div style="color:#888;">Нет связанных новелл</div>';
+                return;
+            }
+            Promise.all(relatedIds.map(id =>
+                fetch(`${baseUrl}/api/novels/${id}`).then(res => res.ok ? res.json() : null)
+            )).then(novels => {
+                for (const novel of novels) {
+                    if (!novel) continue;
+                    const card = document.createElement('div');
+                    card.className = 'related-card';
+                    card.innerHTML = `
+                        <a href="/novel/${novel.id}" style="text-decoration:none;">
+                            <img class="related-cover" src="${(novel.covers && novel.covers.length) ? novel.covers[novel.covers.length - 1] : '/img/no-cover.png'}" alt="">
+                            <div class="related-title">${novel.title || 'Без названия'}</div>
+                            <div class="related-type">${novel.type || ''}</div>
+                        </a>
+                    `;
+                    relatedList.appendChild(card);
+                }
+                if (!relatedList.children.length) {
+                    relatedList.innerHTML = '<div style="color:#888;">Нет связанных новелл</div>';
+                }
+            });
+        }
+
+        // === МАППИНГ СТАТУСОВ ===
+        const FRONT_TO_DB_STATUS = {
+            reading: "reading",
+            completed: "read",
+            favorite: "favorites",
+            dropped: "abandoned"
+        };
+        const DB_TO_FRONT_STATUS = {
+            reading: "reading",
+            read: "completed",
+            favorites: "favorite",
+            abandoned: "dropped"
+        };
+
+        let loadedNovel = null;
 
         async function loadNovelData(novelId) {
             try {
-                const userId = localStorage.getItem('userId');
-                const response = await fetch(`${baseUrl}/api/novels/${novelId}?userId=${userId}`);
-                if (!response.ok) throw new Error('Ошибка загрузки данных');
-                const novel = await response.json();
-
-                // Обложка
-                if (novel.image) {
-                    const img = document.createElement('img');
-                    img.className = 'novel-image';
-                    img.src = 'data:image/jpeg;base64,' + novel.image;
-                    img.alt = 'Обложка новеллы';
-                    const desc = document.getElementById('description-content');
-                    desc.insertBefore(img, desc.firstChild);
-                }
-
-                // Название и описание
-                const titleElement = document.querySelector('h2');
-                titleElement.textContent = novel.title;
-
-                if (novel.bookmarked) {
-                    const bookmarkIcon = document.createElement('img');
-                    bookmarkIcon.src = '/Resource/bookmark-icon.png';
-                    bookmarkIcon.alt = 'Закладка';
-                    bookmarkIcon.style.width = '20px';
-                    bookmarkIcon.style.height = '20px';
-                    bookmarkIcon.style.marginLeft = '10px';
-                    bookmarkIcon.style.verticalAlign = 'middle';
-                    titleElement.appendChild(bookmarkIcon);
-                }
-                document.querySelector('#description-content p').textContent = novel.description;
-
-                // Жанры
-                const genres = novel.genres ? novel.genres.split(',').map(g => g.trim()) : [];
-                const tags = novel.tags ? novel.tags.split(',').map(t => t.trim()) : [];
-
-                const genreContainer = document.querySelectorAll('.tag-list')[0];
-                const tagContainer = document.querySelectorAll('.tag-list')[1];
-
-                genreContainer.innerHTML = '';
-                genres.forEach(g => {
-                    const div = document.createElement('div');
-                    div.className = 'tag-item';
-                    div.textContent = g;
-                    genreContainer.appendChild(div);
-                });
-
-                tagContainer.innerHTML = '';
-                tags.forEach(t => {
-                    const div = document.createElement('div');
-                    div.className = 'tag-item';
-                    div.textContent = t;
-                    tagContainer.appendChild(div);
-                });
-
-                // Главы
-                const chaptersList = document.querySelector('.chapter-list');
-                chaptersList.innerHTML = '';
-                if (Array.isArray(novel.chapters)) {
-                    novel.chapters.forEach(chapter => {
-                        const li = document.createElement('li');
-                        li.className = 'chapter-item';
-                        li.textContent = `Глава ${chapter.number} – ${chapter.title}`;
-
-                        if (Boolean(chapter.bookmarked)) {
-                            const img = document.createElement('img');
-                            img.src = '/Resource/bookmark-icon.png';
-                            img.alt = 'Закладка';
-                            li.appendChild(img);
-                        }
-
-                        li.onclick = () => {
-                            location.href = `/chapter?chapterId=${chapter.id}`;
-                        };
-
-                        chaptersList.appendChild(li);
-                    });
-                }
+                const url = `${baseUrl}/api/novels/${novelId}`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Ошибка загрузки');
+                const novel = await res.json();
+                loadedNovel = novel;
+                renderNovel(novel);
             } catch (error) {
+                document.querySelector('.novel-main-error').style.display = '';
                 console.error(error);
-                alert('Не удалось загрузить данные новеллы.');
             }
         }
 
-        window.onload = () => {
-            switchTab('description');
-            loadNovelData(getNovelIdFromUrl());
-        };
+        async function loadNovelStatus(novelId) {
+            try {
+                const res = await fetch(`/api/users/status?novelId=${novelId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    return DB_TO_FRONT_STATUS[data.status] || "none";
+                }
+            } catch { }
+            return "none";
+        }
+
+        async function setNovelStatus(novelId, frontStatus) {
+            const dbStatus = FRONT_TO_DB_STATUS[frontStatus];
+            if (!dbStatus) {
+                alert("Некорректный статус!");
+                return null;
+            }
+            const res = await fetch(`/api/users/status`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ novelId, status: dbStatus })
+            });
+            if (res.ok) {
+                return frontStatus;
+            }
+            return null;
+        }
+
+        // --- DOMContentLoaded основной (статусы, кнопки, тултипы и т.д.) ---
+        document.addEventListener('DOMContentLoaded', async function () {
+            const novelId = getNovelIdFromUrl();
+            await loadNovelData(novelId);
+
+            // --- Статусы ---
+            const statusDropdown = document.getElementById('status-dropdown');
+            const statusBtn = document.getElementById('status-btn');
+            const statusList = document.getElementById('status-list');
+            let currentStatus = 'none';
+
+            const STATUS_MAP = {
+                none: { text: 'Добавить в планы', icon: 'fa-plus', class: 'status-none' },
+                planned: { text: 'Добавить в планы', icon: 'fa-plus', class: 'status-planned' },
+                reading: { text: 'Читаю', icon: 'fa-book-open', class: 'status-reading' },
+                completed: { text: 'Прочитано', icon: 'fa-check', class: 'status-completed' },
+                favorite: { text: 'Любимое', icon: 'fa-heart', class: 'status-favorite' },
+                dropped: { text: 'Брошено', icon: 'fa-ban', class: 'status-dropped' }
+            };
+
+            function updateStatus(status) {
+                const s = STATUS_MAP[status] || STATUS_MAP['none'];
+                statusBtn.className = `status-select-btn ${s.class}`;
+                statusBtn.innerHTML = `<i class="fa-solid ${s.icon}"></i>
+                    <span id="status-btn-text">${s.text}</span>
+                    <i class="fa-solid fa-caret-down"></i>`;
+                currentStatus = status;
+            }
+
+            // Загружаем статус для авторизованного пользователя
+            loadNovelStatus(novelId).then(status => {
+                updateStatus(status);
+            });
+
+            statusBtn.onclick = (e) => {
+                e.stopPropagation();
+                fetch('/api/users/me').then(r => {
+                    if (r.ok) {
+                        statusDropdown.classList.toggle('open');
+                    } else {
+                        alert("Вы не авторизованы!\nПожалуйста, войдите в аккаунт.");
+                        window.location.href = "/login";
+                    }
+                });
+            };
+
+            statusList.querySelectorAll('.status-option').forEach(btn => {
+                btn.onclick = function () {
+                    fetch('/api/users/me').then(r => {
+                        if (!r.ok) {
+                            alert("Вы не авторизованы!\nПожалуйста, войдите в аккаунт.");
+                            window.location.href = "/login";
+                            return;
+                        }
+                        const status = this.dataset.status;
+                        setNovelStatus(novelId, status)
+                            .then(srvStatus => {
+                                if (srvStatus) updateStatus(srvStatus);
+                                else alert("Ошибка смены статуса");
+                            });
+                        statusDropdown.classList.remove('open');
+                    });
+                };
+            });
+            document.body.addEventListener('click', () => statusDropdown.classList.remove('open'));
+            statusDropdown.addEventListener('click', e => e.stopPropagation());
+
+            // Кнопка чтения
+            const readBtn = document.getElementById('read-btn');
+            readBtn.onclick = function () {
+                if (!loadedNovel || !loadedNovel.chapters || !loadedNovel.chapters.length) {
+                    alert("Нет доступных глав для чтения.");
+                    return;
+                }
+                let chapterId = "";
+                if (loadedNovel.bookmarkChapterId && loadedNovel.bookmarkChapterId > 0) {
+                    chapterId = loadedNovel.bookmarkChapterId;
+                } else {
+                    chapterId = loadedNovel.chapters[0].id;
+                }
+                window.location.href = `/chapter/${chapterId}`;
+            };
+
+            tippy('[data-tippy-content]', {
+                animation: 'shift-away',
+                theme: 'light',
+                arrow: true,
+                delay: [100, 100],
+            });
+        });
     </script>
-</head>
-<body>
-    <div class="top-bar">
-        <button class="custom-button menu-button" onclick="location.href='/'">
-            <img src="/Resource/bulba.png" alt="Logo" />
-            <span>Главное меню</span>
-        </button>
-        <div class="tabs">
-            <button class="custom-button" onclick="openDownloadPage()">Скачать</button>
-            <button class="custom-button status-btn" data-status="reading">Читаю</button>
-            <button class="custom-button status-btn" data-status="read">Прочитано</button>
-            <button class="custom-button status-btn" data-status="favorites">Любимое</button>
-            <button class="custom-button status-btn" data-status="abandoned">Заброшено</button>
-        </div>
-    </div>
-    <div class="tab-container">
-        <div class="tab active" id="description-tab" onclick="switchTab('description')">Описание</div>
-        <div class="tab" id="chapters-tab" onclick="switchTab('chapters')">Главы</div>
-    </div>
-    <div class="tab-background-rect">
-        <div class="tab-content active" id="description-content">
-            <h2>Название Новеллы</h2>
-            <p>Загрузка описания...</p>
-            <div class="section-title">Жанры:</div>
-            <div class="tag-list"></div>
-            <div class="section-title">Теги:</div>
-            <div class="tag-list"></div>
-        </div>
-        <div class="tab-content" id="chapters-content">
-            <ul class="chapter-list"></ul>
-        </div>
-    </div>
 </body>
 </html>

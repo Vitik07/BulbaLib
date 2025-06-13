@@ -7,9 +7,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>Скачать новеллу</title>
-    <style>
-        <link rel="stylesheet" href="~/css/Download.css" / >
-    </style>
+    <link rel="stylesheet" href="~/css/Download.css" / >
 </head>
 <body>
 
@@ -155,7 +153,7 @@
         // Обработчик кнопки назад
         backButton.addEventListener('click', () => {
             if (novelId) {
-                window.location.href = `/novel?id=${novelId}`;
+                window.location.href = `/novel/${novelId}`;
             } else {
                 window.history.back();
             }

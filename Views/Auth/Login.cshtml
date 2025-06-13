@@ -7,9 +7,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>Вход — BulbaLib</title>
-    <style>
-        <link rel="stylesheet" href="~/css/Login.css" / >
-    </style>
+    <link rel="stylesheet" href="~/css/Login.css" / >
 </head>
 <body>
     <div class="login-container">
@@ -24,8 +22,7 @@
     </div>
 
     <script>
-        const baseUrl = window.location.origin; // ASP.NET Core base URL
-
+        const baseUrl = window.location.origin;
         const form = document.getElementById('loginForm');
         const messageDiv = document.getElementById('message');
 
@@ -56,12 +53,11 @@
                     messageDiv.textContent = data.message || 'Вход выполнен успешно!';
                     messageDiv.className = 'success';
 
-                    localStorage.setItem('userId', data.userId);
-                    localStorage.setItem('role', data.role);
+                    // Не нужно сохранять userId/role в localStorage!
 
                     setTimeout(() => {
                         window.location.href = '/';
-                    }, 1000);
+                    }, 600);
                 } else {
                     messageDiv.textContent = data.error || 'Неверные данные для входа.';
                     messageDiv.className = 'error';

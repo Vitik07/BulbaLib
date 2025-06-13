@@ -7,9 +7,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>Регистрация — BulbaLib</title>
-    <style>
-        <link rel="stylesheet" href="~/css/Register.css" / >
-    </style>
+    <link rel="stylesheet" href="~/css/Register.css" / >
 </head>
 <body>
 
@@ -21,12 +19,11 @@
             <button type="submit">Зарегистрироваться</button>
         </form>
         <div id="message"></div>
-        <a href="/auth/login">Есть аккаунт? Войти</a>
+        <a href="/login">Есть аккаунт? Войти</a>
     </div>
 
     <script>
         const baseUrl = window.location.origin;
-
         const form = document.getElementById('registerForm');
         const messageDiv = document.getElementById('message');
 
@@ -47,7 +44,7 @@
             try {
                 const res = await fetch(`${baseUrl}/api/auth/register`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ login, password })
                 });
 
@@ -59,8 +56,8 @@
                     form.reset();
 
                     setTimeout(() => {
-                        window.location.href = '/auth/login';
-                    }, 1500);
+                        window.location.href = '/login';
+                    }, 1200);
                 } else {
                     messageDiv.textContent = data.error || 'Ошибка при регистрации.';
                     messageDiv.className = 'error';

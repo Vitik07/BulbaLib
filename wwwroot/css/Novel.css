@@ -1,300 +1,801 @@
-﻿body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background-color: #282828;
-    color: white;
-    overflow-x: hidden;
+﻿@charset "UTF-8";
+/* === 1. Переменные и сброс стилей === */
+:root {
+    --bg: #18181c;
+    --fg: #23232a;
+    --card-bg: #202026;
+    --border-base: #252538;
+    --text-primary: #e1e1e6;
+    --text-secondary: #8a8a8e;
+    --link: #369bf6;
+    --accent-blue: #2360d1;
+    --accent-blue-light: #3a8bfd;
+    --accent-pink: #fa6565;
+    --accent-orange: #ffb47b;
+    --radius: 12px;
+    --radius-card: 16px;
+    --shadow: rgba(0,0,0,0.7);
+    --shadow-soft: rgba(0,0,0,0.4);
+    --gap: 16px;
+    --font: "Open Sans", sans-serif;
 }
 
-.top-bar {
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font);
+    color: var(--text-primary);
+    background: var(--bg);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* === 2. Шапка === */
+.novel-header-bar {
+    background: var(--fg);
+    height: 60px;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 10px 20px;
-    background: linear-gradient(90deg, #1a1a1a, #333);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.7);
+    padding: 0 24px;
+    font-size: 1.4rem;
+    font-weight: bold;
+    box-shadow: 0 2px 16px var(--shadow-soft);
     position: sticky;
     top: 0;
-    z-index: 10;
-    animation: slideDown 0.5s ease forwards;
+    z-index: 100;
 }
 
-.action-button, .back-button {
-    background-color: #373737;
-    color: white;
-    border: none;
-    border-radius: 15px;
+.header-logo-btn {
     cursor: pointer;
-    padding: 10px 20px;
-    font-size: 14px;
-    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    filter: drop-shadow(0 0 0 transparent);
-    user-select: none;
-}
-
-    .action-button:hover, .back-button:hover {
-        background-color: #505050;
-        box-shadow: 0 4px 10px #f39c12;
-        filter: drop-shadow(0 0 8px #f39c12);
-        transform: scale(1.05);
-    }
-
-    .action-button:active, .back-button:active {
-        transform: scale(0.95);
-    }
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.custom-button {
-    background-color: #373737;
-    border: none;
-    color: white;
-    font-size: 14px;
-    padding: 6px 14px;
-    margin: 0 4px;
-    border-radius: 15px;
-    cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    user-select: none;
-}
-
-    .custom-button:hover {
-        background-color: #505050;
-        box-shadow: 0 4px 10px rgba(243, 156, 18, 0.7);
-        transform: scale(1.05);
-    }
-
-    .custom-button:active {
-        transform: scale(0.95);
-    }
-
-.menu-button {
     display: flex;
     align-items: center;
-    gap: 8px;
-    user-select: none;
-    transition: transform 0.3s ease;
+    gap: 10px;
 }
 
-    .menu-button:hover {
-        transform: scale(1.05);
+    .header-logo-btn img {
+        width: 2em;
+        height: 2em;
+        border-radius: 20%;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
-    .menu-button img {
-        height: 20px;
-        filter: drop-shadow(0 0 2px #f39c12);
-    }
+.header-logo-text {
+    color: var(--link);
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 8px var(--shadow-soft);
+}
+/* === 3. Общий контейнер === */
+.novel-main-bg {
+    background: linear-gradient(180deg, var(--fg) 0, var(--fg) 220px, var(--bg) 100%);
+}
 
-.tab-container {
+.novel-main-container {
     display: flex;
-    gap: 5px;
-    margin-top: 20px;
-    background-color: transparent;
-    padding: 0 20px;
-    margin-left: 5px;
-    width: 98%;
-    max-width: 900px;
-    box-sizing: border-box;
-    user-select: none;
-    animation: fadeInTabs 0.8s ease forwards;
+    align-items: flex-start;
+    max-width: 1250px;
+    margin: 40px auto;
+    gap: 36px;
+    padding: 0 24px;
+}
+/* === 4. Боковая панель === */
+.novel-sidebar {
+    flex: 0 0 var(--sidebar-width, 300px);
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
-@keyframes fadeInTabs {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
 
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 
-.tab {
-    padding: 10px 20px;
-    background-color: #373737;
-    border-radius: 15px 15px 0 0;
+/* Кнопки */
+.sidebar-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 0;
+    border-radius: var(--radius);
+    font-size: 1rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease, border-color 0.3s ease;
-    border: 1px solid transparent;
-    border-bottom: 0;
-    color: white;
-    font-weight: bold;
-    filter: drop-shadow(0 0 5px transparent);
-}
-
-    .tab:hover {
-        background-color: #505050;
-        box-shadow: 0 0 10px #f39c12;
-        filter: drop-shadow(0 0 8px #f39c12);
-    }
-
-    .tab.active {
-        background-color: #646464;
-        border-color: transparent;
-        border-bottom: 3px solid #f39c12;
-        box-shadow: 0 0 15px #f39c12;
-        filter: drop-shadow(0 0 15px #f39c12);
-    }
-
-.status-btn {
-    background-color: #373737;
-    color: white;
-    font-weight: normal;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
-}
-
-    .status-btn:hover {
-        background-color: #505050;
-        box-shadow: 0 4px 10px #f39c12;
-        transform: scale(1.05);
-    }
-
-    .status-btn.active {
-        background-color: #f39c12 !important;
-        color: #222 !important;
-        font-weight: bold;
-        box-shadow: 0 0 12px #f39c12;
-        transform: scale(1.05);
-    }
-
-.tab-background-rect {
-    background-color: #373737;
-    padding: 20px;
-    border-radius: 15px;
-    margin: 0 auto;
-    width: 98%;
-    box-sizing: border-box;
+    transition: background 0.18s, color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    background: var(--accent-blue);
+    color: #fff;
+    text-align: center;
+    border: none;
     position: relative;
     z-index: 1;
-    margin-top: -4px;
-    box-shadow: inset 0 0 10px #222;
-    animation: fadeInContent 0.5s ease forwards;
-    min-height: 300px;
 }
 
-@keyframes fadeInContent {
-    from {
-        opacity: 0;
-        transform: translateY(15px);
+    .sidebar-btn i.fa-book-open {
+        font-size: 1.2em;
     }
 
-    to {
-        opacity: 1;
-        transform: translateY(0);
+    .sidebar-btn:hover {
+        background: var(--accent-blue-light);
     }
+
+.sidebar-btn-fav {
+    background: var(--card-bg);
+    color: var(--accent-pink);
 }
 
-.tab-content {
-    display: none;
-    opacity: 0;
-    transition: opacity 0.4s ease;
-}
-
-    .tab-content.active {
-        display: block;
-        opacity: 1;
+    .sidebar-btn-fav:hover,
+    .sidebar-btn-fav.favorited {
+        background: var(--accent-pink);
+        color: #fff;
     }
-
-.novel-image {
-    display: block;
-    margin: 0 auto 20px;
-    max-width: 200px;
+/* ----------- КНОПКА Продолжить/Начать читать ----------- */
+.sidebar-btn.read-btn {
+    background: var(--accent-blue);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.98rem;
     border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(243, 156, 18, 0.6);
-    animation: imagePulse 2.5s infinite alternate ease-in-out;
-}
-
-@keyframes imagePulse {
-    from {
-        filter: drop-shadow(0 0 8px #f39c12);
-    }
-
-    to {
-        filter: drop-shadow(0 0 18px #f39c12);
-    }
-}
-
-h2 {
-    text-align: center;
-    font-size: 24px;
-    margin-bottom: 10px;
-    text-shadow: 0 0 10px #f39c12;
-    user-select: none;
-}
-
-.section-title {
-    font-weight: bold;
-    margin: 20px 0 10px;
-    font-size: 18px;
-    text-shadow: 0 0 5px #f39c12;
-}
-
-.tag-list {
+    box-shadow: 0 1.5px 8px rgba(36,40,60,0.13);
+    padding: 9px 0 9px 0;
+    margin-bottom: 8px;
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
     gap: 8px;
-    user-select: none;
+    border: none;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+    transition: background .18s, color .18s;
+    min-height: 0;
+    min-width: 0;
 }
 
-.tag-item {
-    background-color: #555;
-    padding: 6px 12px;
-    border-radius: 12px;
-    font-size: 14px;
-    transition: background-color 0.3s ease;
-    cursor: default;
-    user-select: none;
-}
-
-    .tag-item:hover {
-        background-color: #f39c12;
-        color: #222;
-        box-shadow: 0 0 8px #f39c12;
+    .sidebar-btn.read-btn .fa-book-open {
+        font-size: 1.05em;
     }
 
-.chapter-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    user-select: none;
+    .sidebar-btn.read-btn:hover {
+        background: var(--accent-blue-light);
+    }
+/* ----------- КНОПКА-ВЫПАДАЛКА (любимое/читаю/...) ----------- */
+.status-dropdown {
+    position: relative;
+    width: 100%;
+    margin-bottom: 8px;
+    z-index: 10;
+    background-color: var(--fg); /* теперь фон светлее */
+    box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+    border-radius: 6px;
 }
 
-.chapter-item {
-    padding: 10px;
-    border-bottom: 1px solid #444;
+.status-select-btn {
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    border-radius: 10px;
+    font-size: 0.98rem;
+    font-weight: 600;
+    padding: 8px 12px 8px 10px;
+    border: none;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 7px;
     cursor: pointer;
+    box-shadow: 0 1.5px 8px rgba(36,40,60,0.10);
+    transition: background .16s, color .16s;
+    position: relative;
+    min-height: 0;
+    min-width: 0;
+}
+
+    .status-select-btn i {
+        font-size: 1em;
+        margin-right: 4px;
+    }
+
+    .status-select-btn .fa-caret-down {
+        margin-left: auto;
+        color: #aaa;
+        font-size: 1em;
+        transition: transform 0.2s;
+    }
+
+.status-dropdown.open .status-select-btn .fa-caret-down {
+    transform: rotate(180deg);
+}
+/* Цвета для разных статусов */
+.status-select-btn.status-none {
+    color: var(--text-secondary);
+    background: var(--card-bg);
+}
+
+.status-select-btn.status-planned {
+    color: #b6c2e1;
+    background: var(--card-bg);
+}
+
+.status-select-btn.status-reading {
+    color: var(--accent-blue);
+    background: var(--card-bg);
+}
+
+.status-select-btn.status-completed {
+    color: #4caf50;
+    background: var(--card-bg);
+}
+
+.status-select-btn.status-favorite {
+    color: var(--accent-pink);
+    background: var(--card-bg);
+}
+
+.status-select-btn.status-dropped {
+    color: #c0a7a7;
+    background: var(--card-bg);
+}
+
+    .status-select-btn.status-dropped .fa-ban {
+        color: #de7072;
+    }
+
+.status-select-btn.status-completed .fa-check {
+    color: #4caf50;
+}
+
+.status-select-btn.status-favorite .fa-heart {
+    color: var(--accent-pink);
+}
+
+.status-select-btn.status-reading .fa-book-open {
+    color: var(--accent-blue);
+}
+
+.status-select-btn.status-planned .fa-plus,
+.status-select-btn.status-none .fa-plus {
+    color: #b6c2e1;
+}
+/* Выпадающий список */
+.status-dropdown-list {
+    position: absolute;
+    top: 110%;
+    left: 0;
+    right: 0;
+    background: #313137;
+    border-radius: var(--radius);
+    box-shadow: 0 8px 32px #000a;
+    margin-top: 4px;
+    padding: 6px 0;
+    display: none;
+    flex-direction: column;
+    min-width: 100%;
+    max-width: 100%;
+    min-height: 0;
+    z-index: 99;
+}
+
+.status-dropdown.open .status-dropdown-list {
+    display: flex;
+}
+
+.status-dropdown-list .status-option {
+    padding: 10px 22px 10px 16px;
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 500;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background .13s, color .13s;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+    .status-dropdown-list .status-option .fa {
+        font-size: 1.08em;
+    }
+
+    .status-dropdown-list .status-option.status-reading {
+        color: var(--accent-blue);
+    }
+
+    .status-dropdown-list .status-option.status-completed {
+        color: #4caf50;
+    }
+
+    .status-dropdown-list .status-option.status-favorite {
+        color: var(--accent-pink);
+    }
+
+    .status-dropdown-list .status-option.status-dropped {
+        color: #de7072;
+    }
+
+    .status-dropdown-list .status-option:hover,
+    .status-dropdown-list .status-option.active {
+        background: #23232a;
+    }
+
+.novel-info-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    transition: background-color 0.3s ease, transform 0.15s ease;
-    user-select: none;
+    font-size: 0.99em;
+    color: var(--text-secondary, #8a8a8e);
+    font-family: inherit;
+    margin-bottom: 4px;
 }
 
-    .chapter-item:hover {
-        background-color: #505050;
-        transform: translateX(5px);
-        box-shadow: 0 0 8px #f39c12;
+.novel-info-label {
+    font-weight: 500;
+    color: #b2c4d8;
+}
+
+.novel-info-value {
+    color: var(--text-primary, #e1e1e6);
+    font-weight: 500;
+    text-align: right;
+}
+
+.novel-info-row:last-child {
+    margin-bottom: 0;
+}
+
+/* Для адаптива */
+@media (max-width: 600px) {
+    .novel-info-panel {
+        max-width: 100%;
+        padding: 12px 8px;
+    }
+}
+/* === 5. Основной контент === */
+.novel-content-block {
+    flex: 1;
+    background: var(--fg);
+    border-radius: var(--radius-card);
+    box-shadow: 0 4px 24px var(--shadow);
+    padding: 32px;
+    min-width: 0;
+}
+
+.novel-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+    line-height: 1.2;
+}
+
+.novel-alt-title {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.novel-description {
+    font-size: 1rem;
+    color: var(--text-primary);
+    line-height: 1.65;
+}
+
+.desc-more {
+    color: var(--link);
+    cursor: pointer;
+    font-weight: 500;
+}
+
+    .desc-more:hover {
+        color: var(--accent-blue-light);
+    }
+/* Теги и возраст */
+.novel-tags-block {
+    margin-top: 24px;
+}
+/* --- ОТСТУПЫ ПЕРЕД БЛОКАМИ --- */
+.block-title {
+    font-size: 1.07em;
+    font-weight: 600;
+    color: #a8a8b6;
+    margin-bottom: 10px;
+    margin-top: 34px;
+    letter-spacing: 0.02em;
+}
+
+.genres-block, .tags-block, .related-block {
+    margin-top: 22px;
+}
+
+    .genres-block:first-child .block-title,
+    .tags-block:first-child .block-title {
+        margin-top: 18px;
     }
 
-    .chapter-item img {
-        width: 20px;
-        height: 20px;
-        margin-left: 10px;
-        filter: drop-shadow(0 0 3px #f39c12);
-        user-select: none;
+.novel-age-rating {
+    background: var(--border-base);
+    color: var(--accent-orange);
+    padding: 4px 12px;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: inline-block;
+}
+
+.novel-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.novel-tag,
+.novel-tag.genre,
+.novel-tag.tag {
+    /* Одинаковый стиль для жанров и тегов */
+    background: #363657;
+    color: #b3e0ff;
+    border-radius: 10px;
+    padding: 7px 18px;
+    font-size: 1.05em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+    box-shadow: 0 1px 7px #0002;
+    user-select: none;
+    margin-bottom: 5px;
+    border: none;
+}
+
+    .novel-tag:hover,
+    .novel-tag.genre:hover,
+    .novel-tag.tag:hover {
+        background: var(--accent-blue);
+        color: #fff;
     }
+/* Связанное */
+.related-block {
+    margin-top: 36px;
+}
+
+.related-list {
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+}
+
+.related-card {
+    background: #24243b;
+    border-radius: 13px;
+    box-shadow: 0 2px 12px #0009;
+    padding: 12px 13px 13px 13px;
+    width: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: box-shadow 0.18s, transform 0.13s;
+    cursor: pointer;
+}
+
+    .related-card:hover {
+        box-shadow: 0 8px 26px #2360d199, 0 2px 18px #0008;
+        transform: translateY(-3px) scale(1.03);
+    }
+
+.related-cover {
+    width: 100%;
+    max-width: 110px;
+    aspect-ratio: 3/4;
+    object-fit: cover;
+    border-radius: 7px 7px 13px 13px;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 10px #0008;
+    background: #23232a;
+}
+
+.related-title {
+    font-size: 0.99em;
+    color: #e1e1e6;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 2px;
+}
+
+.related-type {
+    font-size: 0.97em;
+    color: #7fa6c5;
+    text-align: center;
+}
+
+.novel-main-error {
+    color: var(--accent-pink);
+    margin-top: 2em;
+}
+/* === 6. Тултипы Font Awesome + Tippy.js === */
+.fa {
+    vertical-align: middle;
+}
+
+.fa-fw {
+    width: 1.25em;
+    text-align: center;
+}
+
+.tippy-box[data-theme~='light'] {
+    background: #333;
+    color: #fff;
+    font-size: 13px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.tippy-box[data-animation='shift-away'] {
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+/* === 7. Модалки === */
+.popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 90;
+}
+
+.popup {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 91;
+}
+
+.novel-cover-wrap {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.novel-info-panel {
+    width: 100%;
+    margin: 18px auto 0 auto;
+    background: var(--fg);
+    border-radius: 16px;
+    box-shadow: 0 4px 32px #000a, 0 1.5px 0 #363657;
+    padding: 16px 20px 14px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-size: 0.97rem;
+    border: 1.5px solid #282845;
+    box-sizing: border-box;
+}
+
+.novel-cover {
+    width: 100%;
+    border-radius: var(--radius-card);
+    box-shadow: 0 8px 40px var(--shadow), 0 2px 0 #363657;
+    object-fit: cover;
+}
+.popup-content {
+    background: var(--fg);
+    border-radius: var(--radius);
+    box-shadow: 0 28px 56px rgba(0,0,0,0.4);
+    max-width: 600px;
+    width: 90%;
+    overflow: hidden;
+}
+
+.popup-header {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-base);
+}
+
+.popup-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-left: 8px;
+}
+
+.popup-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+    .popup-close:hover {
+        color: #fff;
+    }
+
+.popup-body {
+    padding: 16px 20px;
+    color: var(--text-primary);
+}
+/* === 8. Пагинация === */
+.pagination {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 24px;
+}
+
+    .pagination button {
+        padding: 6px 12px;
+        background: var(--card-bg);
+        color: var(--text-secondary);
+        border: none;
+        border-radius: var(--radius);
+        cursor: pointer;
+    }
+
+        .pagination button:hover,
+        .pagination .active {
+            background: var(--accent-blue);
+            color: #fff;
+        }
+/* === 9. Таблицы и списки === */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+    .table th,
+    .table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-base);
+    }
+
+    .table th {
+        color: #fff;
+        font-weight: 600;
+    }
+
+    .table tr:hover {
+        background: var(--fg);
+    }
+
+.novel-tabs-header {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.novel-tab-btn {
+    background: var(--card-bg, #23232a);
+    border: none;
+    color: var(--text-secondary, #8a8a8e);
+    font-size: 1.05rem;
+    font-weight: 600;
+    padding: 10px 32px;
+    border-radius: 10px 10px 0 0;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    box-shadow: 0 2px 8px #0002;
+    outline: none;
+}
+
+    .novel-tab-btn.active {
+        background: var(--fg, #18181c);
+        color: #fff;
+        border-bottom: 2.5px solid var(--accent-blue, #2360d1);
+        z-index: 2;
+    }
+
+.novel-tabs-content {
+    border-radius: 0 0 16px 16px;
+    padding: 12px 6px 18px 6px;
+    margin-top: -2px;
+    transition: background 0.2s;
+}
+
+.chapter-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.chapter-card {
+    background: #222231;
+    border-radius: 8px;
+    padding: 10px 16px;
+    box-shadow: 0 1px 6px #0003;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: background 0.13s, box-shadow 0.13s;
+}
+
+    .chapter-card:hover {
+        background: #24243b;
+        box-shadow: 0 2px 14px #2360d133, 0 1px 6px #0003;
+    }
+
+.chapter-title {
+    font-size: 1.08em;
+    color: #e1e1e6;
+    font-weight: 600;
+}
+
+.chapter-number {
+    color: var(--accent-blue);
+    font-weight: 600;
+    margin-right: 10px;
+}
+
+.chapter-date {
+    font-size: 0.93em;
+    color: #a8a8b6;
+    margin-left: auto;
+}
+
+/* === 10. Адаптивность === */
+@media (max-width: 1024px) {
+    .novel-main-container {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .sidebar-info, .novel-age-rating {
+        text-align: center;
+    }
+
+    .novel-info-panel {
+        background: var(--card-bg, #202026);
+        border-radius: var(--radius-card, 16px);
+        box-shadow: 0 2px 16px var(--shadow-soft, rgba(0,0,0,0.4));
+        padding: 16px 20px 14px 20px;
+        margin: 18px auto 0 auto;
+        width: 80%;
+        min-width: 180px;
+        max-width: 210px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        font-size: 0.97rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .novel-main-container {
+        padding: 0 16px;
+    }
+}
+
+@media (max-width: 600px) {
+    .novel-info-panel {
+        max-width: 100%;
+        padding: 12px 8px;
+    }
+    .novel-tabs-content, .chapter-card {
+        padding: 7px 2px;
+    }
+
+    .novel-tabs-header {
+        gap: 5px;
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar-info, .novel-main-container {
+        padding: 0 12px;
+    }
+}

@@ -9,9 +9,9 @@ namespace BulbaLib.Controllers
     [Route("api/[controller]")]
     public class DownloadController : ControllerBase
     {
-        private readonly SqliteService _db;
+        private readonly MySqlService _db;
 
-        public DownloadController(SqliteService db)
+        public DownloadController(MySqlService db)
         {
             _db = db;
         }
