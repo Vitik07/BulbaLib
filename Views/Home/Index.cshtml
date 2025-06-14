@@ -129,29 +129,50 @@
         });
 
         // ======= Загрузка всех новелл =======
-        let allNovels = [];
-        async function loadAllNovels() {
-            const res = await fetch(`${baseUrl}/api/novels`);
-            allNovels = await res.json();
-        }
+        // let allNovels = []; // Commented out
+        // async function loadAllNovels() { // Commented out
+        //     const res = await fetch(`${baseUrl}/api/novels`);
+        //     allNovels = await res.json();
+        // }
 
-        searchInput.addEventListener('input', () => {
-            const term = searchInput.value.trim().toLowerCase();
+        searchInput.addEventListener('input', async () => { // Made async
+            const term = searchInput.value.trim(); // No toLowerCase() needed for server-side
             if (!term) {
                 searchResultsList.innerHTML = '';
                 return;
             }
-            const results = allNovels.filter(n => n.title.toLowerCase().includes(term));
-            searchResultsList.innerHTML = '';
-            for (let novel of results.slice(0, 12)) {
-                const card = document.createElement('div');
-                card.className = 'search-novel-card';
-                card.innerHTML = `
+            try {
+                const response = await fetch(`${baseUrl}/api/catalog?search=${encodeURIComponent(term)}`);
+                if (!response.ok) {
+                    // Handle error, maybe display a message or log it
+                    console.error("Error fetching search results:", response.status);
+                    searchResultsList.innerHTML = '<li>Ошибка при поиске.</li>'; // Or some user-friendly message
+                    return;
+                }
+                const results = await response.json();
+                searchResultsList.innerHTML = ''; // Clear previous results
+
+                if (results.length === 0) {
+                    searchResultsList.innerHTML = '<li>Ничего не найдено.</li>'; // Or some user-friendly message
+                    return;
+                }
+
+                for (let novel of results.slice(0, 12)) { // Process up to 12 results
+                    const card = document.createElement('div');
+                    card.className = 'search-novel-card';
+                    // Assuming getCover and novel structure are compatible
+                    // The API for /api/catalog returns 'covers' which is n.CoversList (List<string>)
+                    // The getCover function expects novel.covers to be an array, which it should be.
+                    card.innerHTML = `
                                             <img src="${getCover(novel)}" alt="${novel.title}">
                                             <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
                                         `;
-                card.onclick = () => window.location.href = `/novel/${novel.id}`;
-                searchResultsList.appendChild(card);
+                    card.onclick = () => window.location.href = `/novel/${novel.id}`;
+                    searchResultsList.appendChild(card);
+                }
+            } catch (error) {
+                console.error("Error during search:", error);
+                searchResultsList.innerHTML = '<li>Ошибка при выполнении поиска.</li>'; // Or some user-friendly message
             }
         });
 
@@ -388,7 +409,7 @@
 
         // ======= MAIN LOAD =======
         async function mainLoad() {
-            await loadAllNovels();
+            // await loadAllNovels(); // Commented out
             await fillProfileButton();
             await updateUpdatesList();
             await updateNoveltiesList();

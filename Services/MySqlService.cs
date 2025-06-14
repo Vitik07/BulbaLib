@@ -107,8 +107,8 @@ namespace BulbaLib.Services
             {
                 cmd.CommandText = @"SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, TranslatorId, AlternativeTitles, RelatedNovelIds, Date 
                             FROM Novels 
-                            WHERE LOWER(Title) LIKE @search OR LOWER(Genres) LIKE @search OR LOWER(Tags) LIKE @search";
-                cmd.Parameters.AddWithValue("@search", $"%{search.ToLower()}%");
+                            WHERE MATCH(Title, Genres, Tags) AGAINST (@search IN NATURAL LANGUAGE MODE)";
+                cmd.Parameters.AddWithValue("@search", search);
             }
             else
             {
