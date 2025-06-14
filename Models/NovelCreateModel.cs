@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System;
+using Microsoft.AspNetCore.Http; // Added for IFormFile
 
 namespace BulbaLib.Models
 {
@@ -13,9 +14,9 @@ namespace BulbaLib.Models
         [DataType(DataType.MultilineText)]
         public string Description { get; set; }
 
-        // For simplicity, covers are handled as a JSON string of URLs.
-        // Actual upload mechanism will be separate.
-        public string Covers { get; set; } // Should be a JSON string array e.g., ["url1", "url2"] or single URL
+        [Display(Name = "Основная обложка")]
+        public IFormFile CoverFile { get; set; }
+        // public string Covers { get; set; } // Old property commented out or removed
 
         [Display(Name = "Жанры")]
         public string Genres { get; set; } // Comma-separated or JSON string

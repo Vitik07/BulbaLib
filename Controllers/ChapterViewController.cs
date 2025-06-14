@@ -108,7 +108,8 @@ namespace BulbaLib.Controllers
                     Number = model.Number,
                     Title = model.Title,
                     Content = model.Content,
-                    Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                    Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                    CreatorId = currentUser.Id // Устанавливаем CreatorId текущего пользователя
                 };
 
                 if (currentUser.Role == UserRole.Admin && _permissionService.CanAddChapterDirectly(currentUser))
@@ -243,7 +244,8 @@ namespace BulbaLib.Controllers
                     Number = model.Number,
                     Title = model.Title,
                     Content = model.Content,
-                    Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds() // Update date
+                    Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(), // Update date
+                    CreatorId = originalChapter.CreatorId // <--- ДОБАВИТЬ ЭТУ СТРОКУ
                 };
 
                 if (currentUser.Role == UserRole.Admin && _permissionService.CanAddChapterDirectly(currentUser))
@@ -313,7 +315,7 @@ namespace BulbaLib.Controllers
                 TempData["SuccessMessage"] = "Глава успешно удалена.";
             }
             // Translators (who are part of the novel's translator list and have CanDeleteChapter = true) submit for moderation
-            else if (_permissionService.CanSubmitChapterForModeration(currentUser, novel))
+            else if (currentUser.Role == UserRole.Translator && _permissionService.CanDeleteChapter(currentUser, chapter, novel))
             {
                 var moderationRequest = new ModerationRequest
                 {

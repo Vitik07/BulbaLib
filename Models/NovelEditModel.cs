@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System;
+using Microsoft.AspNetCore.Http; // Added for IFormFile
 
 namespace BulbaLib.Models
 {
@@ -17,6 +18,9 @@ namespace BulbaLib.Models
         public string Description { get; set; }
 
         public string Covers { get; set; } // JSON string array e.g., ["url1", "url2"]
+
+        [Display(Name = "Загрузить новую основную обложку")]
+        public IFormFile NewCoverFile { get; set; }
 
         [Display(Name = "Жанры")]
         public string Genres { get; set; } // Comma-separated or JSON string

@@ -42,12 +42,14 @@ namespace BulbaLib.Controllers
         private readonly MySqlService _mySqlService;
         private readonly PermissionService _permissionService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly FileService _fileService; // Добавить это поле
 
-        public NovelViewController(MySqlService mySqlService, PermissionService permissionService, ICurrentUserService currentUserService)
+        public NovelViewController(MySqlService mySqlService, PermissionService permissionService, ICurrentUserService currentUserService, FileService fileService /* Добавить fileService */)
         {
             _mySqlService = mySqlService;
             _permissionService = permissionService;
             _currentUserService = currentUserService;
+            _fileService = fileService; // Присвоить здесь
         }
 
         // private User GetCurrentUser() // Replaced by ICurrentUserService
@@ -126,7 +128,7 @@ namespace BulbaLib.Controllers
         [Authorize(Roles = "Admin,Author")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Create(NovelCreateModel model) // Changed to NovelCreateModel
+        public async Task<IActionResult> Create(NovelCreateModel model) // Changed to NovelCreateModel and async
         {
             var currentUser = _currentUserService.GetCurrentUser(); // Use injected service
             if (currentUser == null) return Unauthorized();
@@ -139,11 +141,16 @@ namespace BulbaLib.Controllers
 
             if (ModelState.IsValid)
             {
+                // Обработка файла обложки должна происходить ПОСЛЕ создания новеллы, чтобы иметь novelId
+                // Поэтому пока просто запомним, что файл есть, а сохраним и обновим новеллу ниже.
+                bool hasCoverFileToProcess = model.CoverFile != null && model.CoverFile.Length > 0;
+
                 var novelToCreate = new Novel
                 {
                     Title = model.Title,
                     Description = model.Description,
-                    Covers = string.IsNullOrWhiteSpace(model.Covers) ? "[]" : model.Covers,
+                    // Covers will be set after saving the file, if admin direct create
+                    // For moderation, it will be an empty list initially
                     Genres = model.Genres,
                     Tags = model.Tags,
                     Type = model.Type,
@@ -168,13 +175,33 @@ namespace BulbaLib.Controllers
                     // Admin can set AuthorId, but for this flow, it's the current admin.
                     // If an admin should be able to set a different author, UI and logic would need adjustment.
                     novelToCreate.AuthorId = currentUser.Id;
+                    // For admin direct creation, Covers property will be set after file upload.
+                    // Ensure it's initially null or an empty list if not processed immediately.
+                    novelToCreate.Covers = JsonSerializer.Serialize(new List<string>());
                     int newNovelId = _mySqlService.CreateNovel(novelToCreate);
+
+                    if (hasCoverFileToProcess)
+                    {
+                        string coverPath = await _fileService.SaveNovelCoverAsync(model.CoverFile, newNovelId);
+                        if (!string.IsNullOrEmpty(coverPath))
+                        {
+                            // Get the just created novel to update its Covers property
+                            var createdNovel = _mySqlService.GetNovel(newNovelId);
+                            if (createdNovel != null)
+                            {
+                                createdNovel.Covers = JsonSerializer.Serialize(new List<string> { coverPath });
+                                _mySqlService.UpdateNovel(createdNovel);    // Обновляем в БД
+                            }
+                        }
+                    }
                     TempData["SuccessMessage"] = "Новелла успешно добавлена.";
                     return RedirectToAction("Details", "NovelView", new { id = newNovelId });
                 }
                 else if (_permissionService.CanSubmitNovelForModeration(currentUser)) // Author
                 {
                     // AuthorId is already set to current user's ID above
+                    novelToCreate.Covers = JsonSerializer.Serialize(new List<string>()); // Пустой список обложек для модерации
+
                     var moderationRequest = new ModerationRequest
                     {
                         RequestType = ModerationRequestType.AddNovel,
@@ -242,7 +269,7 @@ namespace BulbaLib.Controllers
         [Authorize(Roles = "Admin,Author")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(int id, NovelEditModel model) // Changed to NovelEditModel
+        public async Task<IActionResult> Edit(int id, NovelEditModel model) // Changed to NovelEditModel and async
         {
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null) return Unauthorized();
@@ -270,7 +297,7 @@ namespace BulbaLib.Controllers
                     Id = originalNovel.Id,
                     Title = model.Title,
                     Description = model.Description,
-                    Covers = string.IsNullOrWhiteSpace(model.Covers) ? "[]" : model.Covers,
+                    // Covers will be handled below based on NewCoverFile and originalNovel.Covers
                     Genres = model.Genres,
                     Tags = model.Tags,
                     Type = model.Type,
@@ -293,10 +320,51 @@ namespace BulbaLib.Controllers
 
                 if (_permissionService.CanAddNovelDirectly(currentUser)) // Admin can edit directly
                 {
+                    if (model.NewCoverFile != null && model.NewCoverFile.Length > 0)
+                    {
+                        // Удаляем старые обложки (если они есть и мы заменяем одной основной)
+                        if (!string.IsNullOrWhiteSpace(originalNovel.Covers))
+                        {
+                            try
+                            {
+                                var existingCovers = JsonSerializer.Deserialize<List<string>>(originalNovel.Covers);
+                                if (existingCovers != null)
+                                {
+                                    foreach (var oldCoverPath in existingCovers)
+                                    {
+                                        _fileService.DeleteFile(oldCoverPath);
+                                    }
+                                }
+                            }
+                            catch (JsonException ex)
+                            {
+                                // Логирование ошибки парсинга JSON старых обложек
+                                Console.WriteLine($"Error parsing originalNovel.Covers JSON: {ex.Message}");
+                            }
+                        }
+
+                        string newCoverPath = await _fileService.SaveNovelCoverAsync(model.NewCoverFile, originalNovel.Id);
+                        if (!string.IsNullOrEmpty(newCoverPath))
+                        {
+                            // Сохраняем путь к новой обложке (как список с одним элементом)
+                            novelWithChanges.Covers = JsonSerializer.Serialize(new List<string> { newCoverPath });
+                        }
+                        else
+                        {
+                            // Если сохранение файла не удалось, оставляем старые обложки или делаем поле пустым
+                            novelWithChanges.Covers = originalNovel.Covers; // или JsonSerializer.Serialize(new List<string>());
+                        }
+                    }
+                    else
+                    {
+                        // Если новый файл не загружен, оставляем текущие обложки как есть
+                        novelWithChanges.Covers = originalNovel.Covers;
+                    }
+
                     // Update originalNovel with changes
                     originalNovel.Title = novelWithChanges.Title;
                     originalNovel.Description = novelWithChanges.Description;
-                    originalNovel.Covers = novelWithChanges.Covers;
+                    originalNovel.Covers = novelWithChanges.Covers; // <--- Обновляем здесь
                     originalNovel.Genres = novelWithChanges.Genres;
                     originalNovel.Tags = novelWithChanges.Tags;
                     originalNovel.Type = novelWithChanges.Type;
@@ -313,12 +381,16 @@ namespace BulbaLib.Controllers
                 }
                 else if (currentUser.Role == UserRole.Author && originalNovel.AuthorId == currentUser.Id) // Author (owner) submits for moderation
                 {
+                    // Автор не может напрямую менять обложки через этот поток, только через модерацию файла.
+                    // Информация о model.NewCoverFile должна обрабатываться отдельно для модератора.
+                    novelWithChanges.Covers = originalNovel.Covers;
+
                     var moderationRequest = new ModerationRequest
                     {
                         RequestType = ModerationRequestType.EditNovel,
                         UserId = currentUser.Id,
                         NovelId = originalNovel.Id,
-                        RequestData = JsonSerializer.Serialize(novelWithChanges),
+                        RequestData = JsonSerializer.Serialize(novelWithChanges), // novelWithChanges теперь содержит одобренный Covers
                         Status = ModerationStatus.Pending,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow

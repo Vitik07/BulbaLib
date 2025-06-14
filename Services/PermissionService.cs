@@ -68,20 +68,27 @@ namespace BulbaLib.Services
 
         // For CanEditChapter and CanDeleteChapter, we need to ensure the Translator is linked to the Novel.
         // The Chapter model itself doesn't have a direct user link.
-        public bool CanEditChapter(User currentUser, Chapter chapter, Novel novel)
+        public bool CanEditChapter(User currentUser, Chapter chapter, Novel novel) // novel может быть null, если не используется
         {
-            if (currentUser == null || chapter == null || novel == null) return false;
+            if (currentUser == null || chapter == null) return false;
+
+            // Администратор может редактировать любую главу
             if (currentUser.Role == UserRole.Admin) return true;
-            // Assuming TranslatorId in Novel can be a list of IDs or a single ID.
-            // For simplicity, check if the current user's ID is part of the TranslatorId string.
-            // This might need refinement based on how TranslatorId is actually stored and formatted.
-            return currentUser.Role == UserRole.Translator &&
-                   IsTranslatorAssignedToNovel(currentUser, novel);
+
+            // Переводчик может редактировать главу, только если он ее создатель
+            if (currentUser.Role == UserRole.Translator)
+            {
+                // Убедимся, что у главы есть CreatorId и он совпадает с Id текущего пользователя
+                return chapter.CreatorId.HasValue && chapter.CreatorId == currentUser.Id;
+            }
+
+            return false; // Другие роли не могут редактировать
         }
 
-        public bool CanDeleteChapter(User currentUser, Chapter chapter, Novel novel)
+        public bool CanDeleteChapter(User currentUser, Chapter chapter, Novel novel) // novel может быть null
         {
-            return CanEditChapter(currentUser, chapter, novel); // Same logic
+            // Логика удаления обычно совпадает с логикой редактирования для создателя контента
+            return CanEditChapter(currentUser, chapter, novel);
         }
 
         public bool CanViewAdminPanel(User currentUser)

@@ -1,51 +1,60 @@
-﻿@model BulbaLib.Models.ChapterEditModel
+@model BulbaLib.Models.ChapterEditModel
 @{
-    ViewData["Title"] = "Редактировать главу";
-    // Layout = "~/Views/Shared/_Layout.cshtml"; // Assuming a layout
+    Layout = null; // Отключаем основной Layout
+    ViewData["Title"] = "Редактирование главы";
 }
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - BulbaLib</title>
+    @* <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" /> *@
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/chapter_form.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="container">
+        <main role="main" class="pb-3">
+            <h1>@ViewData["Title"]</h1>
+            @if (ViewData["NovelTitle"] != null)
+            {
+                <h4>Новелла: @ViewData["NovelTitle"]</h4>
+                <h5>Глава: @Model.Number - @Model.Title</h5>
+            }
 
-<h1>@ViewData["Title"]</h1>
-@if (ViewData["NovelTitle"] != null)
-{
-    <h4>Новелла: @ViewData["NovelTitle"]</h4>
-    <h5>Глава: @Model.Number - @Model.Title</h5>
-}
+            <form asp-action="Edit" asp-route-id="@Model.Id" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Id" />
+                <input type="hidden" asp-for="NovelId" />
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
+                <div class="form-group mb-3">
+                    <label asp-for="Number" class="control-label"></label>
+                    <input asp-for="Number" class="form-control" />
+                    <span asp-validation-for="Number" class="text-danger"></span>
+                </div>
 
-<form asp-action="Edit" asp-route-id="@Model.Id" method="post">
-    @Html.AntiForgeryToken()
-    <input type="hidden" asp-for="Id" />
-    <input type="hidden" asp-for="NovelId" />
+                <div class="form-group mb-3">
+                    <label asp-for="Title" class="control-label"></label>
+                    <input asp-for="Title" class="form-control" />
+                    <span asp-validation-for="Title" class="text-danger"></span>
+                </div>
 
-    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="form-group mb-3">
+                    <label asp-for="Content" class="control-label"></label>
+                    <textarea asp-for="Content" class="form-control" rows="15"></textarea>
+                    <span asp-validation-for="Content" class="text-danger"></span>
+                    <small class="form-text text-muted">Поддерживается HTML-разметка для форматирования текста главы.</small>
+                </div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Number" class="control-label"></label>
-        <input asp-for="Number" class="form-control" />
-        <span asp-validation-for="Number" class="text-danger"></span>
+                <div class="form-group mt-4">
+                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                    <a asp-controller="NovelView" asp-action="Details" asp-route-id="@Model.NovelId" class="btn btn-secondary">Отмена</a>
+                </div>
+            </form>
+        </main>
     </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Title" class="control-label"></label>
-        <input asp-for="Title" class="form-control" />
-        <span asp-validation-for="Title" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Content" class="control-label"></label>
-        <textarea asp-for="Content" class="form-control" rows="15"></textarea>
-        <span asp-validation-for="Content" class="text-danger"></span>
-        <small class="form-text text-muted">Поддерживается HTML разметка для форматирования текста главы.</small>
-    </div>
-
-    <div class="form-group mt-4">
-        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
-        <a asp-controller="NovelView" asp-action="Details" asp-route-id="@Model.NovelId" class="btn btn-secondary">Отмена</a>
-    </div>
-</form>
-
-@section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
-}
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+</body>
+</html>

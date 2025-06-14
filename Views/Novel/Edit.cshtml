@@ -36,13 +36,43 @@
                     <span asp-validation-for="Description" class="text-danger"></span>
                 </div>
 
-                @* Поле для управления обложками будет доработано *@
                 <div class="form-group mb-3">
-                    <label asp-for="Covers" class="control-label">Обложки</label>
-                    <input asp-for="Covers" class="form-control" disabled="disabled" /> @* Заглушка *@
-                    <span asp-validation-for="Covers" class="text-danger"></span>
-                    <small class="form-text text-muted">Функционал управления обложками будет добавлен позже.</small>
+                    <label class="control-label">Текущая основная обложка</label>
+                    @{
+                        string currentCoverUrl = null;
+                        if (!string.IsNullOrWhiteSpace(Model.Covers)) {
+                            try {
+                                var coversList = System.Text.Json.JsonSerializer.Deserialize<List<string>>(Model.Covers);
+                                if (coversList != null && coversList.Count > 0) {
+                                    currentCoverUrl = coversList.First(); // Показываем первую обложку как основную
+                                }
+                            } catch { /* Ошибка парсинга JSON, ничего не показываем */ }
+                        }
+                    }
+                    @if (!string.IsNullOrWhiteSpace(currentCoverUrl))
+                    {
+                        <div class="mb-2">
+                            <img src="@Url.Content(currentCoverUrl)" alt="Текущая обложка" style="max-width: 200px; max-height: 200px; display:block;" />
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">Основная обложка не загружена.</p>
+                    }
                 </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="NewCoverFile" class="control-label"></label>
+                    <input asp-for="NewCoverFile" type="file" class="form-control" accept="image/jpeg, image/png, image/gif, image/webp" />
+                    <span asp-validation-for="NewCoverFile" class="text-danger"></span>
+                    <small class="form-text text-muted">Выберите новый файл, если хотите заменить основную обложку (jpg, png, gif, webp).</small>
+                </div>
+
+                @* Скрытое поле для Model.Covers, чтобы передать текущее значение, если файл не меняется.
+                   Это важно, если мы не хотим потерять существующие обложки, если новый файл не загружен.
+                   Однако, если NewCoverFile загружен, это значение будет перезаписано в контроллере.
+                *@
+                <input type="hidden" asp-for="Covers" />
 
                 <div class="form-group mb-3">
                     <label asp-for="Genres" class="control-label"></label>
@@ -159,32 +189,184 @@
 @section Scripts {
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Жанры
-            const genreModal = document.getElementById('genreModal');
-            const addGenreBtn = document.getElementById('addGenreBtn');
-            const closeGenreModal = document.getElementById('closeGenreModal');
+            const allGenresList = @Html.Raw(Json.Serialize(ViewData["AllGenres"] as List<string> ?? new List<string>()));
+            const allTagsList = @Html.Raw(Json.Serialize(ViewData["AllTags"] as List<string> ?? new List<string>()));
 
-            if (addGenreBtn) addGenreBtn.onclick = function() { genreModal.style.display = 'block'; }
-            if (closeGenreModal) closeGenreModal.onclick = function() { genreModal.style.display = 'none'; }
+            let currentSelectedGenres = [];
+            let currentSelectedTags = [];
 
-            // Теги
-            const tagModal = document.getElementById('tagModal');
-            const addTagBtn = document.getElementById('addTagBtn');
-            const closeTagModal = document.getElementById('closeTagModal');
+            const modelGenresJson = '@Html.Raw(Model.Genres)'; // Получаем JSON-строку из модели
+            const modelTagsJson = '@Html.Raw(Model.Tags)';   // Получаем JSON-строку из модели
 
-            if (addTagBtn) addTagBtn.onclick = function() { tagModal.style.display = 'block'; }
-            if (closeTagModal) closeTagModal.onclick = function() { tagModal.style.display = 'none'; }
+            // --- НОВАЯ ФУНКЦИЯ RENDER BADGES (скопирована из Create, идентична) ---
+            function renderSelectedItemsAsBadges(containerId, selectedArray, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                container.innerHTML = ''; // Очищаем контейнер
+
+                selectedArray.forEach(item => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-secondary me-1 mb-1';
+                    badge.textContent = item;
+
+                    const removeBtn = document.createElement('span');
+                    removeBtn.innerHTML = '&times;';
+                    removeBtn.className = 'ms-1 fw-bold';
+                    removeBtn.style.cursor = 'pointer';
+                    removeBtn.onclick = function() {
+                        const index = globalSelectedArrayRef.indexOf(item);
+                        if (index > -1) {
+                            globalSelectedArrayRef.splice(index, 1);
+                        }
+                        if (hiddenInputElement) hiddenInputElement.value = JSON.stringify(globalSelectedArrayRef);
+                        renderSelectedItemsAsBadges(containerId, globalSelectedArrayRef, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef);
+                    };
+
+                    badge.appendChild(removeBtn);
+                    container.appendChild(badge);
+                });
+            }
+            // --- КОНЕЦ НОВОЙ ФУНКЦИИ RENDER BADGES ---
+
+            if (modelGenresJson) {
+                try {
+                    currentSelectedGenres = JSON.parse(modelGenresJson);
+                    if (!Array.isArray(currentSelectedGenres)) currentSelectedGenres = [];
+                } catch (e) {
+                    console.error("Error parsing Model.Genres JSON:", e);
+                    currentSelectedGenres = [];
+                }
+            }
+
+            if (modelTagsJson) {
+                try {
+                    currentSelectedTags = JSON.parse(modelTagsJson);
+                    if (!Array.isArray(currentSelectedTags)) currentSelectedTags = [];
+                } catch (e) {
+                    console.error("Error parsing Model.Tags JSON:", e);
+                    currentSelectedTags = [];
+                }
+            }
+
+            const hiddenGenresField = document.getElementById('Genres');
+            const hiddenTagsField = document.getElementById('Tags');
+
+            // Устанавливаем начальные значения для скрытых полей, если они есть в модели
+            // (на случай, если пользователь ничего не изменит в модалках, но форма будет отправлена)
+            if (hiddenGenresField && currentSelectedGenres.length > 0) hiddenGenresField.value = JSON.stringify(currentSelectedGenres);
+            if (hiddenTagsField && currentSelectedTags.length > 0) hiddenTagsField.value = JSON.stringify(currentSelectedTags);
+
+            // --- ИНИЦИАЛИЗАЦИЯ ПЛАШЕК ПРИ ЗАГРУЗКЕ ---
+            renderSelectedItemsAsBadges('selectedGenresContainer', currentSelectedGenres, hiddenGenresField, 'genre', allGenresList, currentSelectedGenres);
+            renderSelectedItemsAsBadges('selectedTagsContainer', currentSelectedTags, hiddenTagsField, 'tag', allTagsList, currentSelectedTags);
+            // --- КОНЕЦ ИНИЦИАЛИЗАЦИИ ПЛАШЕК ---
+
+            function populateModalWithCheckboxes(containerId, items, selectedItemsArray, type) {
+                const container = document.getElementById(containerId);
+                if (!container) return; // Добавлена проверка
+                container.innerHTML = '';
+                items.forEach(item => {
+                    const checkboxId = `${type}-${item.replace(/\s+/g, '-')}`;
+                    const isChecked = selectedItemsArray.includes(item);
+                    container.innerHTML += `
+                        <div>
+                            <input type="checkbox" id="${checkboxId}" name="${type}" value="${item}" ${isChecked ? 'checked' : ''}>
+                            <label for="${checkboxId}">${item}</label>
+                        </div>`;
+                });
+            }
+
+            // Жанры (в Edit.cshtml)
+            const genreModalElement = document.getElementById('genreModal');
+            const addGenreButton = document.getElementById('addGenreBtn');
+            const closeGenreModalButton = document.getElementById('closeGenreModal');
+            const genreListContainer = document.getElementById('genreListContainer'); // Определяем для custom
+
+            if (addGenreButton) addGenreButton.onclick = function() {
+                populateModalWithCheckboxes('genreListContainer', allGenresList, currentSelectedGenres, 'genre');
+                if (genreModalElement) genreModalElement.style.display = 'block';
+            }
+            if (closeGenreModalButton) closeGenreModalButton.onclick = function() { if (genreModalElement) genreModalElement.style.display = 'none'; }
+
+            // Теги (в Edit.cshtml)
+            const tagModalElement = document.getElementById('tagModal');
+            const addTagButton = document.getElementById('addTagBtn');
+            const closeTagModalButton = document.getElementById('closeTagModal');
+            const tagListContainer = document.getElementById('tagListContainer'); // Определяем для custom
+
+            if (addTagButton) addTagButton.onclick = function() {
+                populateModalWithCheckboxes('tagListContainer', allTagsList, currentSelectedTags, 'tag');
+                if (tagModalElement) tagModalElement.style.display = 'block';
+            }
+            if (closeTagModalButton) closeTagModalButton.onclick = function() { if (tagModalElement) tagModalElement.style.display = 'none'; }
+
+            // Сохранение жанров (в Edit.cshtml)
+            const saveGenreSelectionButton = document.getElementById('saveGenreSelectionBtn');
+            if (saveGenreSelectionButton) saveGenreSelectionButton.onclick = function() {
+                currentSelectedGenres = [];
+                document.querySelectorAll('#genreListContainer input[type="checkbox"]:checked').forEach(cb => {
+                    currentSelectedGenres.push(cb.value);
+                });
+                if (hiddenGenresField) hiddenGenresField.value = JSON.stringify(currentSelectedGenres);
+                if (genreModalElement) genreModalElement.style.display = 'none';
+                renderSelectedItemsAsBadges('selectedGenresContainer', currentSelectedGenres, hiddenGenresField, 'genre', allGenresList, currentSelectedGenres);
+                console.log('Selected Genres (Edit):', currentSelectedGenres);
+            }
+
+            // Сохранение тегов (в Edit.cshtml)
+            const saveTagSelectionButton = document.getElementById('saveTagSelectionBtn');
+            if (saveTagSelectionButton) saveTagSelectionButton.onclick = function() {
+                currentSelectedTags = [];
+                document.querySelectorAll('#tagListContainer input[type="checkbox"]:checked').forEach(cb => {
+                    currentSelectedTags.push(cb.value);
+                });
+                if (hiddenTagsField) hiddenTagsField.value = JSON.stringify(currentSelectedTags);
+                if (tagModalElement) tagModalElement.style.display = 'none';
+                renderSelectedItemsAsBadges('selectedTagsContainer', currentSelectedTags, hiddenTagsField, 'tag', allTagsList, currentSelectedTags);
+                console.log('Selected Tags (Edit):', currentSelectedTags);
+            }
+
+            // --- ЛОГИКА ДОБАВЛЕНИЯ CUSTOM ЭЛЕМЕНТОВ (Edit.cshtml) ---
+            const addCustomGenreBtn = document.getElementById('addCustomGenreBtn');
+            const customGenreInput = document.getElementById('customGenreInput');
+
+            if (addCustomGenreBtn) addCustomGenreBtn.onclick = function() {
+                const newGenre = customGenreInput.value.trim();
+                if (newGenre && !allGenresList.includes(newGenre)) {
+                    allGenresList.push(newGenre);
+                }
+                if (newGenre && !currentSelectedGenres.includes(newGenre)) {
+                     currentSelectedGenres.push(newGenre);
+                }
+                populateModalWithCheckboxes('genreListContainer', allGenresList, currentSelectedGenres, 'genre');
+                if(customGenreInput) customGenreInput.value = '';
+            };
+
+            const addCustomTagBtn = document.getElementById('addCustomTagBtn');
+            const customTagInput = document.getElementById('customTagInput');
+
+            if (addCustomTagBtn) addCustomTagBtn.onclick = function() {
+                const newTag = customTagInput.value.trim();
+                if (newTag && !allTagsList.includes(newTag)) {
+                    allTagsList.push(newTag);
+                }
+                if (newTag && !currentSelectedTags.includes(newTag)) {
+                    currentSelectedTags.push(newTag);
+                }
+                populateModalWithCheckboxes('tagListContainer', allTagsList, currentSelectedTags, 'tag');
+                if(customTagInput) customTagInput.value = '';
+            };
+            // --- КОНЕЦ ЛОГИКИ CUSTOM ЭЛЕМЕНТОВ ---
 
             // Закрытие модалки по клику вне контента
             window.onclick = function(event) {
-                if (event.target == genreModal) {
-                    genreModal.style.display = 'none';
+                if (event.target == genreModalElement) {
+                    if (genreModalElement) genreModalElement.style.display = 'none';
                 }
-                if (event.target == tagModal) {
-                    tagModal.style.display = 'none';
+                if (event.target == tagModalElement) {
+                    if (tagModalElement) tagModalElement.style.display = 'none';
                 }
             }
-            // Дальнейшая логика для заполнения модалок, выбора, сохранения будет здесь
         });
     </script>
 }

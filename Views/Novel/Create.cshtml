@@ -38,12 +38,11 @@
                     <span asp-validation-for="Description" class="text-danger"></span>
                 </div>
 
-                @* Поле для загрузки обложки будет добавлено на следующем шаге плана *@
                 <div class="form-group mb-3">
-                    <label asp-for="Covers" class="control-label">Обложка (файл)</label>
-                    <input asp-for="Covers" class="form-control" disabled="disabled" /> @* Пока оставим так, потом заменим на file input *@
-                    <span asp-validation-for="Covers" class="text-danger"></span>
-                    <small class="form-text text-muted">Функционал загрузки обложки будет добавлен позже.</small>
+                    <label asp-for="CoverFile" class="control-label"></label>
+                    <input asp-for="CoverFile" type="file" class="form-control" accept="image/jpeg, image/png, image/gif, image/webp" />
+                    <span asp-validation-for="CoverFile" class="text-danger"></span>
+                    <small class="form-text text-muted">Выберите файл основной обложки (jpg, png, gif, webp).</small>
                 </div>
 
                 <div class="form-group mb-3">
@@ -147,32 +146,158 @@
 @section Scripts {
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            const allGenres = @Html.Raw(Json.Serialize(ViewData["AllGenres"] as List<string> ?? new List<string>()));
+            const allTags = @Html.Raw(Json.Serialize(ViewData["AllTags"] as List<string> ?? new List<string>()));
+
+            let selectedGenres = [];
+            let selectedTags = [];
+
+            const hiddenGenresInput = document.getElementById('Genres'); // Скрытое поле asp-for="Genres"
+            const hiddenTagsInput = document.getElementById('Tags');   // Скрытое поле asp-for="Tags"
+
+            // --- НОВАЯ ФУНКЦИЯ RENDER BADGES ---
+            function renderSelectedItemsAsBadges(containerId, selectedArray, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                container.innerHTML = ''; // Очищаем контейнер
+
+                selectedArray.forEach(item => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-secondary me-1 mb-1'; // Используем Bootstrap классы для примера
+                    badge.textContent = item;
+
+                    const removeBtn = document.createElement('span');
+                    removeBtn.innerHTML = '&times;';
+                    removeBtn.className = 'ms-1 fw-bold';
+                    removeBtn.style.cursor = 'pointer';
+                    removeBtn.onclick = function() {
+                        // Удаляем из глобального массива выбранных
+                        const index = globalSelectedArrayRef.indexOf(item);
+                        if (index > -1) {
+                            globalSelectedArrayRef.splice(index, 1);
+                        }
+                        // Обновляем скрытое поле
+                        if (hiddenInputElement) hiddenInputElement.value = JSON.stringify(globalSelectedArrayRef);
+                        // Перерисовываем плашки
+                        renderSelectedItemsAsBadges(containerId, globalSelectedArrayRef, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef);
+                    };
+
+                    badge.appendChild(removeBtn);
+                    container.appendChild(badge);
+                });
+            }
+            // --- КОНЕЦ НОВОЙ ФУНКЦИИ RENDER BADGES ---
+
+            function populateModalWithCheckboxes(containerId, items, selectedItemsArray, type) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                container.innerHTML = ''; // Очистить перед заполнением
+                items.forEach(item => {
+                    const checkboxId = `${type}-${item.replace(/\s+/g, '-')}`; // Создаем уникальный ID
+                    const isChecked = selectedItemsArray.includes(item);
+                    container.innerHTML += `
+                        <div>
+                            <input type="checkbox" id="${checkboxId}" name="${type}" value="${item}" ${isChecked ? 'checked' : ''}>
+                            <label for="${checkboxId}">${item}</label>
+                        </div>`;
+                });
+            }
+
             // Жанры
             const genreModal = document.getElementById('genreModal');
             const addGenreBtn = document.getElementById('addGenreBtn');
             const closeGenreModal = document.getElementById('closeGenreModal');
+            const genreListContainer = document.getElementById('genreListContainer');
 
-            if (addGenreBtn) addGenreBtn.onclick = function() { genreModal.style.display = 'block'; }
-            if (closeGenreModal) closeGenreModal.onclick = function() { genreModal.style.display = 'none'; }
+            if (addGenreBtn) addGenreBtn.onclick = function() {
+                populateModalWithCheckboxes('genreListContainer', allGenres, selectedGenres, 'genre');
+                if (genreModal) genreModal.style.display = 'block';
+            }
+            if (closeGenreModal) closeGenreModal.onclick = function() { if (genreModal) genreModal.style.display = 'none'; }
 
             // Теги
             const tagModal = document.getElementById('tagModal');
             const addTagBtn = document.getElementById('addTagBtn');
             const closeTagModal = document.getElementById('closeTagModal');
+            const tagListContainer = document.getElementById('tagListContainer');
 
-            if (addTagBtn) addTagBtn.onclick = function() { tagModal.style.display = 'block'; }
-            if (closeTagModal) closeTagModal.onclick = function() { tagModal.style.display = 'none'; }
+            if (addTagBtn) addTagBtn.onclick = function() {
+                populateModalWithCheckboxes('tagListContainer', allTags, selectedTags, 'tag');
+                if (tagModal) tagModal.style.display = 'block';
+            }
+            if (closeTagModal) closeTagModal.onclick = function() { if (tagModal) tagModal.style.display = 'none'; }
+
+            // Сохранение жанров
+            const saveGenreSelectionBtn = document.getElementById('saveGenreSelectionBtn');
+            if (saveGenreSelectionBtn) saveGenreSelectionBtn.onclick = function() {
+                selectedGenres = [];
+                document.querySelectorAll('#genreListContainer input[type="checkbox"]:checked').forEach(cb => {
+                    selectedGenres.push(cb.value);
+                });
+                if (hiddenGenresInput) hiddenGenresInput.value = JSON.stringify(selectedGenres);
+                if (genreModal) genreModal.style.display = 'none';
+                renderSelectedItemsAsBadges('selectedGenresContainer', selectedGenres, hiddenGenresInput, 'genre', allGenres, selectedGenres);
+                console.log('Selected Genres:', selectedGenres);
+            }
+
+            // Сохранение тегов
+            const saveTagSelectionBtn = document.getElementById('saveTagSelectionBtn');
+            if (saveTagSelectionBtn) saveTagSelectionBtn.onclick = function() {
+                selectedTags = [];
+                document.querySelectorAll('#tagListContainer input[type="checkbox"]:checked').forEach(cb => {
+                    selectedTags.push(cb.value);
+                });
+                if (hiddenTagsInput) hiddenTagsInput.value = JSON.stringify(selectedTags);
+                if (tagModal) tagModal.style.display = 'none';
+                renderSelectedItemsAsBadges('selectedTagsContainer', selectedTags, hiddenTagsInput, 'tag', allTags, selectedTags);
+                console.log('Selected Tags:', selectedTags);
+            }
+
+            // --- ЛОГИКА ДОБАВЛЕНИЯ CUSTOM ЭЛЕМЕНТОВ ---
+            // Для Жанров
+            const addCustomGenreBtn = document.getElementById('addCustomGenreBtn');
+            const customGenreInput = document.getElementById('customGenreInput');
+            // genreListContainer уже определен выше
+
+            if (addCustomGenreBtn) addCustomGenreBtn.onclick = function() {
+                const newGenre = customGenreInput.value.trim();
+                if (newGenre && !allGenres.includes(newGenre)) {
+                    allGenres.push(newGenre);
+                }
+                if (newGenre && !selectedGenres.includes(newGenre)) {
+                     selectedGenres.push(newGenre);
+                }
+                populateModalWithCheckboxes('genreListContainer', allGenres, selectedGenres, 'genre');
+                if (customGenreInput) customGenreInput.value = '';
+            };
+
+            // Для Тегов
+            const addCustomTagBtn = document.getElementById('addCustomTagBtn');
+            const customTagInput = document.getElementById('customTagInput');
+            // tagListContainer уже определен выше
+
+            if (addCustomTagBtn) addCustomTagBtn.onclick = function() {
+                const newTag = customTagInput.value.trim();
+                if (newTag && !allTags.includes(newTag)) {
+                    allTags.push(newTag);
+                }
+                if (newTag && !selectedTags.includes(newTag)) {
+                    selectedTags.push(newTag);
+                }
+                populateModalWithCheckboxes('tagListContainer', allTags, selectedTags, 'tag');
+                if (customTagInput) customTagInput.value = '';
+            };
+            // --- КОНЕЦ ЛОГИКИ CUSTOM ЭЛЕМЕНТОВ ---
 
             // Закрытие модалки по клику вне контента
             window.onclick = function(event) {
                 if (event.target == genreModal) {
-                    genreModal.style.display = 'none';
+                    if (genreModal) genreModal.style.display = 'none';
                 }
                 if (event.target == tagModal) {
-                    tagModal.style.display = 'none';
+                    if (tagModal) tagModal.style.display = 'none';
                 }
             }
-            // Дальнейшая логика для заполнения модалок, выбора, сохранения будет здесь
         });
     </script>
 }
