@@ -51,6 +51,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<FileService>();
 var app = builder.Build();
 
 app.UseStaticFiles();
