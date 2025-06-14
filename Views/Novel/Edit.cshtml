@@ -1,106 +1,192 @@
-﻿@model BulbaLib.Models.Novel
+@model BulbaLib.Models.NovelEditModel // Предполагаем, что для редактирования будет своя модель NovelEditModel
 @{
-    ViewData["Title"] = "Редактировать новеллу";
+    Layout = null; // Отключаем основной Layout
+    ViewData["Title"] = "Редактирование новеллы";
 }
-@{
-    Layout = "~/Views/Shared/_Layout.cshtml";
-}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]: @Model.Title - BulbaLib</title>
+    @* <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" /> *@
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/novel_form.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="container">
+        <main role="main" class="pb-3">
 
-<h2>@ViewData["Title"]: @Model.Title</h2>
+            <h2>@ViewData["Title"]: @Model.Title</h2>
 
-<form asp-action="Edit" asp-route-id="@Model.Id" method="post">
-    @Html.AntiForgeryToken()
-    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <form asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <input type="hidden" asp-for="Id" />
 
-    @* Hidden input for Id to ensure it's posted back, though it's also in the route *@
-    <input type="hidden" asp-for="Id" />
-    @* Date is preserved server-side, no need for it in the form unless you want to display it as read-only *@
-    @* AuthorId and TranslatorId are also handled server-side based on roles/permissions *@
+                <div class="form-group mb-3">
+                    <label asp-for="Title" class="control-label">Название новеллы</label>
+                    <input asp-for="Title" class="form-control" />
+                    <span asp-validation-for="Title" class="text-danger"></span>
+                </div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Title" class="control-label"></label>
-        <input asp-for="Title" class="form-control" />
-        <span asp-validation-for="Title" class="text-danger"></span>
+                <div class="form-group mb-3">
+                    <label asp-for="Description" class="control-label">Описание</label>
+                    <textarea asp-for="Description" class="form-control" rows="5"></textarea>
+                    <span asp-validation-for="Description" class="text-danger"></span>
+                </div>
+
+                @* Поле для управления обложками будет доработано *@
+                <div class="form-group mb-3">
+                    <label asp-for="Covers" class="control-label">Обложки</label>
+                    <input asp-for="Covers" class="form-control" disabled="disabled" /> @* Заглушка *@
+                    <span asp-validation-for="Covers" class="text-danger"></span>
+                    <small class="form-text text-muted">Функционал управления обложками будет добавлен позже.</small>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="Genres" class="control-label"></label>
+                    @* Новый интерфейс выбора жанров будет здесь *@
+                    <div id="selectedGenresContainer" class="mt-2"></div> @* Контейнер для отображения выбранных жанров *@
+                    <button type="button" id="addGenreBtn" class="btn btn-sm btn-primary mt-1">Добавить жанр</button>
+                    <input type="hidden" asp-for="Genres" /> @* Скрытое поле для отправки данных *@
+                    <span asp-validation-for="Genres" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="Tags" class="control-label"></label>
+                    @* Новый интерфейс выбора тегов будет здесь *@
+                    <div id="selectedTagsContainer" class="mt-2"></div> @* Контейнер для отображения выбранных тегов *@
+                    <button type="button" id="addTagBtn" class="btn btn-sm btn-primary mt-1">Добавить тег</button>
+                    <input type="hidden" asp-for="Tags" /> @* Скрытое поле для отправки данных *@
+                    <span asp-validation-for="Tags" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="Type" class="control-label"></label>
+                    <select asp-for="Type" class="form-control">
+                        <option value="">-- Выберите тип --</option>
+                        <option value="Япония">Япония</option>
+                        <option value="Корея">Корея</option>
+                        <option value="Китай">Китай</option>
+                        <option value="Английский">Английский</option>
+                        <option value="Авторский">Авторский</option>
+                        <option value="Фанфик">Фанфик</option>
+                    </select>
+                    <span asp-validation-for="Type" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="Format" class="control-label"></label>
+                    <select asp-for="Format" class="form-control">
+                        <option value="">-- Выберите формат --</option>
+                        <option value="Веб">Веб</option>
+                        <option value="Лайт">Лайт</option>
+                    </select>
+                    <span asp-validation-for="Format" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="ReleaseYear" class="control-label">Год релиза</label>
+                    <input asp-for="ReleaseYear" type="number" class="form-control" />
+                    <span asp-validation-for="ReleaseYear" class="text-danger"></span>
+                    <small class="form-text text-muted">Укажите год релиза (4 цифры, например, 2023). Год должен быть не ранее 1900 и не позднее 2099.</small>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="AlternativeTitles" class="control-label">Альтернативные названия</label>
+                    <textarea asp-for="AlternativeTitles" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="AlternativeTitles" class="text-danger"></span>
+                    <small class="form-text text-muted">Каждое альтернативное название вводите с новой строки.</small>
+                </div>
+
+                @* Отображение AuthorId и TranslatorId, если это необходимо *@
+                @if (Model.AuthorId.HasValue)
+                {
+                    <div class="form-group mb-3">
+                        <label class="control-label">ID Автора</label>
+                        <input type="text" class="form-control" value="@Model.AuthorId.Value" readonly />
+                    </div>
+                }
+                 <div class="form-group mb-3">
+                        <label asp-for="AuthorLogin" class="control-label">Логин автора</label>
+                        <input asp-for="AuthorLogin" class="form-control" readonly />
+                    </div>
+
+
+                <div class="form-group mt-3">
+                    <input type="submit" value="Сохранить изменения" class="btn btn-success" />
+                    <a asp-controller="NovelView" asp-action="Details" asp-route-id="@Model.Id" class="btn btn-secondary">Отмена</a>
+                </div>
+            </form>
+        </main>
     </div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Description" class="control-label"></label>
-        <textarea asp-for="Description" class="form-control" rows="5"></textarea>
-        <span asp-validation-for="Description" class="text-danger"></span>
-    </div>
+    @* <script src="~/lib/jquery/dist/jquery.min.js"></script>
+       <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script> *@
+    <script src="~/js/site.js" asp-append-version="true"></script>
 
-    <div class="form-group mb-3">
-        <label asp-for="Covers" class="control-label">Обложки (JSON массив URL)</label>
-        <input asp-for="Covers" class="form-control" />
-        <span asp-validation-for="Covers" class="text-danger"></span>
-        <small class="form-text text-muted">Пример: ["/uploads/default.jpg", "/uploads/cover2.png"]</small>
+@* Модальное окно для Жанров *@
+<div id="genreModal" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.4);">
+    <div class="modal-content" style="background-color:#fefefe; margin:15% auto; padding:20px; border:1px solid #888; width:80%; max-width:500px; border-radius:8px;">
+        <span class="close-btn" id="closeGenreModal" style="color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;">&times;</span>
+        <h4>Выберите или добавьте жанры</h4>
+        <div id="genreListContainer" style="max-height: 200px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #ccc; padding: 10px;">
+            @* Сюда будут загружаться чекбоксы с жанрами *@
+        </div>
+        <input type="text" id="customGenreInput" placeholder="Добавить свой жанр" class="form-control mb-2" />
+        <button type="button" id="addCustomGenreBtn" class="btn btn-sm btn-secondary">Добавить свой</button>
+        <button type="button" id="saveGenreSelectionBtn" class="btn btn-sm btn-success float-end">Сохранить выбор</button>
     </div>
+</div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Genres" class="control-label"></label>
-        <input asp-for="Genres" class="form-control" />
-        <span asp-validation-for="Genres" class="text-danger"></span>
-        <small class="form-text text-muted">Жанры через запятую</small>
+@* Модальное окно для Тегов *@
+<div id="tagModal" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.4);">
+    <div class="modal-content" style="background-color:#fefefe; margin:15% auto; padding:20px; border:1px solid #888; width:80%; max-width:500px; border-radius:8px;">
+        <span class="close-btn" id="closeTagModal" style="color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;">&times;</span>
+        <h4>Выберите или добавьте теги</h4>
+        <div id="tagListContainer" style="max-height: 200px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #ccc; padding: 10px;">
+            @* Сюда будут загружаться чекбоксы с тегами *@
+        </div>
+        <input type="text" id="customTagInput" placeholder="Добавить свой тег" class="form-control mb-2" />
+        <button type="button" id="addCustomTagBtn" class="btn btn-sm btn-secondary">Добавить свой</button>
+        <button type="button" id="saveTagSelectionBtn" class="btn btn-sm btn-success float-end">Сохранить выбор</button>
     </div>
+</div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Tags" class="control-label"></label>
-        <input asp-for="Tags" class="form-control" />
-        <span asp-validation-for="Tags" class="text-danger"></span>
-        <small class="form-text text-muted">Теги через запятую</small>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Type" class="control-label"></label>
-        <select asp-for="Type" class="form-control">
-            <option value="">-- Выберите тип --</option>
-            <option value="Маньхуа">Маньхуа</option>
-            <option value="Манхва">Манхва</option>
-            <option value="Веб-комикс">Веб-комикс</option>
-            <option value="Комикс">Комикс</option>
-            <option value="Ранобэ">Ранобэ</option>
-            <option value="Новелла">Новелла</option>
-        </select>
-        <span asp-validation-for="Type" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Format" class="control-label"></label>
-        <select asp-for="Format" class="form-control">
-            <option value="">-- Выберите формат --</option>
-            <option value="4-кома">4-кома</option>
-            <option value="Дальней Восток">Дальней Восток</option>
-            <option value="Цветной">Цветной</option>
-            <option value="Вебтун">Вебтун</option>
-            <option value="Додзинси">Додзинси</option>
-            <option value="Индонезийский">Индонезийский</option>
-            <option value="Западный">Западный</option>
-            <option value="Европейский">Европейский</option>
-            <option value="Русский">Русский</option>
-        </select>
-        <span asp-validation-for="Format" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="ReleaseYear" class="control-label"></label>
-        <input asp-for="ReleaseYear" type="number" class="form-control" />
-        <span asp-validation-for="ReleaseYear" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="AlternativeTitles" class="control-label"></label>
-        <input asp-for="AlternativeTitles" class="form-control" />
-        <span asp-validation-for="AlternativeTitles" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mt-3">
-        <input type="submit" value="Сохранить изменения" class="btn btn-success" />
-        <a asp-controller="NovelView" asp-action="Details" asp-route-id="@Model.Id" class="btn btn-secondary">Отмена</a>
-    </div>
-</form>
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
 
 @section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Жанры
+            const genreModal = document.getElementById('genreModal');
+            const addGenreBtn = document.getElementById('addGenreBtn');
+            const closeGenreModal = document.getElementById('closeGenreModal');
+
+            if (addGenreBtn) addGenreBtn.onclick = function() { genreModal.style.display = 'block'; }
+            if (closeGenreModal) closeGenreModal.onclick = function() { genreModal.style.display = 'none'; }
+
+            // Теги
+            const tagModal = document.getElementById('tagModal');
+            const addTagBtn = document.getElementById('addTagBtn');
+            const closeTagModal = document.getElementById('closeTagModal');
+
+            if (addTagBtn) addTagBtn.onclick = function() { tagModal.style.display = 'block'; }
+            if (closeTagModal) closeTagModal.onclick = function() { tagModal.style.display = 'none'; }
+
+            // Закрытие модалки по клику вне контента
+            window.onclick = function(event) {
+                if (event.target == genreModal) {
+                    genreModal.style.display = 'none';
+                }
+                if (event.target == tagModal) {
+                    tagModal.style.display = 'none';
+                }
+            }
+            // Дальнейшая логика для заполнения модалок, выбора, сохранения будет здесь
+        });
+    </script>
 }
+</body>
+</html>

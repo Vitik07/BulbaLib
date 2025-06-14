@@ -5,11 +5,40 @@ using System.Security.Claims; // Added
 using Microsoft.AspNetCore.Authorization; // Added
 using System; // For DateTimeOffset, DateTime
 using System.Text.Json; // For JsonSerializer
+using System.Linq; // Added for LINQ operations
 
 namespace BulbaLib.Controllers
 {
     public class NovelViewController : Controller
     {
+        private static readonly List<string> AllGenres = new List<string>
+        {
+            "Арт", "Безумие", "Боевик", "Боевые искусства", "Вампиры", "Военное", "Гарем", "Гендерная интрига",
+            "Героическое фентези", "Демоны", "Детектив", "Дзёсэй", "Драма", "Игра", "Исекай", "История",
+            "Киберпанк", "Кодомо", "Комедия", "Космос", "Магия", "Махо-сёдзё", "Машины", "Меха", "Мистика",
+            "Музыка", "Научная фантастика", "Омегаверс", "Пародия", "Повседневность", "Постапокалиптика",
+            "Приключения", "Психология", "Романтика", "Самурайский боевик", "Сверхъестественное", "Сёдзё",
+            "Сёдзё-ай", "Сёнэн", "Сёнэн-ай", "Спорт", "Супер сила", "Сэйнэн", "Трагедия", "Триллер", "Ужасы",
+            "Фантастика", "Фэнтези", "Школа", "Эротика", "Этти", "Юри"
+        };
+
+        private static readonly List<string> AllTags = new List<string>
+        {
+            "Авантюристы", "Антигерой", "Бессмертные", "Боги", "Борьба за власть", "Брат и сестра", "Ведьма",
+            "Видеоигры", "Виртуальная реальность", "Владыка демонов", "Военные", "Воспоминания из другого мира",
+            "Выживание", "ГГ женщина", "ГГ имба", "ГГ мужчина", "ГГ не ояш", "ГГ не человек", "ГГ ояш",
+            "Главный герой бог", "Глупый ГГ", "Горничные", "Гуро", "Гяру", "Демоны", "Драконы", "Древний мир",
+            "Зверолюди", "Зомби", "Исторические", "Исторические фигуры", "Космос", "Кулинария", "Культивирование",
+            "ЛитРПГ", "Лоли", "Магия", "Машинный перевод", "Медицина", "Межгалактическая война", "Монстр девушки",
+            "Монстродевушки", "Монстры", "Мрачный мир", "Мурим", "Нетораре", "Ниндзя", "Обратный гарем",
+            "Офисные работники", "Пираты", "Подземелья", "Политика", "Полиция", "Полностью CGI", "Полноцветный",
+            "Преступники / Криминал", "Призраки / Духи", "Призыватели", "Прыжки между мирами",
+            "Путешествие в другой мир", "Путешествие во времени", "Рабы", "Ранги силы", "Регрессия", "Реинкарнация",
+            "Самураи", "Сёдзё-ай", "Сёнен-ай", "Скрытие личности", "Спортивное тело",
+            "Средневековье", "Традиционные игры", "Умный ГГ", "Фермерство", "Характерный рост", "Хикимори",
+            "Эволюция", "Элементы РПГ", "Эльфы", "Юри", "Якудза", "Яой"
+        };
+
         private readonly MySqlService _mySqlService;
         private readonly PermissionService _permissionService;
         private readonly ICurrentUserService _currentUserService;
@@ -88,6 +117,8 @@ namespace BulbaLib.Controllers
             {
                 return RedirectToAction("AccessDenied", "AuthView");
             }
+            ViewData["AllGenres"] = AllGenres;
+            ViewData["AllTags"] = AllTags;
             // Pass NovelCreateModel to the view
             return View("~/Views/Novel/Create.cshtml", new NovelCreateModel { Covers = "[]" });
         }
@@ -118,7 +149,9 @@ namespace BulbaLib.Controllers
                     Type = model.Type,
                     Format = model.Format,
                     ReleaseYear = model.ReleaseYear,
-                    AlternativeTitles = model.AlternativeTitles,
+                    AlternativeTitles = string.IsNullOrWhiteSpace(model.AlternativeTitles) ?
+                                        null :
+                                        JsonSerializer.Serialize(model.AlternativeTitles.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList()),
                     RelatedNovelIds = model.RelatedNovelIds,
                     Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                     AuthorId = _currentUserService.GetCurrentUserId() // Set AuthorId from current user
@@ -190,7 +223,9 @@ namespace BulbaLib.Controllers
                 Type = novel.Type,
                 Format = novel.Format,
                 ReleaseYear = novel.ReleaseYear,
-                AlternativeTitles = novel.AlternativeTitles,
+                AlternativeTitles = string.IsNullOrWhiteSpace(novel.AlternativeTitles) ?
+                                    null :
+                                    string.Join("\n", JsonSerializer.Deserialize<List<string>>(novel.AlternativeTitles) ?? new List<string>()),
                 RelatedNovelIds = novel.RelatedNovelIds,
                 AuthorId = novel.AuthorId
             };
@@ -199,6 +234,8 @@ namespace BulbaLib.Controllers
                 var authorUser = _mySqlService.GetUser(novel.AuthorId.Value);
                 novelEditModel.AuthorLogin = authorUser?.Login;
             }
+            ViewData["AllGenres"] = AllGenres;
+            ViewData["AllTags"] = AllTags;
             return View("~/Views/NovelView/Edit.cshtml", novelEditModel);
         }
 
@@ -239,7 +276,9 @@ namespace BulbaLib.Controllers
                     Type = model.Type,
                     Format = model.Format,
                     ReleaseYear = model.ReleaseYear,
-                    AlternativeTitles = model.AlternativeTitles,
+                    AlternativeTitles = string.IsNullOrWhiteSpace(model.AlternativeTitles) ?
+                                        null :
+                                        JsonSerializer.Serialize(model.AlternativeTitles.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList()),
                     RelatedNovelIds = model.RelatedNovelIds,
                     AuthorId = originalNovel.AuthorId, // Preserve original AuthorId
                     Date = originalNovel.Date, // Preserve original creation date

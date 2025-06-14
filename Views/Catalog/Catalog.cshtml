@@ -1,105 +1,229 @@
-﻿@model BulbaLib.Models.NovelCreateModel
 @{
-    ViewData["Title"] = "Добавить новеллу";
+    ViewData["Title"] = "Каталог новелл";
+    Layout = null;
 }
-@* It's good practice to put Layout assignment in _ViewStart.cshtml or specify it here if not using a global layout *@
-@{
-    Layout = "~/Views/Shared/_Layout.cshtml";
-}
-
-
-<h2>@ViewData["Title"]</h2>
-
-<form asp-action="Create" method="post">
-    @Html.AntiForgeryToken()
-    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Title" class="control-label"></label>
-        <input asp-for="Title" class="form-control" />
-        <span asp-validation-for="Title" class="text-danger"></span>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>Каталог новелл — BulbaLib</title>
+    <link rel="stylesheet" href="~/css/Catalog.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+</head>
+<body>
+    <div class="novel-header-bar">
+        <div class="header-logo-btn" onclick="window.location.href='/'" role="button" tabindex="0" aria-label="К главной">
+            <img src="/favicon.ico" alt="logo" />
+            <span class="header-logo-text">BulbaLib</span>
+        </div>
     </div>
+    <main>
+        <div class="catalog-main-bg">
+            <div class="catalog-main-container">
+                <div class="catalog-title-container" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h1 class="catalog-title">Каталог новелл</h1>
+                    @if (User.IsInRole("Admin") || User.IsInRole("Author"))
+                    {
+                        <a href="@Url.Action("Create", "NovelView")" class="btn btn-primary" style="margin-left: 20px; text-decoration: none; padding: 10px 15px; background-color: #007bff; color: white; border-radius: 5px;">Добавить новеллу</a>
+                    }
+                </div>
+                <div class="catalog-filters">
+                    <input id="searchInput" type="text" placeholder="Поиск по названию..." />
+                    <select id="sortSelect">
+                        <option value="title_asc">Название (А-Я)</option>
+                        <option value="title_desc">Название (Я-А)</option>
+                    </select>
+                    <select id="genreSelect">
+                        <option value="">Все жанры</option>
+                    </select>
+                    <select id="tagSelect">
+                        <option value="">Все теги</option>
+                    </select>
+                </div>
+                <div class="novel-list-outer">
+                    <div class="novel-list" id="novelList"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script>
+        const baseUrl = window.location.origin;
 
-    <div class="form-group mb-3">
-        <label asp-for="Description" class="control-label"></label>
-        <textarea asp-for="Description" class="form-control" rows="5"></textarea>
-        <span asp-validation-for="Description" class="text-danger"></span>
-    </div>
+        function calculateSearchScore(novelTitle, term) {
+            novelTitle = novelTitle.toLowerCase();
+            term = term.toLowerCase();
 
-    <div class="form-group mb-3">
-        <label asp-for="Covers" class="control-label">Обложки (JSON массив URL)</label>
-        <input asp-for="Covers" class="form-control" value="[]" />
-        <span asp-validation-for="Covers" class="text-danger"></span>
-        <small class="form-text text-muted">Пример: ["/uploads/default.jpg"]</small>
-    </div>
+            let scores = {
+                totalScore: 0,
+                exactMatchBonus: 0,
+                startWordBonus: 0,
+                sequentialBonus: 0,
+                charCountBonus: 0
+            };
 
-    <div class="form-group mb-3">
-        <label asp-for="Genres" class="control-label"></label>
-        <input asp-for="Genres" class="form-control" />
-        <span asp-validation-for="Genres" class="text-danger"></span>
-        <small class="form-text text-muted">Жанры через запятую, например: Экшен, Приключения</small>
-    </div>
+            const idx = novelTitle.indexOf(term);
+            if (idx !== -1) {
+                scores.exactMatchBonus = 10000 / (1 + idx);
+            }
 
-    <div class="form-group mb-3">
-        <label asp-for="Tags" class="control-label"></label>
-        <input asp-for="Tags" class="form-control" />
-        <span asp-validation-for="Tags" class="text-danger"></span>
-        <small class="form-text text-muted">Теги через запятую, например: ГГ мужчина, Культивация</small>
-    </div>
+            const words = novelTitle.split(/[\s-_]+/);
+            for (const word of words) {
+                if (word.startsWith(term)) {
+                    scores.startWordBonus += 5000;
+                }
+            }
 
-    <div class="form-group mb-3">
-        <label asp-for="Type" class="control-label"></label>
-        <select asp-for="Type" class="form-control">
-            <option value="">-- Выберите тип --</option>
-            <option value="Маньхуа">Маньхуа</option>
-            <option value="Манхва">Манхва</option>
-            <option value="Веб-комикс">Веб-комикс</option>
-            <option value="Комикс">Комикс</option>
-            <option value="Ранобэ">Ранобэ</option>
-            <option value="Новелла">Новелла</option>
-        </select>
-        <span asp-validation-for="Type" class="text-danger"></span>
-    </div>
+            let maxSequentialScore = 0;
+            if (term.length > 0) {
+                for (let i = 0; i < novelTitle.length; i++) {
+                    let currentSequentialScore = 0;
+                    let termCharIndex = 0;
+                    let continuityBonus = 1.0;
+                    for (let j = i; j < novelTitle.length && termCharIndex < term.length; j++) {
+                        if (novelTitle[j] === term[termCharIndex]) {
+                            let charScore = (100 + (termCharIndex * 50)) / (1 + j);
+                            currentSequentialScore += charScore * continuityBonus;
+                            continuityBonus *= 1.5;
+                            termCharIndex++;
+                        }
+                    }
+                    if (termCharIndex > 0) {
+                        maxSequentialScore = Math.max(maxSequentialScore, currentSequentialScore);
+                    }
+                }
+            }
+            scores.sequentialBonus = maxSequentialScore;
 
-    <div class="form-group mb-3">
-        <label asp-for="Format" class="control-label"></label>
-        <select asp-for="Format" class="form-control">
-            <option value="">-- Выберите формат --</option>
-            <option value="4-кома">4-кома</option>
-            <option value="Дальней Восток">Дальней Восток</option>
-            <option value="Цветной">Цветной</option>
-            <option value="Вебтун">Вебтун</option>
-            <option value="Додзинси">Додзинси</option>
-            <option value="Индонезийский">Индонезийский</option>
-            <option value="Западный">Западный</option>
-            <option value="Европейский">Европейский</option>
-            <option value="Русский">Русский</option>
-        </select>
-        <span asp-validation-for="Format" class="text-danger"></span>
-    </div>
+            const uniqueTermChars = new Set(term.split(''));
+            let foundCharsBonus = 0;
+            if (term.length > 0) {
+                for (const char of uniqueTermChars) {
+                    if (char === '') continue;
+                    let occurrences = 0;
+                    for (let k = 0; k < novelTitle.length; k++) {
+                        if (novelTitle[k] === char) {
+                            occurrences++;
+                        }
+                    }
+                    foundCharsBonus += occurrences * 3;
+                }
+            }
+            scores.charCountBonus = foundCharsBonus;
 
-    <div class="form-group mb-3">
-        <label asp-for="ReleaseYear" class="control-label"></label>
-        <input asp-for="ReleaseYear" type="number" class="form-control" />
-        <span asp-validation-for="ReleaseYear" class="text-danger"></span>
-    </div>
+            scores.totalScore = scores.exactMatchBonus + scores.startWordBonus + scores.sequentialBonus + scores.charCountBonus;
 
-    <div class="form-group mb-3">
-        <label asp-for="AlternativeTitles" class="control-label"></label>
-        <input asp-for="AlternativeTitles" class="form-control" />
-        <span asp-validation-for="AlternativeTitles" class="text-danger"></span>
-    </div>
+            return scores;
+        }
 
-    @* AuthorId and TranslatorId are set server-side based on the user's role or future UI enhancements *@
+        async function loadGenres() {
+            const res = await fetch(`${baseUrl}/api/catalog/genres`);
+            const genres = await res.json();
+            const genreSelect = document.getElementById('genreSelect');
+            genreSelect.innerHTML = `<option value="">Все жанры</option>`;
+            genres.forEach(g => {
+                genreSelect.innerHTML += `<option value="${g}">${g}</option>`;
+            });
+        }
+        async function loadTags() {
+            const res = await fetch(`${baseUrl}/api/catalog/tags`);
+            const tags = await res.json();
+            const tagSelect = document.getElementById('tagSelect');
+            tagSelect.innerHTML = `<option value="">Все теги</option>`;
+            tags.forEach(t => {
+                tagSelect.innerHTML += `<option value="${t}">${t}</option>`;
+            });
+        }
 
-    <div class="form-group mt-3">
-        <input type="submit" value="Сохранить" class="btn btn-success" />
-        <a asp-controller="CatalogView" asp-action="Index" class="btn btn-secondary">Отмена</a>
-    </div>
-</form>
+        async function loadCatalog() {
+            const params = new URLSearchParams();
+            params.append("sort", document.getElementById('sortSelect').value);
+            if (document.getElementById('genreSelect').value)
+                params.append("genre", document.getElementById('genreSelect').value);
+            if (document.getElementById('tagSelect').value)
+                params.append("tag", document.getElementById('tagSelect').value);
 
-@section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
-}
+            const res = await fetch(`${baseUrl}/api/catalog?${params.toString()}`);
+            const novelsFromServer = await res.json();
+
+            const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+            let novelsToRender = novelsFromServer;
+
+            if (searchTerm) {
+                const novelScores = novelsFromServer.map(novel => ({
+                    novel: novel,
+                    scores: calculateSearchScore(novel.title, searchTerm)
+                }));
+
+                let relevantNovels = novelScores.filter(item => item.scores.totalScore > 0);
+
+                const maxTotalScore = relevantNovels.length > 0 ? Math.max(...relevantNovels.map(item => item.scores.totalScore)) : 0;
+
+                const strongMatches = relevantNovels.filter(item => item.scores.exactMatchBonus > 0 || item.scores.startWordBonus > 0);
+
+                let finalFilteredNovelScores;
+                if (strongMatches.length > 0) {
+                    finalFilteredNovelScores = strongMatches;
+                } else {
+                    if (maxTotalScore > 0 && relevantNovels.length > 0) {
+                        finalFilteredNovelScores = relevantNovels.filter(item => item.scores.totalScore >= maxTotalScore * 0.40);
+                    } else {
+                        finalFilteredNovelScores = [];
+                    }
+                }
+
+                const sortedScoredNovels = finalFilteredNovelScores.sort((a, b) => b.scores.totalScore - a.scores.totalScore);
+
+                novelsToRender = sortedScoredNovels.map(item => item.novel);
+            }
+            renderNovels(novelsToRender);
+        }
+
+        function getLastCover(novel) {
+            if (Array.isArray(novel.covers) && novel.covers.length)
+                return novel.covers[novel.covers.length - 1];
+            return '/img/no-cover.png'; // Убедитесь, что такой путь к заглушке существует или укажите правильный
+        }
+
+        function renderNovels(novels) {
+            const list = document.getElementById('novelList');
+            list.innerHTML = '';
+            if (!novels.length) {
+                list.innerHTML = '<div class="novel-empty">Новеллы не найдены</div>';
+                return;
+            }
+            novels.forEach(novel => {
+                const card = document.createElement('div');
+                card.className = 'novel-card';
+                card.onclick = () => window.location.href = `/novel/${novel.id}`; // Убедитесь, что novel.id доступен и корректен
+                card.innerHTML = `
+                                    <div class="novel-cover-wrap">
+                                        <img class="novel-cover" src="${getLastCover(novel)}" alt="${novel.title}">
+                                    </div>
+                                    <div class="novel-info">
+                                        <div class="novel-title" title="${novel.title}">${novel.title}</div>
+                                        <div class="novel-meta">
+                                            ${(novel.releaseYear ? `<span class="novel-meta-item"><i class="fa-solid fa-calendar"></i> ${novel.releaseYear}</span>` : '')}
+                                            ${(novel.type ? `<span class="novel-meta-item"><i class="fa-solid fa-book"></i> ${novel.type}</span>` : '')}
+                                            ${(novel.format ? `<span class="novel-meta-item"><i class="fa-solid fa-file-lines"></i> ${novel.format}</span>` : '')}
+                                        </div>
+                                    </div>
+                                `;
+                list.appendChild(card);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGenres();
+            loadTags();
+            loadCatalog();
+
+            document.getElementById('searchInput').addEventListener('input', () => loadCatalog());
+            document.getElementById('sortSelect').addEventListener('change', () => loadCatalog());
+            document.getElementById('genreSelect').addEventListener('change', () => loadCatalog());
+            document.getElementById('tagSelect').addEventListener('change', () => loadCatalog());
+        });
+    </script>
+</body>
+</html>
