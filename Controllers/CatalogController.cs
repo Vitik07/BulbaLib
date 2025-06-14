@@ -24,7 +24,7 @@ namespace BulbaLib.Controllers
             [FromQuery] string genre = null,
             [FromQuery] string tag = null)
         {
-            var novels = _db.GetNovels(search);
+            var novels = _db.GetNovels(""); // Pass empty string to ignore search term for DB query
 
             // Фильтрация по жанру
             if (!string.IsNullOrWhiteSpace(genre))
