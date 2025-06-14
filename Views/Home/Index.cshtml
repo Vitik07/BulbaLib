@@ -74,6 +74,70 @@
     <script>
         const baseUrl = window.location.origin;
 
+function calculateSearchScore(novelTitle, term) {
+    let score = 0;
+    const lowerTitle = novelTitle.toLowerCase();
+    const lowerTerm = term.toLowerCase();
+
+    if (!lowerTerm) return 0;
+
+    // A. Bonus for full substring match of term
+    const firstOccurrenceIndex = lowerTitle.indexOf(lowerTerm);
+    if (firstOccurrenceIndex !== -1) {
+        score += 10000 / (1 + firstOccurrenceIndex);
+    }
+
+    // B. Bonus for term matching the start of a word in novelTitle
+    const words = lowerTitle.split(/[\s-_:,.]+/); // Split by common delimiters
+    for (const word of words) {
+        if (word.startsWith(lowerTerm)) {
+            score += 5000;
+        }
+    }
+
+    // C. Bonus for sequential character matching of term in novelTitle
+    let maxSequentialScore = 0;
+    if (lowerTerm.length > 0) {
+        for (let i = 0; i < lowerTitle.length; i++) { // i is the starting position in novelTitle
+            let currentSequentialScore = 0;
+            let termCharIndex = 0;
+            let continuityBonus = 1.0;
+            // j iterates through novelTitle starting from i
+            for (let j = i; j < lowerTitle.length; j++) {
+                if (termCharIndex < lowerTerm.length && lowerTitle[j] === lowerTerm[termCharIndex]) {
+                    let charScore = (100 + (termCharIndex * 50)) / (1 + j);
+                    currentSequentialScore += charScore * continuityBonus;
+                    continuityBonus *= 1.5;
+                    termCharIndex++;
+                }
+            }
+            // Only update maxSequentialScore if at least one character was matched in this sequence attempt
+            if (termCharIndex > 0) {
+                 maxSequentialScore = Math.max(maxSequentialScore, currentSequentialScore);
+            }
+        }
+    }
+    score += maxSequentialScore;
+
+    // D. Bonus for count of unique term characters found in novelTitle
+    const uniqueTermChars = new Set(lowerTerm.split(''));
+    let foundCharsBonus = 0;
+    for (const char of uniqueTermChars) {
+        let countInTitle = 0;
+        for (let k = 0; k < lowerTitle.length; k++) { // loop variable k to avoid conflict with i,j
+            if (lowerTitle[k] === char) {
+                countInTitle++;
+            }
+        }
+        foundCharsBonus += countInTitle * 10;
+    }
+    score += foundCharsBonus;
+
+    // E. Multiplier for compactness - Skipped as per instructions
+
+    return score;
+}
+
         // ======= Profile (аватар и кнопка профиля) =======
         const profileAvatar = document.getElementById('profileAvatar');
         const profileButton = document.getElementById('profileButton');
@@ -141,9 +205,19 @@
                 searchResultsList.innerHTML = '';
                 return;
             }
-            const results = allNovels.filter(n => n.title.toLowerCase().includes(term));
+
+            const scoredNovels = allNovels.map(novel => ({
+                novel: novel,
+                score: calculateSearchScore(novel.title, term)
+            }));
+
+            const filteredNovels = scoredNovels.filter(item => item.score > 0);
+            const sortedNovels = filteredNovels.sort((a, b) => b.score - a.score);
+
             searchResultsList.innerHTML = '';
-            for (let novel of results.slice(0, 12)) {
+
+            for (let item of sortedNovels.slice(0, 12)) {
+                const novel = item.novel;
                 const card = document.createElement('div');
                 card.className = 'search-novel-card';
                 card.innerHTML = `
