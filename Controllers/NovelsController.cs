@@ -3,6 +3,7 @@ using BulbaLib.Services;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using BulbaLib.Models;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 
@@ -15,11 +16,27 @@ namespace BulbaLib.Controllers
     {
         private readonly MySqlService _db;
         private readonly IWebHostEnvironment _env;
+        private readonly PermissionService _permissionService;
 
-        public NovelsController(MySqlService db, IWebHostEnvironment env)
+        public NovelsController(MySqlService db, IWebHostEnvironment env, PermissionService permissionService)
         {
             _db = db;
             _env = env;
+            _permissionService = permissionService;
+        }
+
+        private User GetCurrentUser()
+        {
+            if (!User.Identity.IsAuthenticated)
+            {
+                return null;
+            }
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out int userId))
+            {
+                return null; // Or handle error appropriately
+            }
+            return _db.GetUser(userId);
         }
 
         // GET /api/novels?search=...
@@ -52,6 +69,15 @@ namespace BulbaLib.Controllers
             var novel = _db.GetNovel(id);
             if (novel == null)
                 return NotFound(new { error = "Новелла не найдена" });
+
+            var currentUser = GetCurrentUser();
+            // For API, we might not use ViewData directly, but the permission values could be returned in the response
+            bool canEdit = currentUser != null && _permissionService.CanEditNovel(currentUser, novel);
+            bool canDelete = currentUser != null && _permissionService.CanDeleteNovel(currentUser, novel);
+
+            // Example of adding to ViewData for server-side rendering (though this is an API controller)
+            ViewData["CanEditNovel"] = canEdit;
+            ViewData["CanDeleteNovel"] = canDelete;
 
             var chapters = _db.GetChaptersByNovel(id) ?? new List<Chapter>();
             int chapterCount = chapters.Count;
@@ -126,8 +152,24 @@ namespace BulbaLib.Controllers
 
         // POST /api/novels
         [HttpPost]
+        [Authorize] // Require authentication
         public IActionResult CreateNovel([FromBody] NovelCreateRequest req)
         {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null)
+            {
+                return Unauthorized(); // Should be caught by [Authorize] but good practice
+            }
+
+            // Permission check: CanAddNovelDirectly OR CanSubmitNovelForModeration
+            // For an API, we might simplify this. If CanAddNovelDirectly, it's direct.
+            // If CanSubmitNovelForModeration, the status of the novel should be 'PendingModeration'.
+            // This example assumes direct creation if allowed.
+            if (!_permissionService.CanAddNovelDirectly(currentUser) && !_permissionService.CanSubmitNovelForModeration(currentUser))
+            {
+                return Forbid();
+            }
+
             var novel = new Novel
             {
                 Title = req.Title,
@@ -149,11 +191,23 @@ namespace BulbaLib.Controllers
 
         // PUT /api/novels/{id}
         [HttpPut("{id}")]
+        [Authorize] // Require authentication
         public IActionResult UpdateNovel(int id, [FromBody] NovelUpdateRequest req)
         {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
             var novel = _db.GetNovel(id);
             if (novel == null)
                 return NotFound(new { error = "Novel not found" });
+
+            if (!_permissionService.CanEditNovel(currentUser, novel))
+            {
+                return Forbid();
+            }
 
             novel.Title = req.Title ?? novel.Title;
             novel.Description = req.Description ?? novel.Description;
@@ -174,8 +228,24 @@ namespace BulbaLib.Controllers
 
         // DELETE /api/novels/{id}
         [HttpDelete("{id}")]
+        [Authorize] // Require authentication
         public IActionResult DeleteNovel(int id)
         {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
+            var novel = _db.GetNovel(id);
+            if (novel == null)
+                return NotFound(new { error = "Novel not found" });
+
+            if (!_permissionService.CanDeleteNovel(currentUser, novel))
+            {
+                return Forbid();
+            }
+
             _db.DeleteNovel(id);
             return Ok(new { message = "Novel deleted" });
         }

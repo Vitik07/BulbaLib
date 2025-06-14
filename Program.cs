@@ -9,6 +9,7 @@ builder.Services.AddRazorPages();
 builder.Services.AddSingleton(new MySqlService(
     builder.Configuration.GetConnectionString("DefaultConnection")!
 ));
+builder.Services.AddSingleton<PermissionService>();
 
 builder.Services.AddCors(options =>
 {

@@ -23,6 +23,14 @@
         <div class="catalog-main-bg">
             <div class="catalog-main-container">
                 <h1 class="catalog-title">Каталог новелл</h1>
+
+                @if (ViewData["CanAddNewNovel"] != null && (bool)ViewData["CanAddNewNovel"])
+                {
+                    <div class="text-end mb-3"> @* Align button to the right, add margin *
+                        <a asp-controller="Novels" asp-action="Create" class="btn btn-primary">Добавить новеллу (+)</a>
+                    </div>
+                }
+
                 <div class="catalog-filters">
                     <input id="searchInput" type="text" placeholder="Поиск по названию..." />
                     <select id="sortSelect">

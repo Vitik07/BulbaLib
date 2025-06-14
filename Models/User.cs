@@ -9,5 +9,6 @@ namespace BulbaLib.Models
         public string Password { get; set; }
         public string Role { get; set; }
         public byte[] Avatar { get; set; }
+    public bool IsBlocked { get; set; }
     }
 }

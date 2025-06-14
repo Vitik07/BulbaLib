@@ -1,5 +1,14 @@
 ﻿using BulbaLib.Services;
 using Microsoft.AspNetCore.Mvc;
+using BulbaLib.Models; // Added
+using System.Security.Claims; // Added
+using Microsoft.AspNetCore.Authorization; // Added
+using System.IO; // For Path
+using System.Threading.Tasks; // For Task
+using Microsoft.AspNetCore.Http; // For IFormFile
+using System; // For DateTimeOffset, Guid
+using System.Collections.Generic; // For List
+using System.Linq; // For Select
 
 namespace BulbaLib.Controllers
 {
@@ -8,10 +17,26 @@ namespace BulbaLib.Controllers
     public class ChaptersController : ControllerBase
     {
         private readonly MySqlService _db;
+        private readonly PermissionService _permissionService; // Added
 
-        public ChaptersController(MySqlService db)
+        public ChaptersController(MySqlService db, PermissionService permissionService) // Modified
         {
             _db = db;
+            _permissionService = permissionService; // Added
+        }
+
+        private User GetCurrentUser() // Added
+        {
+            if (!User.Identity.IsAuthenticated)
+            {
+                return null;
+            }
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out int userId))
+            {
+                return null;
+            }
+            return _db.GetUser(userId);
         }
 
         // GET /api/chapters?novelId=... или /api/chapters?all=1
@@ -70,6 +95,20 @@ namespace BulbaLib.Controllers
             if (chapter == null)
                 return NotFound(new { error = "Глава не найдена" });
 
+            var novel = _db.GetNovel(chapter.NovelId);
+            if (novel == null)
+            {
+                // This case should ideally not happen if data integrity is maintained
+                return NotFound(new { error = "Родительская новелла для главы не найдена" });
+            }
+
+            var currentUser = GetCurrentUser();
+            bool canEdit = currentUser != null && _permissionService.CanEditChapter(currentUser, chapter, novel);
+            bool canDelete = currentUser != null && _permissionService.CanDeleteChapter(currentUser, chapter, novel);
+
+            ViewData["CanEditChapter"] = canEdit;
+            ViewData["CanDeleteChapter"] = canDelete;
+
             string chapterText = "";
             if (!string.IsNullOrEmpty(chapter.Content))
             {
@@ -98,10 +137,30 @@ namespace BulbaLib.Controllers
 
         // POST /api/chapters
         [HttpPost]
+        [Authorize]
         public IActionResult CreateChapter([FromBody] ChapterCreateRequest req)
         {
             if (req.NovelId == 0 || string.IsNullOrWhiteSpace(req.Number) || string.IsNullOrWhiteSpace(req.Title))
                 return BadRequest(new { error = "NovelId, number и title обязательны" });
+
+            var currentUser = GetCurrentUser();
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
+            var novel = _db.GetNovel(req.NovelId);
+            if (novel == null)
+            {
+                return BadRequest(new { error = "Новелла для добавления главы не найдена" });
+            }
+
+            // Permission Check
+            if (!_permissionService.CanAddChapterDirectly(currentUser) &&
+                !_permissionService.CanSubmitChapterForModeration(currentUser, novel))
+            {
+                return Forbid();
+            }
 
             var chapter = new Chapter
             {
@@ -117,11 +176,29 @@ namespace BulbaLib.Controllers
 
         // PUT /api/chapters/{id}
         [HttpPut("{id}")]
+        [Authorize]
         public IActionResult UpdateChapter(int id, [FromBody] ChapterUpdateRequest req)
         {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
             var chapter = _db.GetChapter(id);
             if (chapter == null)
                 return NotFound(new { error = "Chapter not found" });
+
+            var novel = _db.GetNovel(chapter.NovelId);
+            if (novel == null)
+            {
+                return NotFound(new { error = "Родительская новелла для главы не найдена" });
+            }
+
+            if (!_permissionService.CanEditChapter(currentUser, chapter, novel))
+            {
+                return Forbid();
+            }
 
             chapter.Number = req.Number ?? chapter.Number;
             chapter.Title = req.Title ?? chapter.Title;
@@ -132,13 +209,36 @@ namespace BulbaLib.Controllers
 
         // DELETE /api/chapters/{id}
         [HttpDelete("{id}")]
+        [Authorize]
         public IActionResult DeleteChapter(int id)
         {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
+            var chapter = _db.GetChapter(id);
+            if (chapter == null)
+                return NotFound(new { error = "Chapter not found" });
+
+            var novel = _db.GetNovel(chapter.NovelId);
+            if (novel == null)
+            {
+                return NotFound(new { error = "Родительская новелла для главы не найдена" });
+            }
+
+            if (!_permissionService.CanDeleteChapter(currentUser, chapter, novel))
+            {
+                return Forbid();
+            }
+
             _db.DeleteChapter(id);
             return Ok(new { message = "Chapter deleted" });
         }
 
         [HttpPost("{chapterId}/upload-image")]
+        [Authorize] // Also protect image uploads
         public async Task<IActionResult> UploadImage(int chapterId, IFormFile image)
         {
             if (image == null || image.Length == 0)

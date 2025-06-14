@@ -1,4 +1,5 @@
-﻿@{
+﻿@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+@{
     ViewData["Title"] = "Новелла";
     Layout = null;
 }
@@ -84,6 +85,7 @@
     </style>
 </head>
 <body>
+    <input type="hidden" id="RequestVerificationToken" name="__RequestVerificationToken" value="@Xsrf.GetAndStoreTokens(HttpContext).RequestToken" />
     <div class="novel-header-bar">
         <div class="header-logo-btn" onclick="goToMainMenu()" role="button" tabindex="0" aria-label="Перейти на главную">
             <img src="/favicon.ico" alt="logo" />
@@ -165,6 +167,19 @@
                     <div class="novel-tabs-content">
                         <div class="tab-pane" id="tab-description" style="display:block;">
                             <h1 class="novel-page-title novel-title"></h1>
+                            @if (ViewData["CanEditNovel"] != null && (bool)ViewData["CanEditNovel"])
+                            {
+                                <div class="mb-3"> @* Margin bottom for spacing *@
+                                    <a asp-controller="NovelView" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">Редактировать</a>
+                                </div>
+                            }
+                            @if (ViewData["CanDeleteNovel"] != null && (bool)ViewData["CanDeleteNovel"])
+                            {
+                                <form asp-controller="NovelView" asp-action="Delete" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить эту новеллу? Это действие необратимо.');" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-danger mb-3">Удалить</button>
+                                </form>
+                            }
                             <div class="novel-alt-title text-secondary" aria-label="Альтернативное название"></div>
                             <div class="novel-description" id="novel-description"></div>
                             <div class="novel-tags-block" aria-label="Информация о жанрах и тегах">
@@ -185,6 +200,12 @@
                             </div>
                         </div>
                         <div class="tab-pane" id="tab-chapters" style="display:none;">
+                            @if (ViewData["CanAddChapter"] != null && (bool)ViewData["CanAddChapter"])
+                            {
+                                <div class="text-end mb-3"> @* Align button to the right and add margin *
+                                    <a asp-controller="ChapterView" asp-action="Create" asp-route-novelId="@ViewData["NovelId"]" class="btn btn-success">Добавить главу (+)</a>
+                                </div>
+                            }
                             <div class="block-title" style="margin-top:0;">Список глав</div>
                             <div class="chapter-list" id="chapter-list"></div>
                         </div>
@@ -258,25 +279,24 @@
         }
 
         // --- renderNovel с поддержкой нескольких обложек ---
-        function renderNovel(novel) {
-            covers = Array.isArray(novel.covers) ? novel.covers : [];
+        function renderNovel(novelFromApi) { // Renamed to avoid confusion with global 'novel' if any
+            covers = Array.isArray(novelFromApi.covers) ? novelFromApi.covers : [];
             setSidebarCover(covers.length - 1);
 
-            // ... остальной renderNovel без изменений ...
             currentCoverIdx = covers.length ? covers.length - 1 : 0;
 
             document.getElementById('novel-cover-img').src = covers.length ? covers[currentCoverIdx] : '/img/no-cover.png';
-            document.getElementById('sidebar-type').textContent = novel.type || '-';
-            document.getElementById('sidebar-format').textContent = novel.format || '-';
-            document.getElementById('sidebar-release').textContent = novel.releaseYear ? novel.releaseYear + ' г.' : '-';
-            document.getElementById('sidebar-chapters').textContent = (novel.chapters && novel.chapters.length) || novel.chapterCount || '-';
+            document.getElementById('sidebar-type').textContent = novelFromApi.type || '-';
+            document.getElementById('sidebar-format').textContent = novelFromApi.format || '-';
+            document.getElementById('sidebar-release').textContent = novelFromApi.releaseYear ? novelFromApi.releaseYear + ' г.' : '-';
+            document.getElementById('sidebar-chapters').textContent = (novelFromApi.chapters && novelFromApi.chapters.length) || novelFromApi.chapterCount || '-';
 
             // --- Автор ---
             const authorRow = document.getElementById('novel-author-row');
             const authorSpan = document.getElementById('sidebar-author');
             authorRow.style.display = '';
-            if (novel.author && novel.author.id && novel.author.login) {
-                authorSpan.innerHTML = `<a href="/profile/${novel.author.id}" class="novel-author-link">${novel.author.login}</a>`;
+            if (novelFromApi.author && novelFromApi.author.id && novelFromApi.author.login) {
+                authorSpan.innerHTML = `<a href="/profile/${novelFromApi.author.id}" class="novel-author-link">${novelFromApi.author.login}</a>`;
             } else {
                 authorSpan.textContent = '-';
             }
@@ -285,8 +305,8 @@
             const translatorsRow = document.getElementById('novel-translators-row');
             const translatorsSpan = document.getElementById('sidebar-translators');
             translatorsRow.style.display = '';
-            if (novel.translators && Array.isArray(novel.translators) && novel.translators.length) {
-                translatorsSpan.innerHTML = novel.translators
+            if (novelFromApi.translators && Array.isArray(novelFromApi.translators) && novelFromApi.translators.length) {
+                translatorsSpan.innerHTML = novelFromApi.translators
                     .map(tr => `<a href="/profile/${tr.id}" class="novel-author-link">${tr.login}</a>`)
                     .join(', ');
             } else {
@@ -294,10 +314,10 @@
             }
 
             // Заголовки и описание
-            document.querySelector('.novel-page-title').textContent = novel.title || '';
-            document.querySelector('.novel-alt-title').textContent = novel.altTitle || '';
+            document.querySelector('.novel-page-title').textContent = novelFromApi.title || '';
+            document.querySelector('.novel-alt-title').textContent = novelFromApi.altTitle || ''; // Corrected from novel.altTitle
             const descBlock = document.getElementById('novel-description');
-            const fullDescription = novel.description || '';
+            const fullDescription = novelFromApi.description || '';
             const shortDesc = fullDescription.slice(0, 400);
 
             if (fullDescription.length > 400) {
@@ -312,29 +332,30 @@
 
             // Жанры
             const genresBlock = document.querySelector('.novel-genres');
-            genresBlock.innerHTML = (novel.genres || '')
+            genresBlock.innerHTML = (novelFromApi.genres || '')
                 .split(',')
                 .filter(Boolean)
                 .map(g => `<span class="novel-tag genre">${g.trim()}</span>`)
                 .join('');
             // Теги
             const tagsBlock = document.querySelector('.novel-tags');
-            tagsBlock.innerHTML = (novel.tags || '')
+            tagsBlock.innerHTML = (novelFromApi.tags || '')
                 .split(',')
                 .filter(Boolean)
                 .map(t => `<span class="novel-tag tag">#${t.trim()}</span>`)
                 .join('');
 
             // --- вкладка главы с отметкой закладки ---
-            renderChaptersWithBookmark(novel.chapters || []);
+            // Now passing the global chapterViewModels which has permission data
+            renderChaptersWithBookmark(chapterViewModels);
 
             // --- вкладка связанное ---
             let relatedIds = [];
-            if (novel.relatedNovelIds) {
-                if (Array.isArray(novel.relatedNovelIds)) {
-                    relatedIds = novel.relatedNovelIds;
-                } else if (typeof novel.relatedNovelIds === "string") {
-                    relatedIds = novel.relatedNovelIds.split(',').map(x => x.trim()).filter(Boolean);
+            if (novelFromApi.relatedNovelIds) {
+                if (Array.isArray(novelFromApi.relatedNovelIds)) {
+                    relatedIds = novelFromApi.relatedNovelIds;
+                } else if (typeof novelFromApi.relatedNovelIds === "string") {
+                    relatedIds = novelFromApi.relatedNovelIds.split(',').map(x => x.trim()).filter(Boolean);
                 }
             }
             renderRelatedNovels(relatedIds);
@@ -342,19 +363,19 @@
             // --- Обработка кнопки "Читать" с учетом закладки ---
             const readBtnText = document.getElementById('read-btn-text');
             const readBtn = document.getElementById('read-btn');
-            let chapterId = "";
+            let chapterIdToRead = ""; // Renamed to avoid conflict
 
-            if (novel.bookmarkChapterId && novel.bookmarkChapterId > 0) {
+            if (novelFromApi.bookmarkChapterId && novelFromApi.bookmarkChapterId > 0) {
                 readBtnText.textContent = 'Продолжить читать';
-                chapterId = novel.bookmarkChapterId;
-            } else if (novel.chapters && novel.chapters.length) {
+                chapterIdToRead = novelFromApi.bookmarkChapterId;
+            } else if (novelFromApi.chapters && novelFromApi.chapters.length) {
                 readBtnText.textContent = 'Начать читать';
-                chapterId = novel.chapters[0].id;
+                chapterIdToRead = novelFromApi.chapters[0].id;
             } else {
                 readBtnText.textContent = 'Начать читать';
-                chapterId = "";
+                // chapterIdToRead remains ""
             }
-            readBtn.dataset.chapterId = chapterId;
+            readBtn.dataset.chapterId = chapterIdToRead;
         }
 
         function toggleDesc() {
@@ -379,25 +400,51 @@
             document.getElementById('tab-chapters-btn').classList.toggle('active', tab === 'chapters');
         }
 
-        function renderChaptersWithBookmark(chapters) {
+        function renderChaptersWithBookmark(viewModels) { // Expects ChapterViewModel array
             const list = document.getElementById('chapter-list');
             list.innerHTML = '';
-            if (!chapters || !chapters.length) {
+
+            if (!viewModels || !viewModels.length) {
                 list.innerHTML = '<div style="color:#888;">Главы отсутствуют</div>';
                 return;
             }
-            for (const ch of chapters) {
+
+            for (const cvm of viewModels) {
+                const chapter = cvm.Chapter; // Actual chapter data from ViewModel
                 const el = document.createElement('div');
                 el.className = 'chapter-card';
+
+                let actionsHtml = '';
+                if (cvm.CanEdit) {
+                    actionsHtml += `<a href="/ChapterView/Edit/${chapter.Id}" class="btn btn-sm btn-warning ms-2">Редакт.</a>`;
+                }
+                if (cvm.CanDelete) {
+                    const requestVerificationToken = document.getElementById('RequestVerificationToken').value;
+                    actionsHtml += `<form action="/ChapterView/Delete/${chapter.Id}" method="post" class="d-inline" onsubmit="return confirm('Вы уверены, что хотите удалить эту главу?');">`;
+                    actionsHtml += `<input type="hidden" name="__RequestVerificationToken" value="${requestVerificationToken}" />`;
+                    actionsHtml += `<button type="submit" class="btn btn-sm btn-danger ms-2">Удал.</button></form>`;
+                }
+
+                let isBookmarked = false;
+                if (loadedNovel && loadedNovel.chapters) { // loadedNovel contains data from API
+                    const apiChapter = loadedNovel.chapters.find(apiCh => apiCh.id === chapter.Id);
+                    if (apiChapter) {
+                        isBookmarked = apiChapter.bookmarked;
+                    }
+                }
+
                 el.innerHTML = `
-                    <span class="chapter-number">${ch.number ? ch.number : ''}</span>
+                    <span class="chapter-number">${chapter.number ? chapter.number : ''}</span>
                     <span class="chapter-title">
-                        <a href="/chapter/${ch.id}" style="color:inherit;text-decoration:none;">
-                            ${ch.title || 'Без названия'}
+                        <a href="/chapter/${chapter.Id}" style="color:inherit;text-decoration:none;">
+                            ${chapter.title || 'Без названия'}
                         </a>
-                        ${ch.bookmarked ? '<i class="fa fa-bookmark" style="color:#fa6565;margin-left:6px;" title="Ваша закладка"></i>' : ''}
+                        ${isBookmarked ? '<i class="fa fa-bookmark" style="color:#fa6565;margin-left:6px;" title="Ваша закладка"></i>' : ''}
                     </span>
-                    ${ch.date ? `<span class="chapter-date">${formatChapterDate(ch.date)}</span>` : ''}
+                    <span class="chapter-actions">
+                        ${actionsHtml}
+                    </span>
+                    ${chapter.date ? `<span class="chapter-date">${formatChapterDate(chapter.date)}</span>` : ''}
                 `;
                 list.appendChild(el);
             }
@@ -497,9 +544,19 @@
         }
 
         // --- DOMContentLoaded основной (статусы, кнопки, тултипы и т.д.) ---
+        let chapterViewModels = []; // Initialize globally, will be populated by Razor
         document.addEventListener('DOMContentLoaded', async function () {
+            // Serialize ChapterViewModels from ViewData into the global JavaScript variable
+            @if (ViewData["ChapterViewModels"] != null)
+            {
+                // Ensure the output is valid JavaScript. JsonSerializer.Serialize is good.
+                <text>
+                chapterViewModels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewData["ChapterViewModels"]));
+                </text>
+            }
+
             const novelId = getNovelIdFromUrl();
-            await loadNovelData(novelId);
+            await loadNovelData(novelId); // This will use the global chapterViewModels via renderNovel -> renderChaptersWithBookmark
 
             // --- Статусы ---
             const statusDropdown = document.getElementById('status-dropdown');

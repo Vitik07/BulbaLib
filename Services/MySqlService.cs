@@ -5,6 +5,7 @@ using MySql.Data.MySqlClient;
 using System.IO;
 using System.Linq;
 using BulbaLib.Models;
+using System.Text.Json; // Added for potential JSON operations, though not strictly needed for current RequestData handling
 
 namespace BulbaLib.Services
 {
@@ -15,6 +16,66 @@ namespace BulbaLib.Services
         public MySqlService(string connectionString)
         {
             _connectionString = connectionString;
+            InitializeDatabaseSchema();
+        }
+
+        private void InitializeDatabaseSchema()
+        {
+            using var conn = GetConnection();
+            // Check and add IsBlocked column to Users table
+            try
+            {
+                using var cmdCheckUserColumn = conn.CreateCommand();
+                cmdCheckUserColumn.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Users' AND COLUMN_NAME = 'IsBlocked'";
+                var columnExists = Convert.ToInt32(cmdCheckUserColumn.ExecuteScalar()) > 0;
+                if (!columnExists)
+                {
+                    using var cmdAlterUser = conn.CreateCommand();
+                    cmdAlterUser.CommandText = "ALTER TABLE Users ADD COLUMN IsBlocked BOOLEAN DEFAULT FALSE";
+                    cmdAlterUser.ExecuteNonQuery();
+                }
+            }
+            catch (MySqlException ex)
+            {
+                // Log or handle exception (e.g., if permissions are insufficient)
+                Console.WriteLine($"Error checking/altering Users table: {ex.Message}");
+            }
+
+            // Check and create ModerationRequests table
+            try
+            {
+                using var cmdCheckTable = conn.CreateCommand();
+                cmdCheckTable.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ModerationRequests'";
+                var tableExists = Convert.ToInt32(cmdCheckTable.ExecuteScalar()) > 0;
+                if (!tableExists)
+                {
+                    using var cmdCreateTable = conn.CreateCommand();
+                    cmdCreateTable.CommandText = @"
+                        CREATE TABLE ModerationRequests (
+                            Id INT PRIMARY KEY AUTO_INCREMENT,
+                            RequestType VARCHAR(50) NOT NULL,
+                            UserId INT NOT NULL,
+                            NovelId INT NULL,
+                            ChapterId INT NULL,
+                            RequestData TEXT NULL,
+                            Status VARCHAR(50) NOT NULL,
+                            CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            ModeratorId INT NULL,
+                            ModerationComment TEXT NULL,
+                            UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            FOREIGN KEY (UserId) REFERENCES Users(Id),
+                            FOREIGN KEY (NovelId) REFERENCES Novels(Id) ON DELETE SET NULL,
+                            FOREIGN KEY (ChapterId) REFERENCES Chapters(Id) ON DELETE SET NULL,
+                            FOREIGN KEY (ModeratorId) REFERENCES Users(Id) ON DELETE SET NULL
+                        );";
+                    cmdCreateTable.ExecuteNonQuery();
+                }
+            }
+            catch (MySqlException ex)
+            {
+                // Log or handle exception
+                Console.WriteLine($"Error creating ModerationRequests table: {ex.Message}");
+            }
         }
 
         private MySqlConnection GetConnection()
@@ -38,7 +99,7 @@ namespace BulbaLib.Services
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "INSERT INTO Users (Login, Password, Role, Avatar) VALUES (@login, @password, 'User', @avatar)";
+            cmd.CommandText = "INSERT INTO Users (Login, Password, Role, Avatar, IsBlocked) VALUES (@login, @password, 'User', @avatar, FALSE)";
             cmd.Parameters.AddWithValue("@login", login);
             cmd.Parameters.AddWithValue("@password", password);
             cmd.Parameters.AddWithValue("@avatar", avatar);
@@ -49,20 +110,27 @@ namespace BulbaLib.Services
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Login, Password, Role, Avatar FROM Users WHERE Login = @login AND Password = @password";
+            cmd.CommandText = "SELECT Id, Login, Password, Role, Avatar, IsBlocked FROM Users WHERE Login = @login AND Password = @password";
             cmd.Parameters.AddWithValue("@login", login);
             cmd.Parameters.AddWithValue("@password", password);
             using var reader = cmd.ExecuteReader();
             if (reader.Read())
             {
-                return new User
+                var user = new User
                 {
                     Id = reader.GetInt32("Id"),
                     Login = reader.GetString("Login"),
                     Password = reader.GetString("Password"),
                     Role = reader.GetString("Role"),
-                    Avatar = !reader.IsDBNull("Avatar") ? (byte[])reader["Avatar"] : null
+                    Avatar = !reader.IsDBNull("Avatar") ? (byte[])reader["Avatar"] : null,
+                    IsBlocked = reader.GetBoolean("IsBlocked")
                 };
+
+                if (user.IsBlocked)
+                {
+                    return null; // Authentication failed for blocked user
+                }
+                return user;
             }
             return null;
         }
@@ -71,7 +139,7 @@ namespace BulbaLib.Services
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Login, Avatar FROM Users WHERE Id = @id";
+            cmd.CommandText = "SELECT Id, Login, Avatar, Role, IsBlocked FROM Users WHERE Id = @id";
             cmd.Parameters.AddWithValue("@id", userId);
             using var reader = cmd.ExecuteReader();
             if (reader.Read())
@@ -80,7 +148,9 @@ namespace BulbaLib.Services
                 {
                     Id = reader.GetInt32("Id"),
                     Login = reader.GetString("Login"),
-                    Avatar = !reader.IsDBNull("Avatar") ? (byte[])reader["Avatar"] : null
+                    Avatar = !reader.IsDBNull("Avatar") ? (byte[])reader["Avatar"] : null,
+                    Role = reader.GetString("Role"),
+                    IsBlocked = reader.GetBoolean("IsBlocked")
                 };
             }
             return null;
@@ -93,6 +163,26 @@ namespace BulbaLib.Services
             cmd.CommandText = "UPDATE Users SET Avatar = @avatar WHERE Id = @id";
             cmd.Parameters.AddWithValue("@avatar", avatar);
             cmd.Parameters.AddWithValue("@id", userId);
+            cmd.ExecuteNonQuery();
+        }
+
+        public void UpdateUserRole(int userId, string newRole)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE Users SET Role = @newRole WHERE Id = @userId";
+            cmd.Parameters.AddWithValue("@newRole", newRole);
+            cmd.Parameters.AddWithValue("@userId", userId);
+            cmd.ExecuteNonQuery();
+        }
+
+        public void SetUserBlockedStatus(int userId, bool isBlocked)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE Users SET IsBlocked = @isBlocked WHERE Id = @userId";
+            cmd.Parameters.AddWithValue("@isBlocked", isBlocked);
+            cmd.Parameters.AddWithValue("@userId", userId);
             cmd.ExecuteNonQuery();
         }
 
@@ -170,25 +260,29 @@ namespace BulbaLib.Services
             return null;
         }
 
-        public void CreateNovel(Novel novel)
+        public int CreateNovel(Novel novel)
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT INTO Novels 
-        (Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, TranslatorId, AlternativeTitles)
-        VALUES (@title, @desc, @covers, @genres, @tags, @type, @format, @releaseYear, @authorId, @translatorId, @altTitles)";
+                (Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, TranslatorId, AlternativeTitles, Date)
+                VALUES (@title, @desc, @covers, @genres, @tags, @type, @format, @releaseYear, @authorId, @translatorId, @altTitles, @date);
+                SELECT LAST_INSERT_ID();";
             cmd.Parameters.AddWithValue("@title", novel.Title);
-            cmd.Parameters.AddWithValue("@desc", novel.Description ?? "");
+            cmd.Parameters.AddWithValue("@desc", novel.Description ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@covers", novel.Covers ?? "[]");
-            cmd.Parameters.AddWithValue("@genres", novel.Genres ?? "");
-            cmd.Parameters.AddWithValue("@tags", novel.Tags ?? "");
-            cmd.Parameters.AddWithValue("@type", novel.Type ?? "");
-            cmd.Parameters.AddWithValue("@format", novel.Format ?? "");
+            cmd.Parameters.AddWithValue("@genres", novel.Genres ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@tags", novel.Tags ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@type", novel.Type ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@format", novel.Format ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@releaseYear", novel.ReleaseYear.HasValue ? novel.ReleaseYear.Value : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@authorId", novel.AuthorId.HasValue ? novel.AuthorId.Value : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@translatorId", string.IsNullOrEmpty(novel.TranslatorId) ? (object)DBNull.Value : novel.TranslatorId);
-            cmd.Parameters.AddWithValue("@altTitles", novel.AlternativeTitles ?? "");
-            cmd.ExecuteNonQuery();
+            cmd.Parameters.AddWithValue("@altTitles", novel.AlternativeTitles ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@date", novel.Date);
+
+            var result = cmd.ExecuteScalar();
+            return Convert.ToInt32(result);
         }
 
         public void UpdateNovel(Novel novel)
@@ -572,49 +666,117 @@ namespace BulbaLib.Services
             }
             return tags.OrderBy(t => t).ToList();
         }
-    }
 
-    // --- Модели (можно вынести отдельно) ---
-    public class User
-    {
-        public int Id { get; set; }
-        public string Login { get; set; }
-        public string Password { get; set; }
-        public string Role { get; set; }
-        public byte[] Avatar { get; set; }
-    }
-    public class Novel
-    {
-        public int Id { get; set; }
-        public string Title { get; set; }
-        public string Description { get; set; }
-        public string Covers { get; set; }
-        public string Genres { get; set; }
-        public string Tags { get; set; }
-        public string Type { get; set; }
-        public string Format { get; set; }
-        public int? ReleaseYear { get; set; }
-        public int? AuthorId { get; set; }
-        public string TranslatorId { get; set; }
-        public string AlternativeTitles { get; set; }
-        public string RelatedNovelIds { get; set; }
-        public long Date { get; set; }
-
-        public List<string> CoversList
+        // ---------- MODERATION REQUESTS ----------
+        public int CreateModerationRequest(ModerationRequest request)
         {
-            get => string.IsNullOrWhiteSpace(Covers)
-                ? new List<string>()
-                : System.Text.Json.JsonSerializer.Deserialize<List<string>>(Covers);
-            set => Covers = System.Text.Json.JsonSerializer.Serialize(value ?? new List<string>());
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"INSERT INTO ModerationRequests
+                                (RequestType, UserId, NovelId, ChapterId, RequestData, Status, CreatedAt, UpdatedAt)
+                                VALUES (@requestType, @userId, @novelId, @chapterId, @requestData, @status, @createdAt, @updatedAt);
+                                SELECT LAST_INSERT_ID();";
+
+            cmd.Parameters.AddWithValue("@requestType", request.RequestType.ToString());
+            cmd.Parameters.AddWithValue("@userId", request.UserId);
+            cmd.Parameters.AddWithValue("@novelId", request.NovelId.HasValue ? (object)request.NovelId.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@chapterId", request.ChapterId.HasValue ? (object)request.ChapterId.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@requestData", string.IsNullOrEmpty(request.RequestData) ? DBNull.Value : (object)request.RequestData);
+            cmd.Parameters.AddWithValue("@status", request.Status.ToString());
+            cmd.Parameters.AddWithValue("@createdAt", request.CreatedAt);
+            cmd.Parameters.AddWithValue("@updatedAt", request.UpdatedAt);
+            // ModeratorId and ModerationComment are not set on creation
+
+            return Convert.ToInt32(cmd.ExecuteScalar());
         }
-    }
-    public class Chapter
-    {
-        public int Id { get; set; }
-        public int NovelId { get; set; }
-        public string Number { get; set; }
-        public string Title { get; set; }
-        public string Content { get; set; }
-        public long Date { get; set; }
+
+        public ModerationRequest GetModerationRequestById(int id)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM ModerationRequests WHERE Id = @id";
+            cmd.Parameters.AddWithValue("@id", id);
+
+            using var reader = cmd.ExecuteReader();
+            if (reader.Read())
+            {
+                return MapReaderToModerationRequest(reader);
+            }
+            return null;
+        }
+
+        public List<ModerationRequest> GetPendingModerationRequests(int limit, int offset)
+        {
+            var requests = new List<ModerationRequest>();
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM ModerationRequests WHERE Status = @status ORDER BY CreatedAt DESC LIMIT @limit OFFSET @offset";
+            cmd.Parameters.AddWithValue("@status", ModerationStatus.Pending.ToString());
+            cmd.Parameters.AddWithValue("@limit", limit);
+            cmd.Parameters.AddWithValue("@offset", offset);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                requests.Add(MapReaderToModerationRequest(reader));
+            }
+            return requests;
+        }
+
+        public List<ModerationRequest> GetModerationRequestsByUserId(int userId, int limit, int offset)
+        {
+            var requests = new List<ModerationRequest>();
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM ModerationRequests WHERE UserId = @userId ORDER BY CreatedAt DESC LIMIT @limit OFFSET @offset";
+            cmd.Parameters.AddWithValue("@userId", userId);
+            cmd.Parameters.AddWithValue("@limit", limit);
+            cmd.Parameters.AddWithValue("@offset", offset);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                requests.Add(MapReaderToModerationRequest(reader));
+            }
+            return requests;
+        }
+
+        public bool UpdateModerationRequest(ModerationRequest request)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"UPDATE ModerationRequests SET
+                                Status = @status,
+                                ModeratorId = @moderatorId,
+                                ModerationComment = @moderationComment,
+                                UpdatedAt = @updatedAt
+                                WHERE Id = @id";
+
+            cmd.Parameters.AddWithValue("@status", request.Status.ToString());
+            cmd.Parameters.AddWithValue("@moderatorId", request.ModeratorId.HasValue ? (object)request.ModeratorId.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@moderationComment", string.IsNullOrEmpty(request.ModerationComment) ? DBNull.Value : (object)request.ModerationComment);
+            cmd.Parameters.AddWithValue("@updatedAt", request.UpdatedAt);
+            cmd.Parameters.AddWithValue("@id", request.Id);
+
+            return cmd.ExecuteNonQuery() > 0;
+        }
+
+        private ModerationRequest MapReaderToModerationRequest(MySqlDataReader reader)
+        {
+            return new ModerationRequest
+            {
+                Id = reader.GetInt32("Id"),
+                RequestType = Enum.Parse<ModerationRequestType>(reader.GetString("RequestType")),
+                UserId = reader.GetInt32("UserId"),
+                NovelId = reader.IsDBNull("NovelId") ? (int?)null : reader.GetInt32("NovelId"),
+                ChapterId = reader.IsDBNull("ChapterId") ? (int?)null : reader.GetInt32("ChapterId"),
+                RequestData = reader.IsDBNull("RequestData") ? null : reader.GetString("RequestData"),
+                Status = Enum.Parse<ModerationStatus>(reader.GetString("Status")),
+                CreatedAt = reader.GetDateTime("CreatedAt"),
+                ModeratorId = reader.IsDBNull("ModeratorId") ? (int?)null : reader.GetInt32("ModeratorId"),
+                ModerationComment = reader.IsDBNull("ModerationComment") ? null : reader.GetString("ModerationComment"),
+                UpdatedAt = reader.GetDateTime("UpdatedAt")
+            };
+        }
     }
 }
