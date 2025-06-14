@@ -272,7 +272,7 @@ namespace BulbaLib.Controllers
                     TempData["SuccessMessage"] = "Новелла успешно обновлена.";
                     return RedirectToAction("Details", "NovelView", new { id = originalNovel.Id });
                 }
-                else if (currentUser.Role == "Author" && originalNovel.AuthorId == currentUser.Id) // Author (owner) submits for moderation
+                else if (currentUser.Role == UserRole.Author && originalNovel.AuthorId == currentUser.Id) // Author (owner) submits for moderation
                 {
                     var moderationRequest = new ModerationRequest
                     {
@@ -324,7 +324,7 @@ namespace BulbaLib.Controllers
                 return RedirectToAction("Index", "CatalogView");
             }
             // Author (owner) submits for moderation
-            else if (currentUser.Role == "Author" && novel.AuthorId == currentUser.Id)
+            else if (currentUser.Role == UserRole.Author && novel.AuthorId == currentUser.Id)
             {
                 var moderationRequest = new ModerationRequest
                 {

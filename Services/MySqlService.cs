@@ -150,7 +150,7 @@ namespace BulbaLib.Services
                     Id = reader.GetInt32("Id"),
                     Login = reader.GetString("Login"),
                     Password = reader.GetString("Password"),
-                    Role = reader.GetString("Role"),
+                    Role = Enum.Parse<UserRole>(reader.GetString("Role"), true),
                     Avatar = !reader.IsDBNull("Avatar") ? (byte[])reader["Avatar"] : null,
                     IsBlocked = reader.GetBoolean("IsBlocked")
                 };
@@ -178,7 +178,7 @@ namespace BulbaLib.Services
                     Id = reader.GetInt32("Id"),
                     Login = reader.GetString("Login"),
                     Avatar = !reader.IsDBNull("Avatar") ? (byte[])reader["Avatar"] : null,
-                    Role = reader.GetString("Role"),
+                    Role = Enum.Parse<UserRole>(reader.GetString("Role"), true),
                     IsBlocked = reader.GetBoolean("IsBlocked")
                 };
             }
@@ -229,7 +229,7 @@ namespace BulbaLib.Services
                     Id = reader.GetInt32("Id"),
                     Login = reader.GetString("Login"),
                     Avatar = !reader.IsDBNull("Avatar") ? (byte[])reader["Avatar"] : null,
-                    Role = reader.GetString("Role"),
+                    Role = Enum.Parse<UserRole>(reader.GetString("Role"), true),
                     IsBlocked = reader.GetBoolean("IsBlocked")
                 });
             }

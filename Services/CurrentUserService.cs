@@ -52,7 +52,7 @@ namespace BulbaLib.Services
         public string GetCurrentUserRole()
         {
             var currentUser = GetCurrentUser();
-            return currentUser?.Role;
+            return currentUser?.Role?.ToString();
         }
     }
 }

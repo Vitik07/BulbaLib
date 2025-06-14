@@ -51,7 +51,7 @@
                         <select name="role" class="form-select form-select-sm d-inline" style="width:auto;" onchange="this.form.submit()">
                             @foreach (var role in roles)
                             {
-                                <option value="@role" selected="@(user.Role == role)">@role</option>
+                                <option value="@role" selected="@(user.Role.ToString() == role)">@role</option>
                             }
                         </select>
                     </form>
