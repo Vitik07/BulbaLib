@@ -1,0 +1,146 @@
+﻿@model BulbaLib.Models.ModerationRequest
+@{
+    ViewData["Title"] = $"Детали запроса ID: {Model.Id}";
+    Layout = "~/Views/Shared/_Layout.cshtml"; // Or _AdminLayout
+    var requestedNovel = ViewData["RequestedNovel"] as Novel;
+    var existingNovel = ViewData["ExistingNovel"] as Novel;
+    var requester = ViewData["RequesterUser"] as User;
+}
+
+<h1>@ViewData["Title"]</h1>
+<hr />
+
+<div class="row">
+    <div class="col-md-6">
+        <h4>Информация о запросе</h4>
+        <dl class="row">
+            <dt class="col-sm-4">ID Запроса:</dt>
+            <dd class="col-sm-8">@Model.Id</dd>
+            <dt class="col-sm-4">Тип:</dt>
+            <dd class="col-sm-8">@Model.RequestType</dd>
+            <dt class="col-sm-4">Пользователь:</dt>
+            <dd class="col-sm-8">@(requester?.Login ?? Model.UserId.ToString()) (ID: @Model.UserId)</dd>
+            <dt class="col-sm-4">Дата запроса:</dt>
+            <dd class="col-sm-8">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+            @if (Model.NovelId.HasValue)
+            {
+                <dt class="col-sm-4">Novel ID:</dt>
+                <dd class="col-sm-8">@Model.NovelId.Value</dd>
+            }
+            <dt class="col-sm-4">Статус:</dt>
+            <dd class="col-sm-8">@Model.Status</dd>
+        </dl>
+    </div>
+</div>
+
+@if (Model.RequestType == ModerationRequestType.AddNovel && requestedNovel != null)
+{
+    <h4>Предлагаемая новая новелла:</h4>
+    <partial name="_NovelDisplayPartial" model="requestedNovel" />
+}
+else if (Model.RequestType == ModerationRequestType.EditNovel)
+{
+    <div class="row mt-4">
+        @if (existingNovel != null)
+        {
+            <div class="col-md-6">
+                <h4>Существующая новелла (ID: @existingNovel.Id):</h4>
+                <partial name="_NovelDisplayPartial" model="existingNovel" />
+            </div>
+        }
+        @if (requestedNovel != null)
+        {
+            <div class="col-md-6">
+                <h4>Предлагаемые изменения:</h4>
+                <partial name="_NovelDisplayPartial" model="requestedNovel" />
+            </div>
+        }
+    </div>
+}
+else if (Model.RequestType == ModerationRequestType.DeleteNovel && existingNovel != null)
+{
+    <h4>Новелла к удалению:</h4>
+    <partial name="_NovelDisplayPartial" model="existingNovel" />
+}
+
+
+@if (Model.Status == ModerationStatus.Pending)
+{
+    <div class="mt-4">
+        <form asp-action="ApproveNovelRequest" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="requestId" value="@Model.Id" />
+            <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> Одобрить</button>
+        </form>
+        <button type="button" class="btn btn-danger d-inline ms-2" data-bs-toggle="modal" data-bs-target="#rejectModal">
+            <i class="fas fa-times"></i> Отклонить
+        </button>
+    </div>
+
+    <!-- Modal for Rejection Comment -->
+    <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form asp-action="RejectNovelRequest" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="requestId" value="@Model.Id" />
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="rejectModalLabel">Причина отклонения запроса ID @Model.Id</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="moderationComment" class="form-label">Комментарий (необязательно):</label>
+                            <textarea class="form-control" id="moderationComment" name="moderationComment" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-danger">Отклонить запрос</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="mt-4">
+        <p><strong>Модератор:</strong> @(Model.ModeratorId.HasValue ? Model.ModeratorId.Value.ToString() : "N/A")</p>
+        <p><strong>Дата обновления:</strong> @Model.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss")</p>
+        @if (!string.IsNullOrEmpty(Model.ModerationComment))
+        {
+            <p><strong>Комментарий модератора:</strong> @Model.ModerationComment</p>
+        }
+    </div>
+}
+
+<div class="mt-3">
+    <a asp-action="NovelRequests" class="btn btn-outline-secondary">Назад к списку запросов</a>
+</div>
+
+@* Placeholder for _NovelDisplayPartial - Create this file in Views/Shared/ or Views/Admin/ *@
+@* For now, this partial might look like: *@
+@*
+    @model Novel
+    <dl class="row">
+        <dt class="col-sm-3">Название:</dt><dd class="col-sm-9">@Model.Title</dd>
+        <dt class="col-sm-3">Описание:</dt><dd class="col-sm-9">@Model.Description</dd>
+        <dt class="col-sm-3">Обложки:</dt><dd class="col-sm-9">@Model.Covers</dd>
+        <dt class="col-sm-3">Жанры:</dt><dd class="col-sm-9">@Model.Genres</dd>
+        <dt class="col-sm-3">Теги:</dt><dd class="col-sm-9">@Model.Tags</dd>
+        <dt class="col-sm-3">Тип:</dt><dd class="col-sm-9">@Model.Type</dd>
+        <dt class="col-sm-3">Формат:</dt><dd class="col-sm-9">@Model.Format</dd>
+        <dt class="col-sm-3">Год выпуска:</dt><dd class="col-sm-9">@Model.ReleaseYear</dd>
+        <dt class="col-sm-3">Альт. названия:</dt><dd class="col-sm-9">@Model.AlternativeTitles</dd>
+        <dt class="col-sm-3">Автор ID:</dt><dd class="col-sm-9">@Model.AuthorId</dd>
+    </dl>
+*@
+
+@section Scripts {
+    <script>
+        // Ensure bootstrap JS is loaded if not globally for modal
+        // Example: <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+            // This might be in _Layout.cshtml already.
+        </script>
+}

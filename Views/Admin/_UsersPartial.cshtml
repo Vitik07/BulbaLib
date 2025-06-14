@@ -1,0 +1,132 @@
+﻿@model List<BulbaLib.Models.User>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Логин</th>
+                <th>Аватар</th>
+                <th>Роль</th>
+                <th>Статус</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model != null && Model.Any())
+            {
+                foreach (var user in Model)
+                {
+                    <tr>
+                        <td>@user.Id</td>
+                        <td>@user.Login</td>
+                        <td>
+                            @if (user.Avatar != null && user.Avatar.Length > 0)
+                            {
+                                <img src="data:image;base64,@Convert.ToBase64String(user.Avatar)" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%;" />
+                            }
+                            else
+                            {
+                                <img src="/Resource/default-avatar.jpg" alt="Default Avatar" style="width: 40px; height: 40px; border-radius: 50%;" />
+                            }
+                        </td>
+                        <td>
+                            <form asp-action="ChangeUserRole" asp-controller="Admin" method="post" class="form-change-role d-inline-flex align-items-center" data-user-id="@user.Id">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="userId" value="@user.Id" />
+                                <select name="role" class="form-select form-select-sm me-2" style="width: auto;">
+                                    <option value="User" selected="@(user.Role == "User")">User</option>
+                                    <option value="Author" selected="@(user.Role == "Author")">Author</option>
+                                    <option value="Translator" selected="@(user.Role == "Translator")">Translator</option>
+                                    <option value="Admin" selected="@(user.Role == "Admin")">Admin</option>
+                                </select>
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Сохранить</button>
+                            </form>
+                        </td>
+                        <td>
+                            @if (user.IsBlocked)
+                            {
+                                <span class="badge bg-danger">Заблокирован</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">Активен</span>
+                            }
+                        </td>
+                        <td>
+                            <form asp-action="ToggleUserBlock" asp-controller="Admin" method="post" class="form-toggle-block d-inline" data-user-id="@user.Id">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="userId" value="@user.Id" />
+                                <button type="submit" class="btn btn-sm @(user.IsBlocked ? "btn-outline-success" : "btn-outline-danger")">
+                                    @(user.IsBlocked ? "Разблокировать" : "Заблокировать")
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="6" class="text-center">Пользователи не найдены.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // AJAX for role change
+    $('.form-change-role').submit(function (e) {
+        e.preventDefault();
+        var form = $(this);
+        $.ajax({
+            type: form.attr('method'),
+            url: form.attr('action'),
+            data: form.serialize(),
+            success: function (response) {
+                if (response.success) {
+                    alert(response.message); // Or use a more sophisticated notification
+                    // Optionally, reload the users tab content to show changes
+                    // $('#users-content-area').load('@Url.Action("Users", "Admin")');
+                } else {
+                    alert('Ошибка: ' + response.message);
+                }
+            },
+            error: function () {
+                alert('Произошла ошибка при отправке запроса.');
+            }
+        });
+    });
+
+    // AJAX for toggle block
+    $('.form-toggle-block').submit(function (e) {
+        e.preventDefault();
+        var form = $(this);
+        var button = form.find('button[type="submit"]');
+        $.ajax({
+            type: form.attr('method'),
+            url: form.attr('action'),
+            data: form.serialize(),
+            success: function (response) {
+                if (response.success) {
+                    alert(response.message);
+                    // Update button text and badge based on new status (response.isBlocked)
+                    var badge = form.closest('tr').find('.badge');
+                    if (response.isBlocked) {
+                        button.text('Разблокировать').removeClass('btn-outline-danger').addClass('btn-outline-success');
+                        badge.text('Заблокирован').removeClass('bg-success').addClass('bg-danger');
+                    } else {
+                        button.text('Заблокировать').removeClass('btn-outline-success').addClass('btn-outline-danger');
+                        badge.text('Активен').removeClass('bg-danger').addClass('bg-success');
+                    }
+                } else {
+                    alert('Ошибка: ' + response.message);
+                }
+            },
+            error: function () {
+                alert('Произошла ошибка при отправке запроса.');
+            }
+        });
+    });
+</script>

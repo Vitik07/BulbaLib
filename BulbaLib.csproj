@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Compile Remove="wwwroot\uploads\content\novels\**" />
+		<Content Remove="wwwroot\uploads\content\novels\**" />
+		<EmbeddedResource Remove="wwwroot\uploads\content\novels\**" />
+		<None Remove="wwwroot\uploads\content\novels\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.5" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.5" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.5">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="MySql.Data" Version="9.3.0" />
+		<PackageReference Include="System.Data.SQLite" Version="1.0.119" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Folder Include="wwwroot\uploads\images\novels\tokidoki-bosotto-roshia-go-de-dereru-tonari-no-arya-san\chapters\Том 1 Глава 1\" />
+		<Folder Include="wwwroot\uploads\images\" />
+	</ItemGroup>
+
+</Project>

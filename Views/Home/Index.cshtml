@@ -1,0 +1,509 @@
+﻿﻿﻿@{
+    ViewData["Title"] = "BulbaLib";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>BulbaLib</title>
+    <link rel="stylesheet" href="~/css/Index.css" />
+</head>
+<body>
+    <!-- Top nav bar -->
+    <div class="main-nav">
+        <div class="main-nav-left">
+            <div class="logo-dropdown-container">
+                <!-- Wrapper for logo and dropdown -->
+                <div class="logo">
+                    <img src="favicon.ico" alt="BulbaLib" />
+                    <span>BulbaLib</span>
+                </div>
+                <div class="dropdown-panel logo-dropdown-panel">
+                    <!-- Dropdown menu -->
+                    <button class="dropdown-item nav-catalog" onclick="location.href='/catalog'">Каталог</button>
+                    <!-- Other dropdown items can be added here later -->
+                </div>
+            </div>
+        </div>
+        <div class="main-nav-center">
+            <!-- Only searchInput -->
+            <input id="searchInput" type="text" placeholder="Введите название новеллы..." autocomplete="off" />
+        </div>
+        <div class="main-nav-right">
+            <!-- Profile button -->
+            <button class="nav-profile" id="profileButton">
+                <span id="profileLogin" class="profile-login-text"></span>
+                <img id="profileAvatar" src="/Resource/default-avatar.jpg" alt="Avatar" />
+            </button>
+        </div>
+    </div>
+    <!-- Search panel -->
+    <div class="search-panel" id="searchPanel">
+        <div class="search-panel-content" id="searchPanelContent">
+            <div class="search-results-block">
+                <div class="search-section" id="recentlyReadSection">
+                    <div class="search-section-title">Недавно читали</div>
+                    <div class="recently-read-list" id="recentlyReadList"></div>
+                </div>
+                <div class="search-section">
+                    <div class="search-section-title">Результаты поиска</div>
+                    <div class="search-results-list" id="searchResultsList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main content area -->
+    <div class="main-content-container">
+        <div class="central-block">
+            <div class="section-title main-slider-title" style="display: none;">Недавнее</div>
+            <div class="main-slider" id="mainSlider"></div>
+        </div>
+        <div class="main-row">
+            <div class="main-col main-col-left">
+                <div class="section-title">Последние обновления</div>
+                <div class="updates-list" id="updatesList"></div>
+            </div>
+            <div class="main-col main-col-right">
+                <div class="section-title">Новинки</div>
+                <div class="novelties-list" id="noveltiesList"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const baseUrl = window.location.origin;
+
+        function calculateSearchScore(novelTitle, term) {
+            novelTitle = novelTitle.toLowerCase();
+            term = term.toLowerCase();
+
+            let scores = {
+                totalScore: 0,
+                exactMatchBonus: 0,
+                startWordBonus: 0,
+                sequentialBonus: 0,
+                charCountBonus: 0
+            };
+
+            // A. Bonus for full substring match of term
+            const idx = novelTitle.indexOf(term);
+            if (idx !== -1) {
+                scores.exactMatchBonus = 10000 / (1 + idx);
+            }
+
+            // B. Bonus for term matching the start of a word in novelTitle
+            // const words = novelTitle.split(/[\s-_:,.]+/); // Original split
+            const words = novelTitle.split(/[\s-_]+/); // Split by space, hyphen, underscore as per new req
+            for (const word of words) {
+                if (word.startsWith(term)) {
+                    scores.startWordBonus += 5000; // Accumulate if multiple words start with term
+                }
+            }
+
+            // C. Bonus for sequential character matching of term in novelTitle
+            let maxSequentialScore = 0;
+            if (term.length > 0) { // Ensure term is not empty
+                for (let i = 0; i < novelTitle.length; i++) {
+                    let currentSequentialScore = 0;
+                    let termCharIndex = 0;
+                    let continuityBonus = 1.0;
+                    // Iterate from current position i in novelTitle
+                    for (let j = i; j < novelTitle.length && termCharIndex < term.length; j++) {
+                        if (novelTitle[j] === term[termCharIndex]) {
+                            let charScore = (100 + (termCharIndex * 50)) / (1 + j); // j is the title index
+                            currentSequentialScore += charScore * continuityBonus;
+                            continuityBonus *= 1.5;
+                            termCharIndex++;
+                        }
+                    }
+                    // Only count if at least one character of the term was matched sequentially
+                    if (termCharIndex > 0) {
+                        maxSequentialScore = Math.max(maxSequentialScore, currentSequentialScore);
+                    }
+                }
+            }
+            scores.sequentialBonus = maxSequentialScore;
+
+            // D. Bonus for count of unique term characters found in novelTitle
+            const uniqueTermChars = new Set(term.split(''));
+            let foundCharsBonus = 0;
+            if (term.length > 0) { // Ensure term is not empty for uniqueTermChars
+                for (const char of uniqueTermChars) {
+                    if (char === '') continue; // Skip empty char if term was e.g. ' '
+                    // const occurrences = novelTitle.split(char).length - 1; // Alternative way to count
+                    let occurrences = 0;
+                    for (let k = 0; k < novelTitle.length; k++) {
+                        if (novelTitle[k] === char) {
+                            occurrences++;
+                        }
+                    }
+                    foundCharsBonus += occurrences * 3; // Small bonus per occurrence
+                }
+            }
+            scores.charCountBonus = foundCharsBonus;
+
+            // Calculate total score
+            scores.totalScore = scores.exactMatchBonus + scores.startWordBonus + scores.sequentialBonus + scores.charCountBonus;
+
+            return scores;
+        }
+
+        // ======= Profile (аватар и кнопка профиля) =======
+        const profileAvatar = document.getElementById('profileAvatar');
+        const profileButton = document.getElementById('profileButton');
+        const profileLoginText = document.getElementById('profileLogin'); // Get reference here
+
+        async function fillProfileButton() {
+            try {
+                const res = await fetch(`${baseUrl}/api/users/me`, { credentials: "include" });
+                if (!res.ok) throw new Error();
+                const user = await res.json();
+                profileAvatar.src = `${baseUrl}/api/users/avatar`;
+                if (profileLoginText) {
+                    profileLoginText.textContent = user.login;
+                }
+                profileButton.onclick = () => window.location.href = `/profile/${user.id}`;
+            } catch {
+                profileAvatar.src = '/Resource/default-avatar.jpg';
+                if (profileLoginText) {
+                    profileLoginText.textContent = ''; // Clear the login name
+                }
+                profileButton.onclick = () => window.location.href = '/login';
+            }
+        }
+
+        // ======= Search Panel =======
+        const searchPanel = document.getElementById('searchPanel');
+        const searchPanelContent = document.getElementById('searchPanelContent');
+        const openSearchPanel = document.getElementById('openSearchPanel');
+        const searchInput = document.getElementById('searchInput');
+        const searchResultsList = document.getElementById('searchResultsList');
+        const recentlyReadList = document.getElementById('recentlyReadList');
+
+        // openSearchPanel.addEventListener('click', () => { // Button is now hidden
+        // searchPanel.style.display = 'block';
+        // searchInput.focus();
+        // updateRecentlyRead();
+        // });
+
+        searchInput.addEventListener('focus', () => {
+            searchPanel.style.display = 'block';
+            updateRecentlyRead();
+        });
+
+        searchPanel.addEventListener('mousedown', function (e) {
+            // If the click is outside the content area of the panel,
+            // and also not on the searchInput itself (which is now in the nav bar),
+            // then close the panel.
+            if (searchPanelContent && !searchPanelContent.contains(e.target) && e.target !== searchInput) {
+                searchPanel.style.display = 'none';
+                searchInput.value = ''; // Clear search input on close (as per original logic)
+                if (searchResultsList) searchResultsList.innerHTML = ''; // Clear results on close
+            }
+        });
+
+        // ======= Загрузка всех новелл =======
+        let allNovels = [];
+        async function loadAllNovels() {
+            const res = await fetch(`${baseUrl}/api/novels`);
+            allNovels = await res.json();
+        }
+
+        searchInput.addEventListener('input', () => {
+            const term = searchInput.value.trim().toLowerCase();
+            if (!term) {
+                searchResultsList.innerHTML = '';
+                return;
+            }
+
+            // const term is already defined and lowercased above.
+            // calculateSearchScore handles its own lowercasing internally.
+            const novelScores = allNovels.map(novel => ({
+                novel: novel,
+                scores: calculateSearchScore(novel.title, term)
+            }));
+
+            let relevantNovels = novelScores.filter(item => item.scores.totalScore > 0);
+
+            const maxTotalScore = relevantNovels.length > 0 ? Math.max(...relevantNovels.map(item => item.scores.totalScore)) : 0;
+
+            const strongMatches = relevantNovels.filter(item => item.scores.exactMatchBonus > 0 || item.scores.startWordBonus > 0);
+
+            let finalFilteredNovels;
+            if (strongMatches.length > 0) {
+                finalFilteredNovels = strongMatches;
+            } else {
+                // Only filter by percentage if maxTotalScore is meaningfully positive
+                // and relevantNovels exist. If relevantNovels is empty, maxTotalScore is 0,
+                // and finalFilteredNovels should be empty.
+                if (maxTotalScore > 0 && relevantNovels.length > 0) {
+                    finalFilteredNovels = relevantNovels.filter(item => item.scores.totalScore >= maxTotalScore * 0.40);
+                } else {
+                    finalFilteredNovels = [];
+                }
+            }
+
+            const sortedNovels = finalFilteredNovels.sort((a, b) => b.scores.totalScore - a.scores.totalScore);
+
+            searchResultsList.innerHTML = '';
+
+            for (let item of sortedNovels.slice(0, 12)) {
+                const novel = item.novel;
+                const card = document.createElement('div');
+                card.className = 'search-novel-card';
+                card.innerHTML = `
+                                                    <img src="${getCover(novel)}" alt="${novel.title}">
+                                                    <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
+                                                `;
+                card.onclick = () => window.location.href = `/novel/${novel.id}`;
+                searchResultsList.appendChild(card);
+            }
+        });
+
+        // ======= Recently Read =======
+        async function updateRecentlyRead() {
+            const section = document.getElementById('recentlyReadSection');
+            const recentlyReadList = document.getElementById('recentlyReadList');
+            section.style.display = "none";
+            recentlyReadList.innerHTML = "";
+
+            try {
+                const res = await fetch(`${baseUrl}/api/users/bookmarks`, { credentials: "include" });
+                if (res.status === 401 || !res.ok) {
+                    section.style.display = "none";
+                    recentlyReadList.innerHTML = "";
+                    return;
+                }
+                const bookmarks = await res.json();
+
+                // Собираем только последние закладки по новелле (одна новелла = одна закладка)
+                let all = [];
+                Object.entries(bookmarks).forEach(([novelId, arr]) => {
+                    // .date с маленькой буквы!
+                    const lastBookmark = arr.reduce((prev, curr) => (!prev || curr.date > prev.date) ? curr : prev, null);
+                    if (lastBookmark) all.push({ novelId: +novelId, ...lastBookmark });
+                });
+
+                all.sort((a, b) => b.date - a.date);
+                const uniqueNovels = all.slice(0, 10);
+
+                if (!uniqueNovels.length) {
+                    section.style.display = "none";
+                    recentlyReadList.innerHTML = "";
+                    return;
+                }
+
+                section.style.display = "";
+                recentlyReadList.innerHTML = '';
+                for (let b of uniqueNovels) {
+                    const novel = allNovels.find(n => n.id === b.novelId);
+                    if (!novel) continue;
+                    const card = document.createElement('div');
+                    card.className = 'recent-novel-card';
+                    card.innerHTML = `
+                                                <img src="${getCover(novel)}" alt="${novel.title}">
+                                                <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
+                                            `;
+                    card.onclick = () => window.location.href = `/novel/${novel.id}`;
+                    recentlyReadList.appendChild(card);
+                }
+            } catch (e) {
+                section.style.display = "none";
+                recentlyReadList.innerHTML = "";
+            }
+        }
+
+        async function updateUpdatesList() {
+            const updatesList = document.getElementById('updatesList');
+            updatesList.innerHTML = '';
+            try {
+                const res = await fetch(`${baseUrl}/api/chapters?all=1`);
+                const chapters = (await res.json()).chapters || [];
+                let sorted = chapters.filter(ch => ch.date && ch.date > 0)
+                    .sort((a, b) => b.date - a.date || a.title.localeCompare(b.title, 'ru'));
+                const uniqueNovelIds = new Set();
+                const updates = [];
+                for (let ch of sorted) {
+                    if (!uniqueNovelIds.has(ch.novelId)) {
+                        uniqueNovelIds.add(ch.novelId);
+                        updates.push(ch);
+                    }
+                    if (updates.length >= 6) break;
+                }
+                for (let ch of updates) {
+                    const novel = allNovels.find(n => n.id === ch.novelId);
+                    if (!novel) continue;
+                    const item = document.createElement('div');
+                    item.className = 'update-item';
+                    item.innerHTML = `
+                                                        <img class="update-cover" src="${getCover(novel)}" alt="${novel.title}">
+                                                        <div class="update-info">
+                                                            <div class="update-title">${novel.title}</div>
+                                                            <div class="update-chapter">${ch.number ? ch.number + " " : ""}${ch.title}</div>
+                                                            <div class="update-date">${formatRelativeTime(ch.date)}</div>
+                                                        </div>
+                                                    `;
+                    item.onclick = () => window.location.href = `/novel/${novel.id}?chapter=${ch.id}`;
+                    updatesList.appendChild(item);
+                }
+                if (updates.length === 0) {
+                    updatesList.innerHTML = '<span>нет обновлений</span>';
+                }
+            } catch {
+                updatesList.innerHTML = '<span>нет обновлений</span>';
+            }
+        }
+
+        async function updateNoveltiesList() {
+            const noveltiesList = document.getElementById('noveltiesList');
+            noveltiesList.innerHTML = '';
+            try {
+                let sorted = [...allNovels]
+                    .sort((a, b) => (b.date || 0) - (a.date || 0) || a.title.localeCompare(b.title, 'ru'))
+                    .slice(0, 6);
+                for (let novel of sorted) {
+                    const card = document.createElement('div');
+                    card.className = 'novelty-card';
+                    card.innerHTML = `
+                                                <img src="${getCover(novel)}" alt="${novel.title}">
+                                                <div class="novelty-title" title="${novel.title}">${novel.title}</div>
+                                            `;
+                    card.onclick = () => window.location.href = `/novel/${novel.id}`;
+                    noveltiesList.appendChild(card);
+                }
+                if (sorted.length === 0) {
+                    noveltiesList.innerHTML = '<span>нет новинок</span>';
+                }
+            } catch (e) {
+                noveltiesList.innerHTML = '<span>нет новинок</span>';
+            }
+        }
+
+        async function updateMainSlider() {
+            const mainSlider = document.getElementById('mainSlider');
+            const mainSliderTitle = document.querySelector('.main-slider-title');
+            const centralBlock = mainSlider.closest('.central-block');
+
+            mainSlider.innerHTML = ''; // Clear previous content
+
+            // Initially hide all parts. If any condition below fails, they remain hidden.
+            if (mainSliderTitle) mainSliderTitle.style.display = 'none';
+            if (centralBlock) centralBlock.style.display = 'none';
+            mainSlider.style.display = 'none';
+
+            let user;
+            try {
+                const res = await fetch(`${baseUrl}/api/users/me`, { credentials: "include" });
+                if (!res.ok) {
+                    mainSlider.style.display = 'none';
+                    return;
+                }
+                user = await res.json();
+            } catch (error) {
+                mainSlider.style.display = 'none';
+                return;
+            }
+
+            if (!user) {
+                mainSlider.style.display = 'none';
+                return;
+            }
+
+            let bookmarks;
+            try {
+                const res = await fetch(`${baseUrl}/api/users/bookmarks`, { credentials: "include" });
+                if (!res.ok) {
+                    mainSlider.style.display = 'none';
+                    return;
+                }
+                bookmarks = await res.json();
+            } catch (error) {
+                mainSlider.style.display = 'none';
+                return;
+            }
+
+            if (!bookmarks || Object.keys(bookmarks).length === 0) {
+                mainSlider.style.display = 'none';
+                return;
+            }
+
+            let novelsForSlider = [];
+            if (bookmarks && Object.keys(bookmarks).length > 0) {
+                Object.entries(bookmarks).forEach(([novelIdStr, bookmarkEntries]) => {
+                    if (bookmarkEntries && bookmarkEntries.length > 0) {
+                        const lastBookmark = bookmarkEntries.reduce((prev, curr) =>
+                            (!prev || curr.date > prev.date) ? curr : prev,
+                            null);
+
+                        if (lastBookmark) {
+                            const novelId = parseInt(novelIdStr);
+                            const novelDetails = allNovels.find(n => n.id === novelId);
+                            if (novelDetails) {
+                                novelsForSlider.push({
+                                    ...novelDetails, // Spread novel properties
+                                    lastBookmarkDate: lastBookmark.date
+                                });
+                            }
+                        }
+                    }
+                });
+
+                novelsForSlider.sort((a, b) => b.lastBookmarkDate - a.lastBookmarkDate);
+            }
+
+            if (novelsForSlider.length === 0) {
+                mainSlider.innerHTML = ''; // Already cleared at the beginning, but good practice
+                mainSlider.style.display = 'none';
+                console.log('Main slider hidden: No valid bookmarked novels to display.');
+                return;
+            }
+
+            // Ensure mainSlider and its related components are visible if we have novels.
+            if (centralBlock) centralBlock.style.display = ''; // Reset to default
+            if (mainSliderTitle) mainSliderTitle.style.display = ''; // Reset to default
+            mainSlider.style.display = ''; // Reset to default display (e.g., 'flex', 'block' as per CSS)
+
+            // Render novel cards
+            const novelsToDisplay = novelsForSlider.slice(0, 7);
+            for (let novel of novelsToDisplay) {
+                const card = document.createElement('div');
+                card.className = 'slider-novel-card';
+                card.innerHTML = `
+                                    <img src="${getCover(novel)}" alt="${novel.title}">
+                                    <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
+                                `;
+                card.onclick = () => window.location.href = `/novel/${novel.id}`;
+                mainSlider.appendChild(card);
+            }
+        }
+
+        function getCover(novel) {
+            if (Array.isArray(novel.covers) && novel.covers.length)
+                return novel.covers[novel.covers.length - 1];
+            return '/Resource/default.jpg';
+        }
+        function formatRelativeTime(unixDate) {
+            const now = Date.now() / 1000;
+            const diff = Math.floor(now - unixDate);
+            if (diff < 60) return `${diff} сек. назад`;
+            if (diff < 3600) return `${Math.floor(diff / 60)} мин. назад`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)} час${Math.floor(diff / 3600) === 1 ? '' : 'а'} назад`;
+            return `${Math.floor(diff / 86400)} дн. назад`;
+        }
+
+        // ======= MAIN LOAD =======
+        async function mainLoad() {
+            await loadAllNovels();
+            await fillProfileButton();
+            await updateUpdatesList();
+            await updateNoveltiesList();
+            await updateMainSlider(); // This is already await, no change needed here actually. The function itself was made async.
+        }
+        mainLoad();
+
+        // ======= После логина обновлять все =======
+        // если у тебя есть ajax-логин, после успешного логина вызови mainLoad()
+    </script>
+</body>
+</html>

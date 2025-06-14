@@ -1,0 +1,165 @@
+﻿@{
+    ViewData["Title"] = "Скачать новеллу";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Скачать новеллу</title>
+    <link rel="stylesheet" href="~/css/Download.css" / >
+</head>
+<body>
+
+    <!-- Контейнер с кнопкой назад и заголовком -->
+    <div class="header-row">
+        <button class="back-button" id="backButton" aria-label="Назад">←</button>
+        <h1>Скачать главы</h1>
+    </div>
+
+    <div class="btn-group" style="text-align:center;">
+        <button class="download-button" id="selectAll">Выбрать все</button>
+        <button class="download-button" id="deselectAll">Убрать все</button>
+    </div>
+
+    <!-- Список глав -->
+    <div class="chapter-list" id="chapterList">
+        Загрузка глав...
+    </div>
+
+    <!-- Кнопка скачивания -->
+    <button class="download-button" id="downloadButton">Скачать выбранные</button>
+
+    <script>
+        const baseUrl = window.location.origin;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const novelId = urlParams.get('id');
+        const chapterList = document.getElementById('chapterList');
+        const downloadButton = document.getElementById('downloadButton');
+        const selectAllBtn = document.getElementById('selectAll');
+        const deselectAllBtn = document.getElementById('deselectAll');
+        const backButton = document.getElementById('backButton');
+
+        let selectedChapters = [];
+        let chaptersData = [];
+        let novelTitle = 'главы'; // по умолчанию
+
+        async function loadChapters() {
+            if (!novelId) {
+                chapterList.innerHTML = '<p>Ошибка: ID новеллы не указан</p>';
+                return;
+            }
+
+            try {
+                // Получаем название новеллы
+                const novelRes = await fetch(`${baseUrl}/api/novels/${novelId}`);
+                const novel = await novelRes.json();
+                novelTitle = novel.title || 'главы';
+
+                const res = await fetch(`${baseUrl}/api/chapters?novelId=${novelId}`);
+                const data = await res.json();
+                chaptersData = data.chapters;
+                chapterList.innerHTML = '';
+
+                selectedChapters = [];
+
+                chaptersData.forEach(ch => {
+                    const div = document.createElement('div');
+                    div.className = 'chapter-item';
+
+                    div.innerHTML = `
+                        <input type="checkbox" value="${ch.id}" />
+                        <span>Глава ${ch.number} – ${ch.title}</span>
+                    `;
+
+                    const checkbox = div.querySelector('input');
+                    div.addEventListener('click', (e) => {
+                        if (e.target.tagName !== 'INPUT') checkbox.checked = !checkbox.checked;
+                        const id = parseInt(checkbox.value);
+                        if (checkbox.checked) {
+                            if (!selectedChapters.includes(id)) selectedChapters.push(id);
+                        } else {
+                            selectedChapters = selectedChapters.filter(chId => chId !== id);
+                        }
+                    });
+
+                    chapterList.appendChild(div);
+                });
+
+            } catch (err) {
+                chapterList.innerHTML = `<p>Ошибка: ${err.message}</p>`;
+            }
+        }
+
+        downloadButton.addEventListener('click', async () => {
+            if (selectedChapters.length === 0) {
+                alert("Выберите хотя бы одну главу");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${baseUrl}/api/download`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chapterIds: selectedChapters, novelTitle })
+                });
+
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    console.error("Ошибка сервера:", errorText);
+                    alert("Не удалось сгенерировать файл");
+                    return;
+                }
+
+                const blob = await res.blob();
+
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+
+                // Если выбрана только одна глава — .txt, иначе — .zip
+                if (selectedChapters.length === 1) {
+                    const ch = chaptersData.find(c => c.id === selectedChapters[0]);
+                    link.download = `Глава ${ch.number} – ${ch.title}.txt`.replace(/[\\/:*?"<>|]/g, '');
+                } else {
+                    link.download = `${novelTitle}.zip`;
+                }
+
+                link.click();
+
+            } catch (err) {
+                console.error("Ошибка сети:", err);
+                alert("Не удалось скачать главы");
+            }
+        });
+
+        // Обработчик "Выбрать все"
+        selectAllBtn.addEventListener('click', () => {
+            selectedChapters = [];
+            document.querySelectorAll('.chapter-item input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+                selectedChapters.push(parseInt(cb.value));
+            });
+        });
+
+        // Обработчик "Убрать все"
+        deselectAllBtn.addEventListener('click', () => {
+            selectedChapters = [];
+            document.querySelectorAll('.chapter-item input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+        });
+
+        // Обработчик кнопки назад
+        backButton.addEventListener('click', () => {
+            if (novelId) {
+                window.location.href = `/novel/${novelId}`;
+            } else {
+                window.history.back();
+            }
+        });
+
+        window.onload = loadChapters;
+    </script>
+</body>
+</html>

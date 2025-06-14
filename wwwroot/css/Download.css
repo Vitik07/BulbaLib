@@ -1,0 +1,134 @@
+﻿body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #282828;
+    color: white;
+    padding: 20px;
+}
+
+.header-row {
+    position: relative;
+    padding: 0 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeInSlideDown 0.5s ease-out;
+}
+
+@keyframes fadeInSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.back-button {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 36px;
+    cursor: pointer;
+    user-select: none;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: transform 0.2s ease;
+}
+
+    .back-button:hover {
+        transform: translateY(-50%) scale(1.1);
+    }
+
+h1 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 40px;
+    color: white;
+    width: 100%;
+    text-align: center;
+}
+
+.chapter-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.chapter-item {
+    padding: 10px 15px;
+    background-color: #373737;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease, filter 0.3s ease;
+    animation: fadeInUp 0.4s ease forwards;
+    opacity: 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    filter: drop-shadow(0 0 0 transparent);
+}
+
+    .chapter-item:hover {
+        background-color: #505050;
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px #f39c12;
+        filter: drop-shadow(0 0 8px #f39c12);
+    }
+
+    .chapter-item input[type="checkbox"]:checked + span {
+        color: #f39c12;
+        font-weight: bold;
+    }
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.download-button {
+    display: block;
+    margin: 20px auto;
+    padding: 10px 20px;
+    background-color: #f39c12;
+    border: none;
+    border-radius: 15px;
+    color: black;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+    .download-button:hover {
+        background-color: #d35400;
+        transform: scale(1.05);
+    }
+
+.btn-group {
+    display: inline-flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 15px;
+}

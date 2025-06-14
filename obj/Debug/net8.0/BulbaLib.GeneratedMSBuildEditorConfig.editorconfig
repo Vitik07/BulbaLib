@@ -1,0 +1,155 @@
+is_global = true
+build_property.TargetFramework = net8.0
+build_property.TargetFramework = net8.0
+build_property.TargetPlatformMinVersion = 
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.ProjectTypeGuids = 
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = 
+build_property.InvariantGlobalization = 
+build_property.PlatformNeutralAssembly = 
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property.RootNamespace = BulbaLib
+build_property.RootNamespace = BulbaLib
+build_property.ProjectDir = C:\Работы\РЕЗ КОПИЯ ПРОЕКТА\BulbaLibNew\BulbaLib mark6\BulbaLib\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.RazorLangVersion = 8.0
+build_property.SupportLocalizedComponentNames = 
+build_property.GenerateRazorMetadataSourceChecksumAttributes = 
+build_property.MSBuildProjectDirectory = C:\Работы\РЕЗ КОПИЯ ПРОЕКТА\BulbaLibNew\BulbaLib mark6\BulbaLib
+build_property._RazorSourceGeneratorDebug = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Admin/ChapterRequestDetails.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cQ2hhcHRlclJlcXVlc3REZXRhaWxzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Admin/ChapterRequests.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cQ2hhcHRlclJlcXVlc3RzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Admin/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Admin/NovelRequestDetails.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cTm92ZWxSZXF1ZXN0RGV0YWlscy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Admin/NovelRequests.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cTm92ZWxSZXF1ZXN0cy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Admin/Users.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cVXNlcnMuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Admin/_ChapterRequestsPartial.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cX0NoYXB0ZXJSZXF1ZXN0c1BhcnRpYWwuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Admin/_NovelRequestsPartial.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cX05vdmVsUmVxdWVzdHNQYXJ0aWFsLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Admin/_UsersPartial.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cX1VzZXJzUGFydGlhbC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Auth/Login.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQXV0aFxMb2dpbi5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Auth/Register.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQXV0aFxSZWdpc3Rlci5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Catalog/Catalog.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ2F0YWxvZ1xDYXRhbG9nLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/ChapterView/Create.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ2hhcHRlclZpZXdcQ3JlYXRlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/ChapterView/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ2hhcHRlclZpZXdcRWRpdC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Chapter/Chapter.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ2hhcHRlclxDaGFwdGVyLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Chapter/Create.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ2hhcHRlclxDcmVhdGUuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Chapter/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ2hhcHRlclxFZGl0LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Download/Download.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRG93bmxvYWRcRG93bmxvYWQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Home/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/NovelView/Create.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTm92ZWxWaWV3XENyZWF0ZS5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/NovelView/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTm92ZWxWaWV3XEVkaXQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Novel/Create.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTm92ZWxcQ3JlYXRlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Novel/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTm92ZWxcRWRpdC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Novel/Novel.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTm92ZWxcTm92ZWwuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Profile/Profile.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvZmlsZVxQcm9maWxlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Profile/ProfileView.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvZmlsZVxQcm9maWxlVmlldy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Shared/Error.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXEVycm9yLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Shared/_AccessDeniedPartial.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9BY2Nlc3NEZW5pZWRQYXJ0aWFsLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Shared/_ValidationScriptsPartial.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9WYWxpZGF0aW9uU2NyaXB0c1BhcnRpYWwuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/_ViewImports.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdJbXBvcnRzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/_ViewStart.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdTdGFydC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Работы/РЕЗ КОПИЯ ПРОЕКТА/BulbaLibNew/BulbaLib mark6/BulbaLib/Views/Shared/_Layout.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9MYXlvdXQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = b-h5r650o4ec

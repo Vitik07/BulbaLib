@@ -1,0 +1,166 @@
+﻿@model List<BulbaLib.Models.NovelModerationRequestViewModel>
+
+@{
+    // Layout = null; // This is a partial view
+}
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>ID Запроса</th>
+                <th>Тип</th>
+                <th>Название Новеллы</th>
+                <th>Пользователь</th>
+                <th>Дата Запроса</th>
+                <th>Статус</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model != null && Model.Any())
+            {
+                foreach (var req in Model)
+                {
+                    <tr>
+                        <td>@req.RequestId</td>
+                        <td>
+                            <span class="badge bg-info">@req.RequestTypeDisplay</span>
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(req.NovelTitle))
+                            {
+                                @req.NovelTitle
+                            }
+                            else if (req.ProposedNovelData != null && !string.IsNullOrEmpty(req.ProposedNovelData.Title))
+                            {
+                                @(req.ProposedNovelData.Title) <em class="text-muted">(Новое)</em>
+                            }
+                            else
+                            {
+                                <span>(Данные о названии отсутствуют)</span>
+                            }
+                        </td>
+                        <td>@req.RequesterLogin (ID: @req.UserId)</td>
+                        <td>@req.CreatedAt.ToString("g")</td>
+                        <td><span class="badge bg-warning">@req.Status</span></td> @* Assuming all fetched are Pending *@
+                        <td>
+                            <a asp-action="NovelRequestDetails" asp-controller="Admin" asp-route-requestId="@req.RequestId" class="btn btn-sm btn-info" title="Детали">
+                                <i class="fas fa-eye"></i> Детали
+                            </a>
+                            <form asp-action="ApproveNovelRequest" asp-controller="Admin" method="post" class="d-inline form-approve-novel-request" data-request-id="@req.RequestId">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="requestId" value="@req.RequestId" />
+                                <button type="submit" class="btn btn-sm btn-success" title="Одобрить">
+                                    <i class="fas fa-check"></i> Одобрить
+                                </button>
+                            </form>
+                            @* For Reject, a modal for comment input is better, but a simple form for now *@
+                            <button type="button" class="btn btn-sm btn-danger btn-reject-novel" data-bs-toggle="modal" data-bs-target="#rejectNovelModal" data-request-id="@req.RequestId" title="Отклонить">
+                                <i class="fas fa-times"></i> Отклонить
+                            </button>
+                        </td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="7" class="text-center">Нет ожидающих запросов по новеллам.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@* Modal for Rejection Comment (Example) - This should ideally be in the main Index.cshtml or _Layout to avoid duplication if other tabs use similar modals *@
+<div class="modal fade" id="rejectNovelModal" tabindex="-1" aria-labelledby="rejectNovelModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formRejectNovel" asp-action="RejectNovelRequest" asp-controller="Admin" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="requestId" id="rejectNovelRequestId" />
+                <div class="modal-header">
+                    <h5 class="modal-title" id="rejectNovelModalLabel">Отклонить запрос на модерацию новеллы</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="moderationCommentNovel" class="form-label">Причина отклонения (необязательно)</label>
+                        <textarea class="form-control" id="moderationCommentNovel" name="moderationComment" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger">Отклонить запрос</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    $(document).ready(function () {
+        // AJAX for approving novel request
+        $('.form-approve-novel-request').submit(function (e) {
+            e.preventDefault();
+            var form = $(this);
+            if (!confirm('Вы уверены, что хотите одобрить этот запрос?')) return;
+
+            $.ajax({
+                type: form.attr('method'),
+                url: form.attr('action'),
+                data: form.serialize(),
+                success: function (response) {
+                    if (response.success) {
+                        alert(response.message);
+                        // Reload the novel requests tab content
+                        $('#novel-requests-content-area').load('@Url.Action("NovelRequests", "Admin")');
+                    } else {
+                        alert('Ошибка: ' + response.message);
+                    }
+                },
+                error: function () {
+                    alert('Произошла ошибка при отправке запроса на одобрение.');
+                }
+            });
+        });
+
+        // Prepare and handle modal for rejecting novel request
+        var rejectNovelModal = document.getElementById('rejectNovelModal');
+        if (rejectNovelModal) {
+            rejectNovelModal.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+                var requestId = button.getAttribute('data-request-id');
+                var modalRequestIdInput = rejectNovelModal.querySelector('#rejectNovelRequestId');
+                modalRequestIdInput.value = requestId;
+            });
+
+            $('#formRejectNovel').submit(function(e) {
+                e.preventDefault();
+                var form = $(this);
+                 if (!confirm('Вы уверены, что хотите отклонить этот запрос?')) return;
+
+                $.ajax({
+                    type: form.attr('method'),
+                    url: form.attr('action'),
+                    data: form.serialize(),
+                    success: function (response) {
+                        if (response.success) {
+                            alert(response.message);
+                            var modalInstance = bootstrap.Modal.getInstance(rejectNovelModal);
+                            if(modalInstance) modalInstance.hide();
+                            $('#novel-requests-content-area').load('@Url.Action("NovelRequests", "Admin")');
+                        } else {
+                            alert('Ошибка: ' + response.message);
+                        }
+                    },
+                    error: function () {
+                        alert('Произошла ошибка при отправке запроса на отклонение.');
+                    }
+                });
+            });
+        }
+    });
+</script>

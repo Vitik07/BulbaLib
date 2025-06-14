@@ -1,0 +1,106 @@
+﻿@model BulbaLib.Models.Novel
+@{
+    ViewData["Title"] = "Редактировать новеллу";
+}
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>@ViewData["Title"]: @Model.Title</h2>
+
+<form asp-action="Edit" asp-route-id="@Model.Id" method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    @* Hidden input for Id to ensure it's posted back, though it's also in the route *@
+    <input type="hidden" asp-for="Id" />
+    @* Date is preserved server-side, no need for it in the form unless you want to display it as read-only *@
+    @* AuthorId and TranslatorId are also handled server-side based on roles/permissions *@
+
+    <div class="form-group mb-3">
+        <label asp-for="Title" class="control-label"></label>
+        <input asp-for="Title" class="form-control" />
+        <span asp-validation-for="Title" class="text-danger"></span>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Description" class="control-label"></label>
+        <textarea asp-for="Description" class="form-control" rows="5"></textarea>
+        <span asp-validation-for="Description" class="text-danger"></span>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Covers" class="control-label">Обложки (JSON массив URL)</label>
+        <input asp-for="Covers" class="form-control" />
+        <span asp-validation-for="Covers" class="text-danger"></span>
+        <small class="form-text text-muted">Пример: ["/uploads/default.jpg", "/uploads/cover2.png"]</small>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Genres" class="control-label"></label>
+        <input asp-for="Genres" class="form-control" />
+        <span asp-validation-for="Genres" class="text-danger"></span>
+        <small class="form-text text-muted">Жанры через запятую</small>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Tags" class="control-label"></label>
+        <input asp-for="Tags" class="form-control" />
+        <span asp-validation-for="Tags" class="text-danger"></span>
+        <small class="form-text text-muted">Теги через запятую</small>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Type" class="control-label"></label>
+        <select asp-for="Type" class="form-control">
+            <option value="">-- Выберите тип --</option>
+            <option value="Маньхуа">Маньхуа</option>
+            <option value="Манхва">Манхва</option>
+            <option value="Веб-комикс">Веб-комикс</option>
+            <option value="Комикс">Комикс</option>
+            <option value="Ранобэ">Ранобэ</option>
+            <option value="Новелла">Новелла</option>
+        </select>
+        <span asp-validation-for="Type" class="text-danger"></span>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Format" class="control-label"></label>
+        <select asp-for="Format" class="form-control">
+            <option value="">-- Выберите формат --</option>
+            <option value="4-кома">4-кома</option>
+            <option value="Дальней Восток">Дальней Восток</option>
+            <option value="Цветной">Цветной</option>
+            <option value="Вебтун">Вебтун</option>
+            <option value="Додзинси">Додзинси</option>
+            <option value="Индонезийский">Индонезийский</option>
+            <option value="Западный">Западный</option>
+            <option value="Европейский">Европейский</option>
+            <option value="Русский">Русский</option>
+        </select>
+        <span asp-validation-for="Format" class="text-danger"></span>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="ReleaseYear" class="control-label"></label>
+        <input asp-for="ReleaseYear" type="number" class="form-control" />
+        <span asp-validation-for="ReleaseYear" class="text-danger"></span>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="AlternativeTitles" class="control-label"></label>
+        <input asp-for="AlternativeTitles" class="form-control" />
+        <span asp-validation-for="AlternativeTitles" class="text-danger"></span>
+    </div>
+
+    <div class="form-group mt-3">
+        <input type="submit" value="Сохранить изменения" class="btn btn-success" />
+        <a asp-controller="NovelView" asp-action="Details" asp-route-id="@Model.Id" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

@@ -1,0 +1,87 @@
+﻿@{
+    ViewData["Title"] = "Админ-панель";
+    Layout = "~/Views/Shared/_Layout.cshtml"; // Assuming a layout that includes Bootstrap
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<ul class="nav nav-tabs mb-3" id="adminTab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-panel" type="button" role="tab" aria-controls="users-panel" aria-selected="true">Пользователи</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="novel-requests-tab" data-bs-toggle="tab" data-bs-target="#novel-requests-panel" type="button" role="tab" aria-controls="novel-requests-panel" aria-selected="false">Запросы (Новеллы)</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="chapter-requests-tab" data-bs-toggle="tab" data-bs-target="#chapter-requests-panel" type="button" role="tab" aria-controls="chapter-requests-panel" aria-selected="false">Запросы (Главы)</button>
+    </li>
+</ul>
+
+<div class="tab-content" id="adminTabContent">
+    <div class="tab-pane fade show active" id="users-panel" role="tabpanel" aria-labelledby="users-tab">
+        @* Content for Users will be loaded here. *@
+        <h4>Управление пользователями</h4>
+        <div id="users-content-area">
+            @* Action `Users()` will return a partial view for this section *@
+        </div>
+    </div>
+    <div class="tab-pane fade" id="novel-requests-panel" role="tabpanel" aria-labelledby="novel-requests-tab">
+        @* Content for Novel Requests *@
+        <h4>Запросы на модерацию новелл</h4>
+        <div id="novel-requests-content-area">
+            @* Action `NovelRequests()` will return a partial view for this section *@
+        </div>
+    </div>
+    <div class="tab-pane fade" id="chapter-requests-panel" role="tabpanel" aria-labelledby="chapter-requests-tab">
+        @* Content for Chapter Requests *@
+        <h4>Запросы на модерацию глав</h4>
+        <div id="chapter-requests-content-area">
+            @* Action `ChapterRequests()` will return a partial view for this section *@
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Script to load tab content dynamically via AJAX or handle tab state
+        $(document).ready(function () {
+            function loadTabContent(targetTabPaneId, url) {
+                // Basic check to prevent reloading if content is already there (optional)
+                // if ($(targetTabPaneId).html().trim() === '') {
+                //    $(targetTabPaneId).load(url);
+                // }
+                // Always load for now, or implement more sophisticated caching/check
+                $(targetTabPaneId).load(url, function(response, status, xhr) {
+                    if (status == "error") {
+                        $(targetTabPaneId).html("<p>Ошибка загрузки данных: " + xhr.status + " " + xhr.statusText + "</p>");
+                    }
+                });
+            }
+
+            // Load content for the initially active tab
+            loadTabContent('#users-content-area', '@Url.Action("Users", "Admin")');
+
+            // Handle tab switching
+            $('#users-tab').on('shown.bs.tab', function (e) {
+                loadTabContent('#users-content-area', '@Url.Action("Users", "Admin")');
+            });
+            $('#novel-requests-tab').on('shown.bs.tab', function (e) {
+                loadTabContent('#novel-requests-content-area', '@Url.Action("NovelRequests", "Admin")');
+            });
+            $('#chapter-requests-tab').on('shown.bs.tab', function (e) {
+                loadTabContent('#chapter-requests-content-area', '@Url.Action("ChapterRequests", "Admin")');
+            });
+
+            // Ensure Bootstrap tabs are initialized if not already globally
+            var triggerTabList = [].slice.call(document.querySelectorAll('#adminTab button'))
+            triggerTabList.forEach(function (triggerEl) {
+                var tabTrigger = new bootstrap.Tab(triggerEl)
+                // Optional: re-add click listener if Bootstrap's default is prevented elsewhere
+                // triggerEl.addEventListener('click', function (event) {
+                //    event.preventDefault()
+                //    tabTrigger.show()
+                // })
+            });
+        });
+    </script>
+}

@@ -1,0 +1,109 @@
+﻿body {
+    background-color: #282828;
+    color: white;
+    font-family: Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+}
+
+.login-container {
+    background-color: #373737;
+    padding: 30px 40px;
+    border-radius: 20px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+    text-align: center;
+    width: 300px;
+    animation: fadeIn 0.8s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.login-container h2 {
+    margin-bottom: 20px;
+    font-size: 24px;
+    text-shadow: 0 0 10px #f39c12;
+}
+
+.login-container input {
+    background-color: #282828;
+    border: none;
+    color: white;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 10px;
+    width: 100%;
+    transition: box-shadow 0.3s ease, background-color 0.3s ease;
+}
+
+    .login-container input:focus {
+        outline: none;
+        background-color: #333;
+        box-shadow: 0 0 8px #f39c12;
+    }
+
+.login-container button {
+    background-color: #373737;
+    color: white;
+    border: none;
+    border-radius: 15px;
+    padding: 10px 20px;
+    margin-top: 15px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease, filter 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+    .login-container button:hover {
+        background-color: #505050;
+        box-shadow: 0 4px 10px #f39c12;
+        filter: drop-shadow(0 0 8px #f39c12);
+        transform: scale(1.05);
+    }
+
+    .login-container button:active {
+        transform: scale(0.95);
+    }
+
+.login-container a {
+    display: block;
+    margin-top: 15px;
+    color: #bbb;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+    .login-container a:hover {
+        color: #fff;
+        text-shadow: 0 0 8px #f39c12;
+    }
+
+.error, .success {
+    margin-top: 10px;
+    font-weight: bold;
+    transition: opacity 0.3s ease;
+}
+
+.error {
+    color: #ff6b6b;
+    text-shadow: 0 0 6px #ff6b6b;
+}
+
+.success {
+    color: #6bff95;
+    text-shadow: 0 0 6px #6bff95;
+}

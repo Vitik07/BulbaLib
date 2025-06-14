@@ -1,0 +1,148 @@
+﻿@model BulbaLib.Models.ModerationRequest
+@{
+    ViewData["Title"] = $"Детали запроса главы ID: {Model.Id}";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var requestedChapter = ViewData["RequestedChapter"] as Chapter;
+    var existingChapter = ViewData["ExistingChapter"] as Chapter;
+    var parentNovel = ViewData["ParentNovel"] as Novel;
+    var requester = ViewData["RequesterUser"] as User;
+}
+<h1>@ViewData["Title"]</h1>
+<hr />
+<div class="row">
+    <div class="col-md-7">
+        <h4>Информация о запросе</h4>
+        <dl class="row">
+            <dt class="col-sm-4">ID Запроса:</dt>
+            <dd class="col-sm-8">@Model.Id</dd>
+            <dt class="col-sm-4">Тип:</dt>
+            <dd class="col-sm-8">@Model.RequestType</dd>
+            <dt class="col-sm-4">Пользователь:</dt>
+            <dd class="col-sm-8">@(requester?.Login ?? Model.UserId.ToString()) (ID: @Model.UserId)</dd>
+            <dt class="col-sm-4">Дата запроса:</dt>
+            <dd class="col-sm-8">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+            @if (parentNovel != null)
+            {
+                <dt class="col-sm-4">Новелла:</dt>
+                <dd class="col-sm-8"><a asp-controller="NovelView" asp-action="Details" asp-route-id="@parentNovel.Id" target="_blank">@parentNovel.Title (ID: @parentNovel.Id)</a></dd>
+            }
+            else if (Model.NovelId.HasValue)
+            {
+                <dt class="col-sm-4">Novel ID:</dt>
+                <dd class="col-sm-8">@Model.NovelId.Value</dd>
+            }
+            @if (Model.ChapterId.HasValue && Model.RequestType != ModerationRequestType.AddChapter)
+            {
+                <dt class="col-sm-4">Chapter ID:</dt>
+                <dd class="col-sm-8">@Model.ChapterId.Value</dd>
+            }
+            <dt class="col-sm-4">Статус:</dt>
+            <dd class="col-sm-8">@Model.Status</dd>
+        </dl>
+    </div>
+</div>
+
+
+@if (Model.RequestType == ModerationRequestType.AddChapter && requestedChapter != null)
+{
+    <h4 class="mt-4">Предлагаемая новая глава:</h4>
+    <partial name="_ChapterDisplayPartial" model="requestedChapter" />
+}
+else if (Model.RequestType == ModerationRequestType.EditChapter)
+{
+    <div class="row mt-4">
+        @if (existingChapter != null)
+        {
+            <div class="col-md-6">
+                <h4>Существующая глава (ID: @existingChapter.Id):</h4>
+                <partial name="_ChapterDisplayPartial" model="existingChapter" />
+            </div>
+        }
+        @if (requestedChapter != null)
+        {
+            <div class="col-md-6">
+                <h4>Предлагаемые изменения:</h4>
+                <partial name="_ChapterDisplayPartial" model="requestedChapter" />
+            </div>
+        }
+    </div>
+}
+else if (Model.RequestType == ModerationRequestType.DeleteChapter && existingChapter != null)
+{
+    <h4 class="mt-4">Глава к удалению:</h4>
+    <partial name="_ChapterDisplayPartial" model="existingChapter" />
+}
+
+
+@if (Model.Status == ModerationStatus.Pending)
+{
+    <div class="mt-4">
+        <form asp-action="ApproveChapterRequest" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="requestId" value="@Model.Id" />
+            <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> Одобрить</button>
+        </form>
+        <button type="button" class="btn btn-danger d-inline ms-2" data-bs-toggle="modal" data-bs-target="#rejectChapterModal">
+            <i class="fas fa-times"></i> Отклонить
+        </button>
+    </div>
+
+    <!-- Modal for Rejection Comment -->
+    <div class="modal fade" id="rejectChapterModal" tabindex="-1" aria-labelledby="rejectChapterModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form asp-action="RejectChapterRequest" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="requestId" value="@Model.Id" />
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="rejectChapterModalLabel">Причина отклонения запроса главы ID @Model.Id</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="moderationCommentChapter" class="form-label">Комментарий (необязательно):</label>
+                            <textarea class="form-control" id="moderationCommentChapter" name="moderationComment" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-danger">Отклонить запрос</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="mt-4 alert alert-info">
+        <p><strong>Модератор:</strong> @(ViewData["ModeratorUserLogin"] != null ? ViewData["ModeratorUserLogin"] : (Model.ModeratorId.HasValue ? Model.ModeratorId.Value.ToString() : "N/A"))</p>
+        <p><strong>Дата обработки:</strong> @Model.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss")</p>
+        @if (!string.IsNullOrEmpty(Model.ModerationComment))
+        {
+            <p><strong>Комментарий модератора:</strong> @Model.ModerationComment</p>
+        }
+    </div>
+}
+
+<div class="mt-3">
+    <a asp-action="ChapterRequests" class="btn btn-outline-secondary">Назад к списку запросов</a>
+</div>
+
+@*
+    Placeholder for _ChapterDisplayPartial.cshtml.
+    Create this in Views/Shared/ or Views/Admin/.
+    Example:
+    @model Chapter
+    <dl class="row">
+        <dt class="col-sm-3">Номер:</dt><dd class="col-sm-9">@Model.Number</dd>
+        <dt class="col-sm-3">Название:</dt><dd class="col-sm-9">@Model.Title</dd>
+        <dt class="col-sm-3">Содержимое (фрагмент):</dt>
+        <dd class="col-sm-9"><pre style="white-space: pre-wrap; max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 5px;">@(Model.Content?.Substring(0, Math.Min(Model.Content.Length, 500))) ...</pre></dd>
+    </dl>
+*@
+
+@section Scripts {
+    @* Ensure Bootstrap JS for modal is loaded. It might be in _Layout.cshtml. If not, uncomment the line below. *@
+    @* <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script> *@
+}

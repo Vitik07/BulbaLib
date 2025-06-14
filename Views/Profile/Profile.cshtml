@@ -1,0 +1,177 @@
+﻿@{
+    ViewData["Title"] = "Профиль";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>Профиль — BulbaLib</title>
+    <link rel="stylesheet" href="~/css/Profile.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="~/css/ProfileView.css" />
+</head>
+<body>
+    <div class="novel-header-bar">
+        <div class="header-logo-btn" onclick="window.location.href='/'" role="button" tabindex="0" aria-label="К главной">
+            <img src="/favicon.ico" alt="logo" />
+            <span class="header-logo-text">BulbaLib</span>
+        </div>
+    </div>
+    <div class="profile-main-bg">
+        <div class="profile-main-container">
+            <!-- SIDEBAR -->
+            <aside class="profile-sidebar" aria-label="Боковая панель пользователя">
+                <div class="profile-avatar-wrap">
+                    <img class="profile-avatar" src="/img/no-avatar.png" alt="Аватар пользователя" id="profile-avatar" />
+                </div>
+                <div class="profile-user-info">
+                    <div class="profile-username" id="profile-username"></div>
+                    <button class="profile-action-btn" id="avatarBtn" type="button">
+                        <i class="fa-solid fa-image"></i> Загрузить аватар
+                    </button>
+                    <button class="profile-action-btn" id="logoutBtn" type="button">
+                        <i class="fa-solid fa-right-from-bracket"></i> Выйти из аккаунта
+                    </button>
+                </div>
+            </aside>
+            <!-- MAIN -->
+            <main class="profile-content-block" aria-label="Содержимое профиля">
+                <div class="profile-tabs-header">
+                    <button class="profile-tab-btn active" id="tab-favorites-btn" onclick="showTab('favorites')">Любимые</button>
+                    <button class="profile-tab-btn" id="tab-reading-btn" onclick="showTab('reading')">Читаю</button>
+                    <button class="profile-tab-btn" id="tab-completed-btn" onclick="showTab('read')">Прочитано</button>
+                    <button class="profile-tab-btn" id="tab-dropped-btn" onclick="showTab('abandoned')">Брошено</button>
+                </div>
+                <div class="profile-tabs-content">
+                    <div class="tab-pane" id="tab-favorites" style="display:block;">
+                        <div class="block-title">Любимые новеллы</div>
+                        <div class="novel-short-list" id="favorites-list"></div>
+                    </div>
+                    <div class="tab-pane" id="tab-reading" style="display:none;">
+                        <div class="block-title">Читаю</div>
+                        <div class="novel-short-list" id="reading-list"></div>
+                    </div>
+                    <div class="tab-pane" id="tab-completed" style="display:none;">
+                        <div class="block-title">Прочитано</div>
+                        <div class="novel-short-list" id="completed-list"></div>
+                    </div>
+                    <div class="tab-pane" id="tab-dropped" style="display:none;">
+                        <div class="block-title">Брошено</div>
+                        <div class="novel-short-list" id="dropped-list"></div>
+                    </div>
+                </div>
+                <div class="novel-main-error" style="display:none;color:#e74c3c;margin-top:2em;" role="alert">
+                    Ошибка загрузки профиля.
+                </div>
+            </main>
+        </div>
+    </div>
+    <script>
+        // === JS для личного профиля ===
+        const baseUrl = window.location.origin;
+        const profileAvatar = document.getElementById('profile-avatar');
+        const profileName = document.getElementById('profile-username');
+        const avatarBtn = document.getElementById('avatarBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        function showTab(tab) {
+            document.getElementById('tab-favorites').style.display = (tab === 'favorites') ? 'block' : 'none';
+            document.getElementById('tab-reading').style.display = (tab === 'reading') ? 'block' : 'none';
+            document.getElementById('tab-completed').style.display = (tab === 'read') ? 'block' : 'none';
+            document.getElementById('tab-dropped').style.display = (tab === 'abandoned') ? 'block' : 'none';
+
+            document.getElementById('tab-favorites-btn').classList.toggle('active', tab === 'favorites');
+            document.getElementById('tab-reading-btn').classList.toggle('active', tab === 'reading');
+            document.getElementById('tab-completed-btn').classList.toggle('active', tab === 'read');
+            document.getElementById('tab-dropped-btn').classList.toggle('active', tab === 'abandoned');
+        }
+
+        // Вернуть последнюю обложку или /img/no-cover.png
+        function getLastCover(novel) {
+            if (Array.isArray(novel.covers) && novel.covers.length)
+                return novel.covers[novel.covers.length - 1];
+            if (novel.cover) // если cover как строка (backward compat)
+                return novel.cover;
+            if (novel.image)
+                return 'data:image/jpeg;base64,' + novel.image;
+            return '/img/no-cover.png';
+        }
+
+        function renderNovelShortList(listId, novels) {
+            const list = document.getElementById(listId);
+            list.innerHTML = '';
+            if (!novels || !novels.length) {
+                list.innerHTML = '<div class="novel-short-empty">Нет новелл</div>';
+                return;
+            }
+            for (const novel of novels) {
+                const card = document.createElement('div');
+                card.className = 'novel-short-card';
+                card.innerHTML = `
+                            <a href="/novel/${novel.id}" style="text-decoration:none;">
+                                <img class="novel-short-cover" src="${getLastCover(novel)}" alt="">
+                                <div class="novel-short-title">${novel.title || 'Без названия'}</div>
+                            </a>
+                        `;
+                list.appendChild(card);
+            }
+        }
+
+        function fillTabs(data) {
+            renderNovelShortList("favorites-list", data.favorites);
+            renderNovelShortList("reading-list", data.reading);
+            renderNovelShortList("completed-list", data.read);
+            renderNovelShortList("dropped-list", data.abandoned);
+        }
+
+        async function loadProfile() {
+            try {
+                const res = await fetch(`${baseUrl}/api/profile`);
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+
+                profileName.textContent = data.user.login || 'Пользователь';
+                profileAvatar.src = data.user.hasAvatar
+                    ? `${baseUrl}/api/users/avatar`
+                    : '/img/no-avatar.png';
+
+                fillTabs(data);
+                showTab('favorites');
+            } catch (error) {
+                document.querySelector('.novel-main-error').style.display = '';
+            }
+        }
+
+        avatarBtn.onclick = async function () {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async () => {
+                const file = input.files[0];
+                if (!file) return;
+                const formData = new FormData();
+                formData.append('avatar', file);
+
+                await fetch(`${baseUrl}/api/users/avatar`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                alert('Аватар обновлён!');
+                location.reload();
+            };
+            input.click();
+        };
+
+        logoutBtn.onclick = async function () {
+            await fetch(`${baseUrl}/api/auth/logout`, { method: 'POST' });
+            window.location.href = '/login';
+        };
+
+        document.addEventListener('DOMContentLoaded', loadProfile);
+    </script>
+</body>
+</html>
