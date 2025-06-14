@@ -1,105 +1,310 @@
 ﻿@model BulbaLib.Models.NovelCreateModel
 @{
-    ViewData["Title"] = "Добавить новеллу";
+    Layout = null; // Отключаем основной Layout
+
+    ViewData["Title"] = "Добавление новеллы";
 }
-@* It's good practice to put Layout assignment in _ViewStart.cshtml or specify it here if not using a global layout *@
-@{
-    Layout = "~/Views/Shared/_Layout.cshtml";
-}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - BulbaLib</title>
+    @* Подразумевается, что основные стили Bootstrap или аналога будут подключены, если форма их использует.
+    Если нет, нужно будет добавить ссылки на CSS фреймворка или полностью кастомные стили.
+    Для примера, можно оставить ссылку на ваш основной CSS сайта или специальный для форм.
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" /> *@
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" /> @* Пример подключения общего CSS *@
+    <link rel="stylesheet" href="~/css/novel_form.css" asp-append-version="true" /> @* Кастомные стили для этой формы *@
+</head>
+<body>
+    <div class="container">
+        @* Базовый контейнер для контента *@
+        <main role="main" class="pb-3">
 
+            <h2>@ViewData["Title"]</h2>
 
-<h2>@ViewData["Title"]</h2>
+            <form asp-action="Create" method="post" enctype="multipart/form-data">
+                @* enctype добавлен для загрузки файлов *@
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-<form asp-action="Create" method="post">
-    @Html.AntiForgeryToken()
-    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="form-group mb-3">
+                    <label asp-for="Title" class="control-label">Название новеллы</label>
+                    <input asp-for="Title" class="form-control" />
+                    <span asp-validation-for="Title" class="text-danger"></span>
+                </div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Title" class="control-label"></label>
-        <input asp-for="Title" class="form-control" />
-        <span asp-validation-for="Title" class="text-danger"></span>
+                <div class="form-group mb-3">
+                    <label asp-for="Description" class="control-label">Описание</label>
+                    <textarea asp-for="Description" class="form-control" rows="5"></textarea>
+                    <span asp-validation-for="Description" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="CoverFile" class="control-label"></label>
+                    <input asp-for="CoverFile" type="file" class="form-control" accept="image/jpeg, image/png, image/gif, image/webp" />
+                    <span asp-validation-for="CoverFile" class="text-danger"></span>
+                    <small class="form-text text-muted">Выберите файл основной обложки (jpg, png, gif, webp).</small>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="Genres" class="control-label"></label>
+                    @* Новый интерфейс выбора жанров будет здесь *@
+                    <div id="selectedGenresContainer" class="mt-2"></div> @* Контейнер для отображения выбранных жанров *@
+                    <button type="button" id="addGenreBtn" class="btn btn-sm btn-primary mt-1">Добавить жанр</button>
+                    <input type="hidden" asp-for="Genres" /> @* Скрытое поле для отправки данных *@
+                    <span asp-validation-for="Genres" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="Tags" class="control-label"></label>
+                    @* Новый интерфейс выбора тегов будет здесь *@
+                    <div id="selectedTagsContainer" class="mt-2"></div> @* Контейнер для отображения выбранных тегов *@
+                    <button type="button" id="addTagBtn" class="btn btn-sm btn-primary mt-1">Добавить тег</button>
+                    <input type="hidden" asp-for="Tags" /> @* Скрытое поле для отправки данных *@
+                    <span asp-validation-for="Tags" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="Type" class="control-label"></label> @* Текст метки будет из DisplayAttribute *@
+                    <select asp-for="Type" class="form-control">
+                        <option value="">-- Выберите тип --</option>
+                        <option value="Япония">Япония</option>
+                        <option value="Корея">Корея</option>
+                        <option value="Китай">Китай</option>
+                        <option value="Английский">Английский</option>
+                        <option value="Авторский">Авторский</option>
+                        <option value="Фанфик">Фанфик</option>
+                    </select>
+                    <span asp-validation-for="Type" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="Format" class="control-label"></label> @* Текст метки будет из DisplayAttribute *@
+                    <select asp-for="Format" class="form-control">
+                        <option value="">-- Выберите формат --</option>
+                        <option value="Веб">Веб</option>
+                        <option value="Лайт">Лайт</option>
+                    </select>
+                    <span asp-validation-for="Format" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="ReleaseYear" class="control-label">Год релиза</label>
+                    <input asp-for="ReleaseYear" type="number" class="form-control" />
+                    <span asp-validation-for="ReleaseYear" class="text-danger"></span>
+                    <small class="form-text text-muted">Укажите год релиза (4 цифры, например, 2023). Год должен быть не ранее 1900 и не позднее 2099.</small>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="AlternativeTitles" class="control-label">Альтернативные названия</label>
+                    <textarea asp-for="AlternativeTitles" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="AlternativeTitles" class="text-danger"></span>
+                    <small class="form-text text-muted">Каждое альтернативное название вводите с новой строки.</small>
+                </div>
+
+                <div class="form-group mt-3">
+                    <input type="submit" value="Добавить новеллу" class="btn btn-success" />
+                    <a asp-controller="CatalogView" asp-action="Index" class="btn btn-secondary">Отмена</a>
+                </div>
+            </form>
+        </main>
     </div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Description" class="control-label"></label>
-        <textarea asp-for="Description" class="form-control" rows="5"></textarea>
-        <span asp-validation-for="Description" class="text-danger"></span>
+    @* <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script> *@
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @* Модальное окно для Жанров *@
+    <div id="genreModal" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.4);">
+        <div class="modal-content" style="background-color:#fefefe; margin:15% auto; padding:20px; border:1px solid #888; width:80%; max-width:500px; border-radius:8px;">
+            <span class="close-btn" id="closeGenreModal" style="color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;">&times;</span>
+            <h4>Выберите или добавьте жанры</h4>
+            <div id="genreListContainer" style="max-height: 200px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #ccc; padding: 10px;">
+                @* Сюда будут загружаться чекбоксы с жанрами *@
+            </div>
+            <input type="text" id="customGenreInput" placeholder="Добавить свой жанр" class="form-control mb-2" />
+            <button type="button" id="addCustomGenreBtn" class="btn btn-sm btn-secondary">Добавить свой</button>
+            <button type="button" id="saveGenreSelectionBtn" class="btn btn-sm btn-success float-end">Сохранить выбор</button>
+        </div>
     </div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Covers" class="control-label">Обложки (JSON массив URL)</label>
-        <input asp-for="Covers" class="form-control" value="[]" />
-        <span asp-validation-for="Covers" class="text-danger"></span>
-        <small class="form-text text-muted">Пример: ["/uploads/default.jpg"]</small>
+    @* Модальное окно для Тегов *@
+    <div id="tagModal" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.4);">
+        <div class="modal-content" style="background-color:#fefefe; margin:15% auto; padding:20px; border:1px solid #888; width:80%; max-width:500px; border-radius:8px;">
+            <span class="close-btn" id="closeTagModal" style="color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;">&times;</span>
+            <h4>Выберите или добавьте теги</h4>
+            <div id="tagListContainer" style="max-height: 200px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #ccc; padding: 10px;">
+                @* Сюда будут загружаться чекбоксы с тегами *@
+            </div>
+            <input type="text" id="customTagInput" placeholder="Добавить свой тег" class="form-control mb-2" />
+            <button type="button" id="addCustomTagBtn" class="btn btn-sm btn-secondary">Добавить свой</button>
+            <button type="button" id="saveTagSelectionBtn" class="btn btn-sm btn-success float-end">Сохранить выбор</button>
+        </div>
     </div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Genres" class="control-label"></label>
-        <input asp-for="Genres" class="form-control" />
-        <span asp-validation-for="Genres" class="text-danger"></span>
-        <small class="form-text text-muted">Жанры через запятую, например: Экшен, Приключения</small>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Tags" class="control-label"></label>
-        <input asp-for="Tags" class="form-control" />
-        <span asp-validation-for="Tags" class="text-danger"></span>
-        <small class="form-text text-muted">Теги через запятую, например: ГГ мужчина, Культивация</small>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Type" class="control-label"></label>
-        <select asp-for="Type" class="form-control">
-            <option value="">-- Выберите тип --</option>
-            <option value="Маньхуа">Маньхуа</option>
-            <option value="Манхва">Манхва</option>
-            <option value="Веб-комикс">Веб-комикс</option>
-            <option value="Комикс">Комикс</option>
-            <option value="Ранобэ">Ранобэ</option>
-            <option value="Новелла">Новелла</option>
-        </select>
-        <span asp-validation-for="Type" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Format" class="control-label"></label>
-        <select asp-for="Format" class="form-control">
-            <option value="">-- Выберите формат --</option>
-            <option value="4-кома">4-кома</option>
-            <option value="Дальней Восток">Дальней Восток</option>
-            <option value="Цветной">Цветной</option>
-            <option value="Вебтун">Вебтун</option>
-            <option value="Додзинси">Додзинси</option>
-            <option value="Индонезийский">Индонезийский</option>
-            <option value="Западный">Западный</option>
-            <option value="Европейский">Европейский</option>
-            <option value="Русский">Русский</option>
-        </select>
-        <span asp-validation-for="Format" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="ReleaseYear" class="control-label"></label>
-        <input asp-for="ReleaseYear" type="number" class="form-control" />
-        <span asp-validation-for="ReleaseYear" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="AlternativeTitles" class="control-label"></label>
-        <input asp-for="AlternativeTitles" class="form-control" />
-        <span asp-validation-for="AlternativeTitles" class="text-danger"></span>
-    </div>
-
-    @* AuthorId and TranslatorId are set server-side based on the user's role or future UI enhancements *@
-
-    <div class="form-group mt-3">
-        <input type="submit" value="Сохранить" class="btn btn-success" />
-        <a asp-controller="CatalogView" asp-action="Index" class="btn btn-secondary">Отмена</a>
-    </div>
-</form>
-
-@section Scripts {
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
-}
+
+    @section Scripts {
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const allGenres = @Html.Raw(Json.Serialize(ViewData["AllGenres"] as List<string> ?? new List<string>()));
+                const allTags = @Html.Raw(Json.Serialize(ViewData["AllTags"] as List<string> ?? new List<string>()));
+
+                let selectedGenres = [];
+                let selectedTags = [];
+
+                const hiddenGenresInput = document.getElementById('Genres'); // Скрытое поле asp-for="Genres"
+                const hiddenTagsInput = document.getElementById('Tags');   // Скрытое поле asp-for="Tags"
+
+                // --- НОВАЯ ФУНКЦИЯ RENDER BADGES ---
+                function renderSelectedItemsAsBadges(containerId, selectedArray, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef) {
+                    const container = document.getElementById(containerId);
+                    if (!container) return;
+                    container.innerHTML = ''; // Очищаем контейнер
+
+                    selectedArray.forEach(item => {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge bg-secondary me-1 mb-1'; // Используем Bootstrap классы для примера
+                        badge.textContent = item;
+
+                        const removeBtn = document.createElement('span');
+                        removeBtn.innerHTML = '&times;';
+                        removeBtn.className = 'ms-1 fw-bold';
+                        removeBtn.style.cursor = 'pointer';
+                        removeBtn.onclick = function () {
+                            // Удаляем из глобального массива выбранных
+                            const index = globalSelectedArrayRef.indexOf(item);
+                            if (index > -1) {
+                                globalSelectedArrayRef.splice(index, 1);
+                            }
+                            // Обновляем скрытое поле
+                            if (hiddenInputElement) hiddenInputElement.value = JSON.stringify(globalSelectedArrayRef);
+                            // Перерисовываем плашки
+                            renderSelectedItemsAsBadges(containerId, globalSelectedArrayRef, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef);
+                        };
+
+                        badge.appendChild(removeBtn);
+                        container.appendChild(badge);
+                    });
+                }
+                // --- КОНЕЦ НОВОЙ ФУНКЦИИ RENDER BADGES ---
+
+                function populateModalWithCheckboxes(containerId, items, selectedItemsArray, type) {
+                    const container = document.getElementById(containerId);
+                    if (!container) return;
+                    container.innerHTML = ''; // Очистить перед заполнением
+                    items.forEach(item => {
+                        const checkboxId = `${type}-${item.replace(/\s+/g, '-')}`; // Создаем уникальный ID
+                        const isChecked = selectedItemsArray.includes(item);
+                        container.innerHTML += `
+                                    <div>
+                                        <input type="checkbox" id="${checkboxId}" name="${type}" value="${item}" ${isChecked ? 'checked' : ''}>
+                                        <label for="${checkboxId}">${item}</label>
+                                    </div>`;
+                    });
+                }
+
+                // Жанры
+                const genreModal = document.getElementById('genreModal');
+                const addGenreBtn = document.getElementById('addGenreBtn');
+                const closeGenreModal = document.getElementById('closeGenreModal');
+                const genreListContainer = document.getElementById('genreListContainer');
+
+                if (addGenreBtn) addGenreBtn.onclick = function () {
+                    populateModalWithCheckboxes('genreListContainer', allGenres, selectedGenres, 'genre');
+                    if (genreModal) genreModal.style.display = 'block';
+                }
+                if (closeGenreModal) closeGenreModal.onclick = function () { if (genreModal) genreModal.style.display = 'none'; }
+
+                // Теги
+                const tagModal = document.getElementById('tagModal');
+                const addTagBtn = document.getElementById('addTagBtn');
+                const closeTagModal = document.getElementById('closeTagModal');
+                const tagListContainer = document.getElementById('tagListContainer');
+
+                if (addTagBtn) addTagBtn.onclick = function () {
+                    populateModalWithCheckboxes('tagListContainer', allTags, selectedTags, 'tag');
+                    if (tagModal) tagModal.style.display = 'block';
+                }
+                if (closeTagModal) closeTagModal.onclick = function () { if (tagModal) tagModal.style.display = 'none'; }
+
+                // Сохранение жанров
+                const saveGenreSelectionBtn = document.getElementById('saveGenreSelectionBtn');
+                if (saveGenreSelectionBtn) saveGenreSelectionBtn.onclick = function () {
+                    selectedGenres = [];
+                    document.querySelectorAll('#genreListContainer input[type="checkbox"]:checked').forEach(cb => {
+                        selectedGenres.push(cb.value);
+                    });
+                    if (hiddenGenresInput) hiddenGenresInput.value = JSON.stringify(selectedGenres);
+                    if (genreModal) genreModal.style.display = 'none';
+                    renderSelectedItemsAsBadges('selectedGenresContainer', selectedGenres, hiddenGenresInput, 'genre', allGenres, selectedGenres);
+                    console.log('Selected Genres:', selectedGenres);
+                }
+
+                // Сохранение тегов
+                const saveTagSelectionBtn = document.getElementById('saveTagSelectionBtn');
+                if (saveTagSelectionBtn) saveTagSelectionBtn.onclick = function () {
+                    selectedTags = [];
+                    document.querySelectorAll('#tagListContainer input[type="checkbox"]:checked').forEach(cb => {
+                        selectedTags.push(cb.value);
+                    });
+                    if (hiddenTagsInput) hiddenTagsInput.value = JSON.stringify(selectedTags);
+                    if (tagModal) tagModal.style.display = 'none';
+                    renderSelectedItemsAsBadges('selectedTagsContainer', selectedTags, hiddenTagsInput, 'tag', allTags, selectedTags);
+                    console.log('Selected Tags:', selectedTags);
+                }
+
+                // --- ЛОГИКА ДОБАВЛЕНИЯ CUSTOM ЭЛЕМЕНТОВ ---
+                // Для Жанров
+                const addCustomGenreBtn = document.getElementById('addCustomGenreBtn');
+                const customGenreInput = document.getElementById('customGenreInput');
+                // genreListContainer уже определен выше
+
+                if (addCustomGenreBtn) addCustomGenreBtn.onclick = function () {
+                    const newGenre = customGenreInput.value.trim();
+                    if (newGenre && !allGenres.includes(newGenre)) {
+                        allGenres.push(newGenre);
+                    }
+                    if (newGenre && !selectedGenres.includes(newGenre)) {
+                        selectedGenres.push(newGenre);
+                    }
+                    populateModalWithCheckboxes('genreListContainer', allGenres, selectedGenres, 'genre');
+                    if (customGenreInput) customGenreInput.value = '';
+                };
+
+                // Для Тегов
+                const addCustomTagBtn = document.getElementById('addCustomTagBtn');
+                const customTagInput = document.getElementById('customTagInput');
+                // tagListContainer уже определен выше
+
+                if (addCustomTagBtn) addCustomTagBtn.onclick = function () {
+                    const newTag = customTagInput.value.trim();
+                    if (newTag && !allTags.includes(newTag)) {
+                        allTags.push(newTag);
+                    }
+                    if (newTag && !selectedTags.includes(newTag)) {
+                        selectedTags.push(newTag);
+                    }
+                    populateModalWithCheckboxes('tagListContainer', allTags, selectedTags, 'tag');
+                    if (customTagInput) customTagInput.value = '';
+                };
+                // --- КОНЕЦ ЛОГИКИ CUSTOM ЭЛЕМЕНТОВ ---
+
+                // Закрытие модалки по клику вне контента
+                window.onclick = function (event) {
+                    if (event.target == genreModal) {
+                        if (genreModal) genreModal.style.display = 'none';
+                    }
+                    if (event.target == tagModal) {
+                        if (tagModal) tagModal.style.display = 'none';
+                    }
+                }
+            });
+        </script>
+    }
+</body>
+</html>

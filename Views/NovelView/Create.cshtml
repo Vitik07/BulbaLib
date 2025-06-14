@@ -1,87 +1,59 @@
-﻿@model BulbaLib.Models.NovelCreateModel
+﻿@model BulbaLib.Models.ChapterCreateModel
 @{
-    ViewData["Title"] = "Добавить новеллу";
-    // Assuming a layout that includes necessary CSS and JS, or add them here
-    // Layout = "~/Views/Shared/_Layout.cshtml";
+    Layout = null; // Отключаем основной Layout
+
+    ViewData["Title"] = "Добавление главы";
 }
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - BulbaLib</title>
+</head>
+<body>
+    <div class="container">
+        <main role="main" class="pb-3">
+            <h1>@ViewData["Title"]</h1>
+            @if (ViewData["NovelTitle"] != null)
+            {
+                <h4>Для новеллы: @ViewData["NovelTitle"]</h4>
+            }
 
-<h1>@ViewData["Title"]</h1>
+            <form asp-action="Create" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="NovelId" />
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-<form asp-action="Create" method="post">
-    @Html.AntiForgeryToken()
+                <div class="form-group mb-3">
+                    <label asp-for="Number" class="control-label"></label>
+                    <input asp-for="Number" class="form-control" placeholder="Например: 1, или 15.1" />
+                    <span asp-validation-for="Number" class="text-danger"></span>
+                </div>
 
-    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="form-group mb-3">
+                    <label asp-for="Title" class="control-label"></label>
+                    <input asp-for="Title" class="form-control" />
+                    <span asp-validation-for="Title" class="text-danger"></span>
+                </div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Title" class="control-label"></label>
-        <input asp-for="Title" class="form-control" />
-        <span asp-validation-for="Title" class="text-danger"></span>
+                <div class="form-group mb-3">
+                    <label asp-for="Content" class="control-label"></label>
+                    <textarea asp-for="Content" class="form-control" rows="15"></textarea>
+                    <span asp-validation-for="Content" class="text-danger"></span>
+                    <small class="form-text text-muted">Поддерживается HTML-разметка для форматирования текста главы.</small>
+                </div>
+
+                <div class="form-group mt-4">
+                    <button type="submit" class="btn btn-primary">Добавить главу</button>
+                    <a asp-controller="NovelView" asp-action="Details" asp-route-id="@Model.NovelId" class="btn btn-secondary">Отмена</a>
+                </div>
+            </form>
+        </main>
     </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Description" class="control-label"></label>
-        <textarea asp-for="Description" class="form-control" rows="5"></textarea>
-        <span asp-validation-for="Description" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Covers" class="control-label"></label>
-        <input asp-for="Covers" class="form-control" placeholder="JSON массив URL обложек, например, ['/uploads/covers/1.jpg']" />
-        <span asp-validation-for="Covers" class="text-danger"></span>
-        <small class="form-text text-muted">Пока что введите URL обложек вручную в виде JSON массива строк. Функционал загрузки будет добавлен позже.</small>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Genres" class="control-label"></label>
-        <input asp-for="Genres" class="form-control" placeholder="Жанр1, Жанр2, Жанр3" />
-        <span asp-validation-for="Genres" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Tags" class="control-label"></label>
-        <input asp-for="Tags" class="form-control" placeholder="Тег1, Тег2, Тег3" />
-        <span asp-validation-for="Tags" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="AlternativeTitles" class="control-label"></label>
-        <input asp-for="AlternativeTitles" class="form-control" placeholder="Альтернативное название1, Альтернативное название2" />
-        <span asp-validation-for="AlternativeTitles" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Type" class="control-label"></label>
-        <input asp-for="Type" class="form-control" placeholder="Например: Веб-новелла, Лайт-новелла" />
-        <span asp-validation-for="Type" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="Format" class="control-label"></label>
-        <input asp-for="Format" class="form-control" placeholder="Например: Оригинал, Перевод" />
-        <span asp-validation-for="Format" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="ReleaseYear" class="control-label"></label>
-        <input asp-for="ReleaseYear" type="number" class="form-control" />
-        <span asp-validation-for="ReleaseYear" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="RelatedNovelIds" class="control-label"></label>
-        <input asp-for="RelatedNovelIds" class="form-control" placeholder="ID1, ID2, ID3 (через запятую)" />
-        <span asp-validation-for="RelatedNovelIds" class="text-danger"></span>
-        <small class="form-text text-muted">Укажите ID новелл, с которыми связана эта новелла.</small>
-    </div>
-
-    <div class="form-group mt-4">
-        <button type="submit" class="btn btn-primary">Сохранить</button>
-        <a asp-controller="Catalog" asp-action="Catalog" class="btn btn-secondary">Отмена</a>
-    </div>
-</form>
-
-@section Scripts {
+    @* Подключение скриптов валидации и других необходимых JS *@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
-}
+</body>
+</html>

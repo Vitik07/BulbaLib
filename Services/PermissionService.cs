@@ -1,6 +1,7 @@
 ﻿using BulbaLib.Models; // Assuming User, Novel, Chapter models are accessible via this
 // If User model is still defined in MySqlService.cs, this using might need adjustment
 // or the User model should be moved to Models/User.cs
+using System.Linq;
 
 namespace BulbaLib.Services
 {
@@ -57,7 +58,7 @@ namespace BulbaLib.Services
             // Translator can submit chapters for a novel they are assigned to
             return currentUser != null && novel != null &&
                    currentUser.Role == UserRole.Translator &&
-                   (novel.TranslatorId ?? string.Empty).Contains(currentUser.Id.ToString());
+                   IsTranslatorAssignedToNovel(currentUser, novel);
         }
 
         public bool CanAddChapterDirectly(User currentUser)
@@ -75,7 +76,7 @@ namespace BulbaLib.Services
             // For simplicity, check if the current user's ID is part of the TranslatorId string.
             // This might need refinement based on how TranslatorId is actually stored and formatted.
             return currentUser.Role == UserRole.Translator &&
-                   (novel.TranslatorId ?? string.Empty).Contains(currentUser.Id.ToString());
+                   IsTranslatorAssignedToNovel(currentUser, novel);
         }
 
         public bool CanDeleteChapter(User currentUser, Chapter chapter, Novel novel)
@@ -96,6 +97,21 @@ namespace BulbaLib.Services
         public bool CanModerateChapterRequests(User currentUser)
         {
             return currentUser != null && currentUser.Role == UserRole.Admin;
+        }
+
+        private bool IsTranslatorAssignedToNovel(User translator, Novel novel)
+        {
+            if (translator == null || novel == null || string.IsNullOrWhiteSpace(novel.TranslatorId))
+            {
+                return false;
+            }
+            // Предполагаем, что TranslatorId - это строка ID, разделенных запятыми, или один ID.
+            // Убираем возможные пробелы вокруг запятых и самих ID.
+            string[] assignedTranslatorIds = novel.TranslatorId.Split(',')
+                                              .Select(id => id.Trim())
+                                              .Where(id => !string.IsNullOrEmpty(id))
+                                              .ToArray();
+            return assignedTranslatorIds.Contains(translator.Id.ToString());
         }
     }
 }
