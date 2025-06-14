@@ -32,4 +32,12 @@
         Chapter
         // Add other types as needed
     }
+
+    public enum UserRole
+    {
+        User,
+        Admin,
+        Author,
+        Translator
+    }
 }

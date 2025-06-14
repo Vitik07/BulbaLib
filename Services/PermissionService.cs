@@ -15,36 +15,36 @@ namespace BulbaLib.Services
 
         public bool CanManageUsers(User currentUser)
         {
-            return currentUser != null && currentUser.Role == "Admin";
+            return currentUser != null && currentUser.Role == UserRole.Admin;
         }
 
         public bool CanBlockUser(User currentUser, User targetUser)
         {
             return currentUser != null && targetUser != null &&
-                   currentUser.Role == "Admin" && currentUser.Id != targetUser.Id;
+                   currentUser.Role == UserRole.Admin && currentUser.Id != targetUser.Id;
         }
 
         public bool CanChangeUserRole(User currentUser, User targetUser)
         {
             return currentUser != null && targetUser != null &&
-                   currentUser.Role == "Admin" && currentUser.Id != targetUser.Id;
+                   currentUser.Role == UserRole.Admin && currentUser.Id != targetUser.Id;
         }
 
         public bool CanSubmitNovelForModeration(User currentUser)
         {
-            return currentUser != null && currentUser.Role == "Author";
+            return currentUser != null && currentUser.Role == UserRole.Author;
         }
 
         public bool CanAddNovelDirectly(User currentUser)
         {
-            return currentUser != null && currentUser.Role == "Admin";
+            return currentUser != null && currentUser.Role == UserRole.Admin;
         }
 
         public bool CanEditNovel(User currentUser, Novel novel)
         {
             if (currentUser == null || novel == null) return false;
-            if (currentUser.Role == "Admin") return true;
-            return currentUser.Role == "Author" && novel.AuthorId == currentUser.Id;
+            if (currentUser.Role == UserRole.Admin) return true;
+            return currentUser.Role == UserRole.Author && novel.AuthorId == currentUser.Id;
         }
 
         public bool CanDeleteNovel(User currentUser, Novel novel)
@@ -56,13 +56,13 @@ namespace BulbaLib.Services
         {
             // Translator can submit chapters for a novel they are assigned to
             return currentUser != null && novel != null &&
-                   currentUser.Role == "Translator" &&
+                   currentUser.Role == UserRole.Translator &&
                    (novel.TranslatorId ?? string.Empty).Contains(currentUser.Id.ToString());
         }
 
         public bool CanAddChapterDirectly(User currentUser)
         {
-            return currentUser != null && currentUser.Role == "Admin";
+            return currentUser != null && currentUser.Role == UserRole.Admin;
         }
 
         // For CanEditChapter and CanDeleteChapter, we need to ensure the Translator is linked to the Novel.
@@ -70,11 +70,11 @@ namespace BulbaLib.Services
         public bool CanEditChapter(User currentUser, Chapter chapter, Novel novel)
         {
             if (currentUser == null || chapter == null || novel == null) return false;
-            if (currentUser.Role == "Admin") return true;
+            if (currentUser.Role == UserRole.Admin) return true;
             // Assuming TranslatorId in Novel can be a list of IDs or a single ID.
             // For simplicity, check if the current user's ID is part of the TranslatorId string.
             // This might need refinement based on how TranslatorId is actually stored and formatted.
-            return currentUser.Role == "Translator" &&
+            return currentUser.Role == UserRole.Translator &&
                    (novel.TranslatorId ?? string.Empty).Contains(currentUser.Id.ToString());
         }
 
@@ -85,17 +85,17 @@ namespace BulbaLib.Services
 
         public bool CanViewAdminPanel(User currentUser)
         {
-            return currentUser != null && currentUser.Role == "Admin";
+            return currentUser != null && currentUser.Role == UserRole.Admin;
         }
 
         public bool CanModerateNovelRequests(User currentUser)
         {
-            return currentUser != null && currentUser.Role == "Admin";
+            return currentUser != null && currentUser.Role == UserRole.Admin;
         }
 
         public bool CanModerateChapterRequests(User currentUser)
         {
-            return currentUser != null && currentUser.Role == "Admin";
+            return currentUser != null && currentUser.Role == UserRole.Admin;
         }
     }
 }

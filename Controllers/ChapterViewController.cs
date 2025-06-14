@@ -63,8 +63,8 @@ namespace BulbaLib.Controllers
 
             // Permission check: Admin can always add. Translator must be assigned to the novel.
             if (currentUser == null ||
-                !((currentUser.Role == "Admin" && _permissionService.CanAddChapterDirectly(currentUser)) ||
-                   (currentUser.Role == "Translator" && _permissionService.CanSubmitChapterForModeration(currentUser, novel)))
+                !((currentUser.Role == UserRole.Admin && _permissionService.CanAddChapterDirectly(currentUser)) ||
+                   (currentUser.Role == UserRole.Translator && _permissionService.CanSubmitChapterForModeration(currentUser, novel)))
                )
             {
                 return RedirectToAction("AccessDenied", "AuthView");
@@ -93,8 +93,8 @@ namespace BulbaLib.Controllers
 
             // Permission check again for POST
             if (currentUser == null ||
-               !((currentUser.Role == "Admin" && _permissionService.CanAddChapterDirectly(currentUser)) ||
-                  (currentUser.Role == "Translator" && _permissionService.CanSubmitChapterForModeration(currentUser, novel)))
+               !((currentUser.Role == UserRole.Admin && _permissionService.CanAddChapterDirectly(currentUser)) ||
+                  (currentUser.Role == UserRole.Translator && _permissionService.CanSubmitChapterForModeration(currentUser, novel)))
               )
             {
                 return RedirectToAction("AccessDenied", "AuthView");
@@ -111,7 +111,7 @@ namespace BulbaLib.Controllers
                     Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 };
 
-                if (currentUser.Role == "Admin" && _permissionService.CanAddChapterDirectly(currentUser))
+                if (currentUser.Role == UserRole.Admin && _permissionService.CanAddChapterDirectly(currentUser))
                 {
                     _mySqlService.CreateChapter(chapterToSave);
                     TempData["SuccessMessage"] = "Глава успешно добавлена.";
@@ -131,7 +131,7 @@ namespace BulbaLib.Controllers
                     }
                 }
                 // Check for Translator role specifically for moderation submission logic
-                else if (currentUser.Role == "Translator" && _permissionService.CanSubmitChapterForModeration(currentUser, novel))
+                else if (currentUser.Role == UserRole.Translator && _permissionService.CanSubmitChapterForModeration(currentUser, novel))
                 {
                     var moderationRequest = new ModerationRequest
                     {
@@ -183,7 +183,7 @@ namespace BulbaLib.Controllers
             if (!_permissionService.CanEditChapter(currentUser, chapter, novel))
             {
                 // If not Admin, and not a Translator specifically allowed by CanEditChapter (e.g. assigned to novel)
-                if (!(currentUser.Role == "Translator")) // if not a translator at all, deny
+                if (!(currentUser.Role == UserRole.Translator)) // if not a translator at all, deny
                     return RedirectToAction("AccessDenied", "AuthView");
                 // Further checks for translator ownership might be needed here or rely on POST.
                 // For GET, we can be a bit more lenient and let POST handle stricter specific translator checks if CanEditChapter is too broad for GET.
@@ -246,7 +246,7 @@ namespace BulbaLib.Controllers
                     Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds() // Update date
                 };
 
-                if (currentUser.Role == "Admin" && _permissionService.CanAddChapterDirectly(currentUser))
+                if (currentUser.Role == UserRole.Admin && _permissionService.CanAddChapterDirectly(currentUser))
                 {
                     originalChapter.Number = chapterWithChanges.Number;
                     originalChapter.Title = chapterWithChanges.Title;
@@ -255,7 +255,7 @@ namespace BulbaLib.Controllers
                     _mySqlService.UpdateChapter(originalChapter);
                     TempData["SuccessMessage"] = "Глава успешно обновлена.";
                 }
-                else if (currentUser.Role == "Translator" && _permissionService.CanEditChapter(currentUser, originalChapter, novel))
+                else if (currentUser.Role == UserRole.Translator && _permissionService.CanEditChapter(currentUser, originalChapter, novel))
                 {
                     var moderationRequest = new ModerationRequest
                     {

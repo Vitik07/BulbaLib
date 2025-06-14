@@ -24,7 +24,7 @@
             <div class="catalog-main-container">
                 <h1 class="catalog-title">Каталог новелл</h1>
 
-                @if (User.Identity.IsAuthenticated && (User.IsInRole("Admin") || User.IsInRole("Author")))
+                @if (User.Identity.IsAuthenticated && ViewData["CanAddNewNovel"] != null && (bool)ViewData["CanAddNewNovel"])
                 {
                     <div class="text-end mb-3">
                         @* Align button to the right, add margin *@
