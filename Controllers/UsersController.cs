@@ -141,6 +141,25 @@ namespace BulbaLib.Controllers
             });
         }
 
+        [HttpGet("{userId:int}/avatar")]
+        [AllowAnonymous] // Avatars can be public
+        public IActionResult GetUserAvatarById(int userId)
+        {
+            var user = _db.GetUser(userId); // _db is MySqlService
+            if (user == null || user.Avatar == null || user.Avatar.Length == 0)
+            {
+                // _env is IWebHostEnvironment, ensure it's injected if not already
+                var defaultAvatarPath = System.IO.Path.Combine(_env.WebRootPath, "Resource", "default-avatar.jpg");
+                // Check if default avatar exists to prevent 500 error if it's missing
+                if (!System.IO.File.Exists(defaultAvatarPath)) {
+                    // Fallback to a simple 404 if default avatar is also missing
+                    return NotFound("Default avatar not found.");
+                }
+                return PhysicalFile(defaultAvatarPath, "image/jpeg"); // Assuming default is jpg
+            }
+            return File(user.Avatar, "image/png"); // Assuming user avatars are stored as png, adjust if necessary
+        }
+
         [HttpGet("search")] // Route will be /api/Users/search
         [Authorize]
         public IActionResult SearchUsersByName([FromQuery] string nameQuery)
@@ -161,9 +180,7 @@ namespace BulbaLib.Controllers
             var result = users.Select(u => new {
                 id = u.Id,
                 login = u.Login,
-                // Temporarily use default avatar for all users in autocomplete,
-                // as the endpoint /api/users/{userId}/avatar is not yet implemented.
-                avatarUrl = "/Resource/default-avatar.jpg"
+                avatarUrl = $"/api/Users/{u.Id}/avatar" // Updated line
             });
 
             return Ok(result);
