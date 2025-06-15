@@ -442,3 +442,12 @@ img[alt="Текущая обложка"] {
     object-fit: cover;
     border: 1.5px solid var(--border-base);
 }
+
+/* Cover image in related novel suggestions */
+.related-novel-suggestion-cover {
+    width: 40px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-right: 8px;
+}

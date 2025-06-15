@@ -344,13 +344,45 @@ namespace BulbaLib.Services
             return null;
         }
 
+        public List<Novel> SearchNovelsByTitle(string titleQuery, int limit)
+        {
+            if (string.IsNullOrWhiteSpace(titleQuery))
+            {
+                return new List<Novel>();
+            }
+            var novels = new List<Novel>();
+            using (var connection = GetConnection())
+            {
+                string query = "SELECT Id, Title, Covers FROM Novels WHERE LOWER(Title) LIKE @query ORDER BY Title LIMIT @limit";
+                using (var command = new MySqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@query", "%" + titleQuery.ToLower() + "%");
+                    command.Parameters.AddWithValue("@limit", limit);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            novels.Add(new Novel
+                            {
+                                Id = reader.GetInt32("Id"),
+                                Title = reader.GetString("Title"),
+                                Covers = reader.IsDBNull(reader.GetOrdinal("Covers")) ? null : reader.GetString("Covers")
+                                // Other properties will be default/null
+                            });
+                        }
+                    }
+                }
+            }
+            return novels;
+        }
+
         public int CreateNovel(Novel novel)
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT INTO Novels 
-                (Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, TranslatorId, AlternativeTitles, Date)
-                VALUES (@title, @desc, @covers, @genres, @tags, @type, @format, @releaseYear, @authorId, @translatorId, @altTitles, @date);
+                (Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, TranslatorId, AlternativeTitles, Date, RelatedNovelIds)
+                VALUES (@title, @desc, @covers, @genres, @tags, @type, @format, @releaseYear, @authorId, @translatorId, @altTitles, @date, @relatedNovelIds);
                 SELECT LAST_INSERT_ID();";
             cmd.Parameters.AddWithValue("@title", novel.Title);
             cmd.Parameters.AddWithValue("@desc", novel.Description ?? (object)DBNull.Value);
@@ -363,6 +395,7 @@ namespace BulbaLib.Services
             cmd.Parameters.AddWithValue("@authorId", novel.AuthorId.HasValue ? novel.AuthorId.Value : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@translatorId", string.IsNullOrEmpty(novel.TranslatorId) ? (object)DBNull.Value : novel.TranslatorId);
             cmd.Parameters.AddWithValue("@altTitles", novel.AlternativeTitles ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@relatedNovelIds", string.IsNullOrEmpty(novel.RelatedNovelIds) ? (object)DBNull.Value : novel.RelatedNovelIds);
             cmd.Parameters.AddWithValue("@date", novel.Date);
 
             var result = cmd.ExecuteScalar();

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "U2i7nuTpxHU=",
+  "dgSpecHash": "2Kih8/Yqats=",
   "success": true,
-  "projectFilePath": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark6\\BulbaLib\\BulbaLib.csproj",
+  "projectFilePath": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark7\\BulbaLib\\BulbaLib.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Витя Рабадон\\.nuget\\packages\\bouncycastle.cryptography\\2.5.1\\bouncycastle.cryptography.2.5.1.nupkg.sha512",
     "C:\\Users\\Витя Рабадон\\.nuget\\packages\\entityframework\\6.4.4\\entityframework.6.4.4.nupkg.sha512",

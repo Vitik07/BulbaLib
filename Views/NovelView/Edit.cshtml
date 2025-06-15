@@ -1,92 +1,469 @@
 ﻿@model BulbaLib.Models.NovelEditModel
 @{
+    Layout = null; // Можно заменить на общий Layout, если требуется
+
     ViewData["Title"] = "Редактировать новеллу";
-    // Layout = "~/Views/Shared/_Layout.cshtml"; // Assuming a layout
 }
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - BulbaLib</title>
+    <link rel="stylesheet" href="~/css/novel_form.css" asp-append-version="true" />
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <main role="main" class="pb-3">
+            <h2>@ViewData["Title"]: @Model.Title</h2>
+            <form asp-action="Edit" asp-route-id="@Model.Id" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Id" />
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-<h1>@ViewData["Title"]: @Model.Title</h1>
+                <div class="form-group mb-3">
+                    <label asp-for="Title" class="control-label">Название новеллы</label>
+                    <input asp-for="Title" class="form-control" />
+                    <span asp-validation-for="Title" class="text-danger"></span>
+                </div>
 
-@if (Model.AuthorLogin != null)
-{
-    <p class="text-muted">Автор: @Model.AuthorLogin</p>
-}
+                <div class="form-group mb-3">
+                    <label asp-for="Description" class="control-label">Описание</label>
+                    <textarea asp-for="Description" class="form-control" rows="5"></textarea>
+                    <span asp-validation-for="Description" class="text-danger"></span>
+                </div>
 
+                <!-- Author selection -->
+                <div class="form-group mb-3" style="position:relative;">
+                    <label asp-for="AuthorId" class="control-label">Автор</label>
+                    <input type="text" id="authorNameInput" name="authorName" class="form-control" placeholder="Начните вводить имя автора..." autocomplete="off" value="@Model.AuthorLogin" />
+                    <input type="hidden" asp-for="AuthorId" id="AuthorId" />
+                    <span asp-validation-for="AuthorId" class="text-danger"></span>
+                    <div id="authorSuggestionsContainer"></div>
+                </div>
 
-<form asp-action="Edit" asp-route-id="@Model.Id" method="post">
-    @Html.AntiForgeryToken()
-    <input type="hidden" asp-for="Id" />
-    <input type="hidden" asp-for="AuthorId" /> @* Preserve AuthorId for model binding if needed, not for user editing if author *@
+                <div class="form-group mb-3">
+                    <label asp-for="Covers" class="control-label"></label>
+                    <input asp-for="Covers" class="form-control" placeholder="JSON массив URL обложек, например, ['/uploads/covers/1.jpg']" />
+                    <span asp-validation-for="Covers" class="text-danger"></span>
+                    <small class="form-text text-muted">Пока что введите URL обложек вручную в виде JSON массива строк. Функционал загрузки будет добавлен позже.</small>
+                </div>
 
-    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="form-group mb-3">
+                    <label asp-for="Genres" class="control-label"></label>
+                    <div id="selectedGenresContainer" class="mt-2"></div>
+                    <button type="button" id="addGenreBtn" class="btn btn-sm btn-primary mt-1">Добавить жанр</button>
+                    <input type="hidden" asp-for="Genres" />
+                    <span asp-validation-for="Genres" class="text-danger"></span>
+                </div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Title" class="control-label"></label>
-        <input asp-for="Title" class="form-control" />
-        <span asp-validation-for="Title" class="text-danger"></span>
+                <div class="form-group mb-3">
+                    <label asp-for="Tags" class="control-label"></label>
+                    <div id="selectedTagsContainer" class="mt-2"></div>
+                    <button type="button" id="addTagBtn" class="btn btn-sm btn-primary mt-1">Добавить тег</button>
+                    <input type="hidden" asp-for="Tags" />
+                    <span asp-validation-for="Tags" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="Type" class="control-label"></label>
+                    <select asp-for="Type" class="form-control">
+                        <option value="">-- Выберите тип --</option>
+                        <option value="Япония">Япония</option>
+                        <option value="Корея">Корея</option>
+                        <option value="Китай">Китай</option>
+                        <option value="Английский">Английский</option>
+                        <option value="Авторский">Авторский</option>
+                        <option value="Фанфик">Фанфик</option>
+                    </select>
+                    <span asp-validation-for="Type" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="Format" class="control-label"></label>
+                    <select asp-for="Format" class="form-control">
+                        <option value="">-- Выберите формат --</option>
+                        <option value="Веб">Веб</option>
+                        <option value="Лайт">Лайт</option>
+                    </select>
+                    <span asp-validation-for="Format" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="ReleaseYear" class="control-label">Год релиза</label>
+                    <input asp-for="ReleaseYear" type="number" class="form-control" />
+                    <span asp-validation-for="ReleaseYear" class="text-danger"></span>
+                    <small class="form-text text-muted">Укажите год релиза (4 цифры, например, 2023). Год должен быть не ранее 1900 и не позднее 2099.</small>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="relatedNovelSearchInput" class="control-label">Связанные новеллы (поиск по названию)</label>
+                    <input type="text" id="relatedNovelSearchInput" class="form-control" autocomplete="off" placeholder="Начните вводить название новеллы..." />
+                    <div id="relatedNovelSuggestionsContainer" class="author-suggestions-container" style="display: none; max-height: 200px; overflow-y: auto; position:relative;">
+                        @* Результаты поиска будут здесь *@
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label class="control-label">Выбранные связанные новеллы</label>
+                    <div id="selectedRelatedNovelsContainer" class="mt-1 selected-items-container">
+                        @* Выбранные новеллы (как бэджи/теги) будут здесь *@
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="AlternativeTitles" class="control-label">Альтернативные названия</label>
+                    <textarea asp-for="AlternativeTitles" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="AlternativeTitles" class="text-danger"></span>
+                    <small class="form-text text-muted">Каждое альтернативное название вводите с новой строки.</small>
+                </div>
+
+                <input type="hidden" asp-for="RelatedNovelIds" />
+
+                <div class="form-group mt-3">
+                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                    <a asp-controller="NovelView" asp-action="Details" asp-route-id="@Model.Id" class="btn btn-secondary">Отмена</a>
+                </div>
+            </form>
+        </main>
     </div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Description" class="control-label"></label>
-        <textarea asp-for="Description" class="form-control" rows="5"></textarea>
-        <span asp-validation-for="Description" class="text-danger"></span>
+    <div id="genreModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="closeGenreModal">&times;</span>
+            <h4>Выберите или добавьте жанры</h4>
+            <div id="genreListContainer"></div>
+            <input type="text" id="customGenreInput" placeholder="Добавить свой жанр" class="form-control mb-2" />
+            <button type="button" id="addCustomGenreBtn" class="btn btn-sm btn-secondary">Добавить свой</button>
+            <button type="button" id="saveGenreSelectionBtn" class="btn btn-sm btn-success float-end">Сохранить выбор</button>
+        </div>
+    </div>
+    <div id="tagModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="closeTagModal">&times;</span>
+            <h4>Выберите или добавьте теги</h4>
+            <div id="tagListContainer"></div>
+            <input type="text" id="customTagInput" placeholder="Добавить свой тег" class="form-control mb-2" />
+            <button type="button" id="addCustomTagBtn" class="btn btn-sm btn-secondary">Добавить свой</button>
+            <button type="button" id="saveTagSelectionBtn" class="btn btn-sm btn-success float-end">Сохранить выбор</button>
+        </div>
     </div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Covers" class="control-label"></label>
-        <input asp-for="Covers" class="form-control" placeholder="JSON массив URL обложек, например, ['/uploads/covers/1.jpg']" />
-        <span asp-validation-for="Covers" class="text-danger"></span>
-        <small class="form-text text-muted">Пока что введите URL обложек вручную в виде JSON массива строк. Функционал загрузки будет добавлен позже.</small>
-    </div>
+    @{
+        var genresToSerialize = (ViewData["AllGenres"] as List<string>) ?? new List<string>();
 
-    <div class="form-group mb-3">
-        <label asp-for="Genres" class="control-label"></label>
-        <input asp-for="Genres" class="form-control" placeholder="Жанр1, Жанр2, Жанр3" />
-        <span asp-validation-for="Genres" class="text-danger"></span>
-    </div>
+        var tagsToSerialize = (ViewData["AllTags"] as List<string>) ?? new List<string>();
 
-    <div class="form-group mb-3">
-        <label asp-for="Tags" class="control-label"></label>
-        <input asp-for="Tags" class="form-control" placeholder="Тег1, Тег2, Тег3" />
-        <span asp-validation-for="Tags" class="text-danger"></span>
-    </div>
-    
-    <div class="form-group mb-3">
-        <label asp-for="AlternativeTitles" class="control-label"></label>
-        <input asp-for="AlternativeTitles" class="form-control" placeholder="Альтернативное название1, Альтернативное название2"/>
-        <span asp-validation-for="AlternativeTitles" class="text-danger"></span>
-    </div>
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+    <script>
+        // Весь JS-код из Create.cshtml (жанры, теги, автор, связанные новеллы), только поправить инициализацию значений для редактирования:
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- Жанры и теги ---
+            const allGenres = @Html.Raw(Json.Serialize(genresToSerialize));
+            const allTags = @Html.Raw(Json.Serialize(tagsToSerialize));
+            let selectedGenres = [];
+            let selectedTags = [];
+            const hiddenGenresInput = document.getElementById('Genres');
+            const hiddenTagsInput = document.getElementById('Tags');
+            // Инициализация для Edit
+            function parseInitialItems(initialString) {
+                if (!initialString) return [];
+                try {
+                    const jsonParsed = JSON.parse(initialString);
+                    if (Array.isArray(jsonParsed)) return jsonParsed;
+                } catch (e) {
+                    return initialString.split(',').map(item => item.trim()).filter(item => item);
+                }
+                return initialString.split(',').map(item => item.trim()).filter(item => item);
+            }
+            selectedGenres = parseInitialItems("@Model.Genres");
+            selectedTags = parseInitialItems("@Model.Tags");
+            if (hiddenGenresInput) hiddenGenresInput.value = JSON.stringify(selectedGenres);
+            if (hiddenTagsInput) hiddenTagsInput.value = JSON.stringify(selectedTags);
+            function renderSelectedItemsAsBadges(containerId, selectedArray, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                container.innerHTML = '';
+                selectedArray.forEach(item => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-secondary me-1 mb-1';
+                    badge.textContent = item;
+                    const removeBtn = document.createElement('span');
+                    removeBtn.innerHTML = '&times;';
+                    removeBtn.className = 'ms-1 fw-bold';
+                    removeBtn.style.cursor = 'pointer';
+                    removeBtn.onclick = function () {
+                        const index = globalSelectedArrayRef.indexOf(item);
+                        if (index > -1) {
+                            globalSelectedArrayRef.splice(index, 1);
+                        }
+                        if (hiddenInputElement) hiddenInputElement.value = JSON.stringify(globalSelectedArrayRef);
+                        renderSelectedItemsAsBadges(containerId, globalSelectedArrayRef, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef);
+                    };
+                    badge.appendChild(removeBtn);
+                    container.appendChild(badge);
+                });
+            }
+            function populateModalWithCheckboxes(containerId, items, selectedItemsArray, type) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                container.innerHTML = '';
+                items.forEach(item => {
+                    const checkboxId = `${type}-${item.replace(/\s+/g, '-')}`;
+                    const isChecked = selectedItemsArray.includes(item);
+                    container.innerHTML += `
+                                <div>
+                                    <input type="checkbox" id="${checkboxId}" name="${type}" value="${item}" ${isChecked ? 'checked' : ''}>
+                                    <label for="${checkboxId}">${item}</label>
+                                </div>`;
+                });
+            }
+            const genreModal = document.getElementById('genreModal');
+            const addGenreBtn = document.getElementById('addGenreBtn');
+            const closeGenreModal = document.getElementById('closeGenreModal');
+            if (addGenreBtn) addGenreBtn.onclick = function () {
+                populateModalWithCheckboxes('genreListContainer', allGenres, selectedGenres, 'genre');
+                if (genreModal) genreModal.style.display = 'block';
+            }
+            if (closeGenreModal) closeGenreModal.onclick = function () { if (genreModal) genreModal.style.display = 'none'; }
+            const tagModal = document.getElementById('tagModal');
+            const addTagBtn = document.getElementById('addTagBtn');
+            const closeTagModal = document.getElementById('closeTagModal');
+            if (addTagBtn) addTagBtn.onclick = function () {
+                populateModalWithCheckboxes('tagListContainer', allTags, selectedTags, 'tag');
+                if (tagModal) tagModal.style.display = 'block';
+            }
+            if (closeTagModal) closeTagModal.onclick = function () { if (tagModal) tagModal.style.display = 'none'; }
+            const saveGenreSelectionBtn = document.getElementById('saveGenreSelectionBtn');
+            if (saveGenreSelectionBtn) saveGenreSelectionBtn.onclick = function () {
+                selectedGenres = [];
+                document.querySelectorAll('#genreListContainer input[type="checkbox"]:checked').forEach(cb => {
+                    selectedGenres.push(cb.value);
+                });
+                if (hiddenGenresInput) hiddenGenresInput.value = JSON.stringify(selectedGenres);
+                if (genreModal) genreModal.style.display = 'none';
+                renderSelectedItemsAsBadges('selectedGenresContainer', selectedGenres, hiddenGenresInput, 'genre', allGenres, selectedGenres);
+            }
+            const saveTagSelectionBtn = document.getElementById('saveTagSelectionBtn');
+            if (saveTagSelectionBtn) saveTagSelectionBtn.onclick = function () {
+                selectedTags = [];
+                document.querySelectorAll('#tagListContainer input[type="checkbox"]:checked').forEach(cb => {
+                    selectedTags.push(cb.value);
+                });
+                if (hiddenTagsInput) hiddenTagsInput.value = JSON.stringify(selectedTags);
+                if (tagModal) tagModal.style.display = 'none';
+                renderSelectedItemsAsBadges('selectedTagsContainer', selectedTags, hiddenTagsInput, 'tag', allTags, selectedTags);
+            }
+            const addCustomGenreBtn = document.getElementById('addCustomGenreBtn');
+            const customGenreInput = document.getElementById('customGenreInput');
+            if (addCustomGenreBtn && customGenreInput) addCustomGenreBtn.onclick = function () {
+                const newGenre = customGenreInput.value.trim();
+                if (newGenre && !allGenres.includes(newGenre)) {
+                    allGenres.push(newGenre);
+                }
+                if (newGenre && !selectedGenres.includes(newGenre)) {
+                    selectedGenres.push(newGenre);
+                }
+                populateModalWithCheckboxes('genreListContainer', allGenres, selectedGenres, 'genre');
+                if (customGenreInput) customGenreInput.value = '';
+            };
+            const addCustomTagBtn = document.getElementById('addCustomTagBtn');
+            const customTagInput = document.getElementById('customTagInput');
+            if (addCustomTagBtn && customTagInput) addCustomTagBtn.onclick = function () {
+                const newTag = customTagInput.value.trim();
+                if (newTag && !allTags.includes(newTag)) {
+                    allTags.push(newTag);
+                }
+                if (newTag && !selectedTags.includes(newTag)) {
+                    selectedTags.push(newTag);
+                }
+                populateModalWithCheckboxes('tagListContainer', allTags, selectedTags, 'tag');
+                if (customTagInput) customTagInput.value = '';
+            };
+            window.onclick = function (event) {
+                if (event.target == genreModal) {
+                    if (genreModal) genreModal.style.display = 'none';
+                }
+                if (event.target == tagModal) {
+                    if (tagModal) tagModal.style.display = 'none';
+                }
+            };
+            renderSelectedItemsAsBadges('selectedGenresContainer', selectedGenres, hiddenGenresInput, 'genre', allGenres, selectedGenres);
+            renderSelectedItemsAsBadges('selectedTagsContainer', selectedTags, hiddenTagsInput, 'tag', allTags, selectedTags);
 
-    <div class="form-group mb-3">
-        <label asp-for="Type" class="control-label"></label>
-        <input asp-for="Type" class="form-control" placeholder="Например: Веб-новелла, Лайт-новелла" />
-        <span asp-validation-for="Type" class="text-danger"></span>
-    </div>
+            // --- Author Autocomplete ---
+            const authorNameInput = document.getElementById('authorNameInput');
+            const authorIdInput = document.getElementById('AuthorId');
+            const suggestions = document.getElementById('authorSuggestionsContainer');
+            authorNameInput.addEventListener('input', function () {
+                const query = this.value.trim();
+                authorIdInput.value = '';
+                if (query.length < 2) {
+                    suggestions.style.display = 'none';
+                    suggestions.innerHTML = '';
+                    return;
+                }
+                fetch('/api/Users/search?nameQuery=' + encodeURIComponent(query) + '&limit=4')
+                    .then(res => res.ok ? res.json() : [])
+                    .then(users => {
+                        suggestions.innerHTML = '';
+                        if (users && users.length > 0) {
+                            users.forEach(u => {
+                                const div = document.createElement('div');
+                                div.className = 'author-suggestion-item';
+                                div.innerHTML = `<img src="${u.avatarUrl || '/Resource/default-avatar.jpg'}" class="author-suggestion-avatar" alt="">
+                                                            <span>${u.login}</span>`;
+                                div.addEventListener('mousedown', function (evt) {
+                                    evt.preventDefault();
+                                    authorNameInput.value = u.login;
+                                    authorIdInput.value = u.id;
+                                    suggestions.style.display = 'none';
+                                });
+                                suggestions.appendChild(div);
+                            });
+                            suggestions.style.display = 'block';
+                        } else {
+                            suggestions.style.display = 'none';
+                        }
+                    });
+            });
+            document.addEventListener('mousedown', function (e) {
+                if (!suggestions.contains(e.target) && e.target !== authorNameInput) {
+                    suggestions.style.display = 'none';
+                }
+            });
+            authorNameInput.addEventListener('keydown', function (e) {
+                if ((e.key === 'Enter' || e.key === 'Tab') && suggestions.style.display === 'block') {
+                    const firstItem = suggestions.querySelector('.author-suggestion-item');
+                    if (firstItem) {
+                        e.preventDefault();
+                        firstItem.dispatchEvent(new MouseEvent('mousedown'));
+                    }
+                }
+            });
 
-    <div class="form-group mb-3">
-        <label asp-for="Format" class="control-label"></label>
-        <input asp-for="Format" class="form-control" placeholder="Например: Оригинал, Перевод"/>
-        <span asp-validation-for="Format" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="ReleaseYear" class="control-label"></label>
-        <input asp-for="ReleaseYear" type="number" class="form-control" />
-        <span asp-validation-for="ReleaseYear" class="text-danger"></span>
-    </div>
-
-    <div class="form-group mb-3">
-        <label asp-for="RelatedNovelIds" class="control-label"></label>
-        <input asp-for="RelatedNovelIds" class="form-control" placeholder="ID1, ID2, ID3 (через запятую)" />
-        <span asp-validation-for="RelatedNovelIds" class="text-danger"></span>
-        <small class="form-text text-muted">Укажите ID новелл, с которыми связана эта новелла.</small>
-    </div>
-
-    <div class="form-group mt-4">
-        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
-        <a asp-controller="NovelView" asp-action="Details" asp-route-id="@Model.Id" class="btn btn-secondary">Отмена</a>
-    </div>
-</form>
-
-@section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
-}
+            // --- Related Novels ---
+            const relatedNovelSearchInput = document.getElementById('relatedNovelSearchInput');
+            const relatedNovelSuggestionsContainer = document.getElementById('relatedNovelSuggestionsContainer');
+            const selectedRelatedNovelsContainer = document.getElementById('selectedRelatedNovelsContainer');
+            const hiddenRelatedNovelIdsInput = document.getElementById('RelatedNovelIds');
+            let selectedNovelsData = [];
+            // Инициализация для Edit
+            const initialRelatedNovelIdsString = "@Model.RelatedNovelIds";
+            if (initialRelatedNovelIdsString && hiddenRelatedNovelIdsInput) {
+                const initialIds = initialRelatedNovelIdsString.split(',')
+                    .map(idStr => parseInt(idStr.trim(), 10))
+                    .filter(id => !isNaN(id) && id > 0);
+                if (initialIds.length > 0) {
+                    selectedNovelsData = initialIds.map(id => ({ id: id, title: "ID: " + id }));
+                    renderSelectedNovelsBadges();
+                    updateHiddenRelatedNovelIdsInput();
+                }
+            }
+            function createNovelBadge(novel) {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-info me-1 mb-1';
+                badge.textContent = novel.title;
+                const removeBtn = document.createElement('span');
+                removeBtn.innerHTML = '&times;';
+                removeBtn.className = 'ms-1 fw-bold';
+                removeBtn.style.cursor = 'pointer';
+                removeBtn.onclick = function () {
+                    selectedNovelsData = selectedNovelsData.filter(n => n.id !== novel.id);
+                    renderSelectedNovelsBadges();
+                    updateHiddenRelatedNovelIdsInput();
+                };
+                badge.appendChild(removeBtn);
+                return badge;
+            }
+            function renderSelectedNovelsBadges() {
+                if (!selectedRelatedNovelsContainer) return;
+                selectedRelatedNovelsContainer.innerHTML = '';
+                selectedNovelsData.forEach(novel => {
+                    const badge = createNovelBadge(novel);
+                    selectedRelatedNovelsContainer.appendChild(badge);
+                });
+            }
+            function updateHiddenRelatedNovelIdsInput() {
+                if (hiddenRelatedNovelIdsInput) {
+                    hiddenRelatedNovelIdsInput.value = selectedNovelsData.map(n => n.id).join(',');
+                }
+            }
+            function debounce(func, delay) {
+                let timeout;
+                return function (...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), delay);
+                };
+            }
+            const debouncedFetchRelatedNovels = debounce(function (query) {
+                if (!relatedNovelSuggestionsContainer) return;
+                if (query.length < 2) {
+                    relatedNovelSuggestionsContainer.style.display = 'none';
+                    relatedNovelSuggestionsContainer.innerHTML = '';
+                    return;
+                }
+                fetch('/api/Novels/search?query=' + encodeURIComponent(query) + '&limit=5')
+                    .then(response => response.ok ? response.json() : Promise.reject('Failed to fetch'))
+                    .then(novels => {
+                        relatedNovelSuggestionsContainer.innerHTML = '';
+                        if (novels && novels.length > 0) {
+                            novels.forEach(novel => {
+                                if (selectedNovelsData.some(selected => selected.id === novel.id)) {
+                                    return;
+                                }
+                                const suggestionDiv = document.createElement('div');
+                                suggestionDiv.className = 'author-suggestion-item';
+                                suggestionDiv.style.cursor = 'pointer';
+                                const imageUrl = novel.firstCoverUrl ? novel.firstCoverUrl : '/Resource/default.jpg';
+                                suggestionDiv.innerHTML = `
+                                            <img src="${imageUrl}" class="author-suggestion-avatar related-novel-suggestion-cover" alt="Cover">
+                                            <span>${novel.title} (ID: ${novel.id})</span>`;
+                                suggestionDiv.addEventListener('click', function () {
+                                    if (!selectedNovelsData.some(selected => selected.id === novel.id)) {
+                                        selectedNovelsData.push({ id: novel.id, title: novel.title });
+                                        renderSelectedNovelsBadges();
+                                        updateHiddenRelatedNovelIdsInput();
+                                    }
+                                    if (relatedNovelSearchInput) relatedNovelSearchInput.value = '';
+                                    relatedNovelSuggestionsContainer.style.display = 'none';
+                                    relatedNovelSuggestionsContainer.innerHTML = '';
+                                });
+                                relatedNovelSuggestionsContainer.appendChild(suggestionDiv);
+                            });
+                            relatedNovelSuggestionsContainer.style.display = 'block';
+                        } else {
+                            relatedNovelSuggestionsContainer.style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error fetching related novels:", error);
+                        if (relatedNovelSuggestionsContainer) relatedNovelSuggestionsContainer.style.display = 'none';
+                    });
+            }, 300);
+            if (relatedNovelSearchInput) {
+                relatedNovelSearchInput.addEventListener('input', function () {
+                    debouncedFetchRelatedNovels(this.value.trim());
+                });
+                document.addEventListener('click', function (e) {
+                    if (relatedNovelSuggestionsContainer && !relatedNovelSuggestionsContainer.contains(e.target) && e.target !== relatedNovelSearchInput) {
+                        relatedNovelSuggestionsContainer.style.display = 'none';
+                    }
+                });
+                relatedNovelSearchInput.addEventListener('keydown', function (e) {
+                    if ((e.key === 'Enter' || e.key === 'Tab') && relatedNovelSuggestionsContainer && relatedNovelSuggestionsContainer.style.display === 'block') {
+                        const firstItem = relatedNovelSuggestionsContainer.querySelector('.author-suggestion-item');
+                        if (firstItem) {
+                            e.preventDefault();
+                            firstItem.dispatchEvent(new MouseEvent('click'));
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

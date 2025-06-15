@@ -16,7 +16,7 @@ namespace BulbaLib.Models
         public int? AuthorId { get; set; }
         public string TranslatorId { get; set; }
         public string AlternativeTitles { get; set; }
-        public string RelatedNovelIds { get; set; }
+        public string? RelatedNovelIds { get; set; }
         public long Date { get; set; }
         public string Status { get; set; } // Added: e.g., "draft", "pending_approval", "approved", "rejected"
 

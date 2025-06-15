@@ -98,11 +98,33 @@
                 </div>
 
                 <div class="form-group mb-3">
+                    <label for="relatedNovelSearchInput" class="control-label">Связанные новеллы (поиск по названию)</label>
+                    <input type="text" id="relatedNovelSearchInput" class="form-control" autocomplete="off" placeholder="Начните вводить название новеллы..." />
+                    <div id="relatedNovelSuggestionsContainer" class="author-suggestions-container" style="display: none; max-height: 200px; overflow-y: auto; position:relative;">
+                        @* Результаты поиска будут здесь *@
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label class="control-label">Выбранные связанные новеллы</label>
+                    <div id="selectedRelatedNovelsContainer" class="mt-1 selected-items-container">
+                        @* Выбранные новеллы (как бэджи/теги) будут здесь *@
+                    </div>
+                </div>
+
+                @* Hidden field for RelatedNovelIds is already present near the submit buttons, which is fine.
+                   If it needs to be ensured it's right here, uncomment/add:
+                   <input type="hidden" asp-for="RelatedNovelIds" />
+                *@
+
+                <div class="form-group mb-3">
                     <label asp-for="AlternativeTitles" class="control-label">Альтернативные названия</label>
                     <textarea asp-for="AlternativeTitles" class="form-control" rows="3"></textarea>
                     <span asp-validation-for="AlternativeTitles" class="text-danger"></span>
                     <small class="form-text text-muted">Каждое альтернативное название вводите с новой строки.</small>
                 </div>
+
+                <input type="hidden" asp-for="RelatedNovelIds" />
 
                 <div class="form-group mt-3">
                     <input type="submit" value="Добавить новеллу" class="btn btn-success" />
@@ -309,6 +331,149 @@
                     }
                 }
             });
+
+            // --- Related Novels Search & Selection ---
+            const relatedNovelSearchInput = document.getElementById('relatedNovelSearchInput');
+            const relatedNovelSuggestionsContainer = document.getElementById('relatedNovelSuggestionsContainer');
+            const selectedRelatedNovelsContainer = document.getElementById('selectedRelatedNovelsContainer');
+            const hiddenRelatedNovelIdsInput = document.getElementById('RelatedNovelIds'); // Assuming this is the ID of <input asp-for="RelatedNovelIds">
+
+            let selectedNovelsData = []; // Stores {id, title} objects
+
+            // Function to create a badge for a selected novel
+            function createNovelBadge(novel) {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-info me-1 mb-1'; // Using 'bg-info' for differentiation
+                badge.textContent = novel.title;
+
+                const removeBtn = document.createElement('span');
+                removeBtn.innerHTML = '&times;';
+                removeBtn.className = 'ms-1 fw-bold';
+                removeBtn.style.cursor = 'pointer';
+                removeBtn.onclick = function () {
+                    selectedNovelsData = selectedNovelsData.filter(n => n.id !== novel.id);
+                    renderSelectedNovelsBadges();
+                    updateHiddenRelatedNovelIdsInput();
+                };
+                badge.appendChild(removeBtn);
+                return badge;
+            }
+
+            // Function to render all selected novel badges
+            function renderSelectedNovelsBadges() {
+                selectedRelatedNovelsContainer.innerHTML = '';
+                selectedNovelsData.forEach(novel => {
+                    const badge = createNovelBadge(novel);
+                    selectedRelatedNovelsContainer.appendChild(badge);
+                });
+            }
+
+            // Function to update the hidden input with comma-separated IDs
+            function updateHiddenRelatedNovelIdsInput() {
+                hiddenRelatedNovelIdsInput.value = selectedNovelsData.map(n => n.id).join(',');
+            }
+
+            // Debounce function
+            function debounce(func, delay) {
+                let timeout;
+                return function(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), delay);
+                };
+            }
+
+            const debouncedFetchRelatedNovels = debounce(function(query) {
+                if (query.length < 2) {
+                    relatedNovelSuggestionsContainer.style.display = 'none';
+                    relatedNovelSuggestionsContainer.innerHTML = '';
+                    return;
+                }
+
+                fetch('/api/Novels/search?query=' + encodeURIComponent(query) + '&limit=5')
+                    .then(response => response.ok ? response.json() : Promise.reject('Failed to fetch'))
+                    .then(novels => {
+                        relatedNovelSuggestionsContainer.innerHTML = '';
+                        if (novels && novels.length > 0) {
+                            novels.forEach(novel => {
+                                // Avoid suggesting already selected novels
+                                if (selectedNovelsData.some(selected => selected.id === novel.id)) {
+                                    return;
+                                }
+
+                                const suggestionDiv = document.createElement('div');
+                                suggestionDiv.className = 'author-suggestion-item'; // Re-use existing class for similar styling
+                                suggestionDiv.style.cursor = 'pointer';
+                                // Basic image handling - assuming FirstCoverUrl is a direct URL or null
+                                const imageUrl = novel.firstCoverUrl ? novel.firstCoverUrl : '/Resource/default.jpg'; // Placeholder image
+                                suggestionDiv.innerHTML = `
+                                    <img src="${imageUrl}" class="author-suggestion-avatar related-novel-suggestion-cover" alt="Cover">
+                                    <span>${novel.title} (ID: ${novel.id})</span>`;
+                                
+                                suggestionDiv.addEventListener('click', function() {
+                                    if (!selectedNovelsData.some(selected => selected.id === novel.id)) {
+                                        selectedNovelsData.push({ id: novel.id, title: novel.title });
+                                        renderSelectedNovelsBadges();
+                                        updateHiddenRelatedNovelIdsInput();
+                                    }
+                                    relatedNovelSearchInput.value = ''; // Clear search input
+                                    relatedNovelSuggestionsContainer.style.display = 'none';
+                                    relatedNovelSuggestionsContainer.innerHTML = '';
+                                });
+                                relatedNovelSuggestionsContainer.appendChild(suggestionDiv);
+                            });
+                            relatedNovelSuggestionsContainer.style.display = 'block';
+                        } else {
+                            relatedNovelSuggestionsContainer.style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error fetching related novels:", error);
+                        relatedNovelSuggestionsContainer.style.display = 'none';
+                    });
+            }, 300);
+
+            if (relatedNovelSearchInput) {
+                relatedNovelSearchInput.addEventListener('input', function () {
+                    debouncedFetchRelatedNovels(this.value.trim());
+                });
+
+                // Hide suggestions when clicking outside, similar to author suggestions
+                document.addEventListener('click', function (e) {
+                    if (relatedNovelSuggestionsContainer && !relatedNovelSuggestionsContainer.contains(e.target) && e.target !== relatedNovelSearchInput) {
+                        relatedNovelSuggestionsContainer.style.display = 'none';
+                    }
+                });
+                 relatedNovelSearchInput.addEventListener('keydown', function (e) {
+                    if ((e.key === 'Enter' || e.key === 'Tab') && relatedNovelSuggestionsContainer.style.display === 'block') {
+                        const firstItem = relatedNovelSuggestionsContainer.querySelector('.author-suggestion-item');
+                        if (firstItem) {
+                            e.preventDefault();
+                            firstItem.dispatchEvent(new MouseEvent('click')); // Simulate click
+                        }
+                    }
+                });
+            }
+            
+            // Initialize badges if the hidden input has values (e.g. on page load with errors and model repopulation)
+            if (hiddenRelatedNovelIdsInput && hiddenRelatedNovelIdsInput.value) {
+                const initialIds = hiddenRelatedNovelIdsInput.value.split(',').map(idStr => parseInt(idStr.trim(), 10)).filter(id => !isNaN(id));
+                if (initialIds.length > 0) {
+                    // This part is tricky without titles. For a "Create" form, this usually won't run.
+                    // If it were an "Edit" form, we'd fetch novel details for these IDs or have titles in the model.
+                    // For now, we'll assume this won't be heavily used in "Create" unless validation fails and repopulates.
+                    // A simple way if titles are NOT available: just show IDs. A better way needs more data.
+                    // As an example, if we are on "Create" and validation fails, the titles for these IDs are not readily available
+                    // without another API call or embedding more data in the page.
+                    // For simplicity, we'll assume titles are not available for initial load in this script.
+                    // In a real edit scenario, you would load initialNovelsData with {id, title} from the model.
+                    // For now, this path will likely not render full badges on initial load if titles are missing.
+                    console.warn("RelatedNovelIds has initial values, but titles are not available to render full badges on create form load without extra data/calls.");
+                    // If you *did* have titles, e.g. from a ViewModel:
+                    // selectedNovelsData = initialNovelsDataFromModel; // where initialNovelsDataFromModel is an array of {id, title}
+                    // renderSelectedNovelsBadges();
+                }
+            }
+
         });
     </script>
 </body>

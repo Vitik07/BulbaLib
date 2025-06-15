@@ -2,6 +2,7 @@
 using BulbaLib.Services; // Added
 using BulbaLib.Models;   // Added
 using System.Diagnostics; // Added for Debug.WriteLine
+using Microsoft.Extensions.Logging; // Added
 using System.Security.Claims; // Added
 using Microsoft.AspNetCore.Authorization; // Added
 using System; // For DateTimeOffset, DateTime
@@ -44,13 +45,15 @@ namespace BulbaLib.Controllers
         private readonly PermissionService _permissionService;
         private readonly ICurrentUserService _currentUserService;
         private readonly FileService _fileService;
+        private readonly ILogger<NovelViewController> _logger;
 
-        public NovelViewController(MySqlService mySqlService, PermissionService permissionService, ICurrentUserService currentUserService, FileService fileService)
+        public NovelViewController(MySqlService mySqlService, PermissionService permissionService, ICurrentUserService currentUserService, FileService fileService, ILogger<NovelViewController> logger)
         {
             _mySqlService = mySqlService;
             _permissionService = permissionService;
             _currentUserService = currentUserService;
             _fileService = fileService;
+            _logger = logger;
         }
 
         [HttpGet("/novel/{id:int}")]
@@ -110,9 +113,30 @@ namespace BulbaLib.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(NovelCreateModel model)
         {
-            Debug.WriteLine($"Received NovelCreateModel: Title='{model.Title}', Description='{model.Description}', AuthorId='{model.AuthorId}', CoverFile='{(model.CoverFile != null ? model.CoverFile.FileName : "null")}', Genres='{model.Genres}', Tags='{model.Tags}', Type='{model.Type}', Format='{model.Format}', ReleaseYear='{model.ReleaseYear}', AlternativeTitles='{model.AlternativeTitles}', RelatedNovelIds='{model.RelatedNovelIds}'");
+            _logger.LogInformation("[Create Novel POST] Received Model:");
+            _logger.LogInformation($"  Title: {model.Title}");
+            _logger.LogInformation($"  Description: {model.Description}");
+            _logger.LogInformation($"  AuthorId: {model.AuthorId}");
+            _logger.LogInformation($"  CoverFile: {(model.CoverFile != null ? model.CoverFile.FileName : "null")}");
+            _logger.LogInformation($"  Genres: {model.Genres}");
+            _logger.LogInformation($"  Tags: {model.Tags}");
+            _logger.LogInformation($"  Type: {model.Type}");
+            _logger.LogInformation($"  Format: {model.Format}");
+            _logger.LogInformation($"  ReleaseYear: {model.ReleaseYear}");
+            _logger.LogInformation($"  AlternativeTitles: {model.AlternativeTitles}");
+            _logger.LogInformation($"  RelatedNovelIds: {model.RelatedNovelIds}");
+            // Assuming NovelCreateModel might have more properties, add them here if necessary.
 
             var currentUser = _currentUserService.GetCurrentUser();
+            if (currentUser != null)
+            {
+                _logger.LogInformation($"[Create Novel POST] Current User: Id={currentUser.Id}, Role={currentUser.Role}");
+            }
+            else
+            {
+                _logger.LogInformation("[Create Novel POST] Current User: null");
+            }
+
             if (currentUser == null) return Unauthorized();
 
             if (!(_permissionService.CanAddNovelDirectly(currentUser) || _permissionService.CanSubmitNovelForModeration(currentUser)))
@@ -122,10 +146,13 @@ namespace BulbaLib.Controllers
 
             if (!ModelState.IsValid)
             {
-                Debug.WriteLine("ModelState is invalid. Errors:");
-                foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
+                _logger.LogWarning("[Create Novel POST] ModelState is invalid. Errors:");
+                foreach (var state in ModelState)
                 {
-                    Debug.WriteLine($"- {error.ErrorMessage}");
+                    foreach (var error in state.Value.Errors)
+                    {
+                        _logger.LogWarning($"  Property: {state.Key}, Error: {error.ErrorMessage}");
+                    }
                 }
                 ViewData["AllGenres"] = AllGenres;
                 ViewData["AllTags"] = AllTags;
@@ -147,10 +174,13 @@ namespace BulbaLib.Controllers
 
             if (!ModelState.IsValid)
             {
-                Debug.WriteLine("ModelState became invalid after custom AuthorId validation. Errors:");
-                foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
+                _logger.LogWarning("[Create Novel POST] ModelState became invalid after custom AuthorId validation. Errors:");
+                foreach (var state in ModelState)
                 {
-                    Debug.WriteLine($"- {error.ErrorMessage}");
+                    foreach (var error in state.Value.Errors)
+                    {
+                        _logger.LogWarning($"  Property: {state.Key}, Error: {error.ErrorMessage}");
+                    }
                 }
                 ViewData["AllGenres"] = AllGenres;
                 ViewData["AllTags"] = AllTags;
@@ -159,18 +189,66 @@ namespace BulbaLib.Controllers
 
             bool hasCoverFileToProcess = model.CoverFile != null && model.CoverFile.Length > 0;
 
+            _logger.LogInformation("[Create Novel POST] Preparing novelToCreate object.");
+            _logger.LogInformation($"  Incoming Model.Genres: {model.Genres}");
+            _logger.LogInformation($"  Incoming Model.Tags: {model.Tags}");
+
+            string ProcessJsonStringToList(string jsonInput, string fieldNameForLogging)
+            {
+                if (string.IsNullOrWhiteSpace(jsonInput) || jsonInput == "[]")
+                {
+                    _logger.LogInformation($"[ProcessJsonStringToList] Input for {fieldNameForLogging} is null, empty, whitespace, or '[]'. Returning null.");
+                    return null;
+                }
+                try
+                {
+                    var list = JsonSerializer.Deserialize<List<string>>(jsonInput);
+                    if (list != null && list.Any())
+                    {
+                        string result = string.Join(",", list);
+                        _logger.LogInformation($"[ProcessJsonStringToList] Successfully processed {fieldNameForLogging}. Input: '{jsonInput}', Output: '{result}'");
+                        return result;
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"[ProcessJsonStringToList] Deserialized list for {fieldNameForLogging} is null or empty. Input: '{jsonInput}'. Returning null.");
+                        return null;
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, $"[ProcessJsonStringToList] Error deserializing {fieldNameForLogging} JSON: {jsonInput}. Returning null.");
+                    return null;
+                }
+            }
+
+            string processedGenres = ProcessJsonStringToList(model.Genres, "Genres");
+            string processedTags = ProcessJsonStringToList(model.Tags, "Tags");
+
+            _logger.LogInformation($"  Processed Genres for Novel object: {processedGenres}");
+            _logger.LogInformation($"  Processed Tags for Novel object: {processedTags}");
+            _logger.LogInformation($"  Title: {model.Title}");
+            _logger.LogInformation($"  Description: {model.Description}");
+            _logger.LogInformation($"  Type: {model.Type}");
+            _logger.LogInformation($"  Format: {model.Format}");
+            _logger.LogInformation($"  ReleaseYear: {model.ReleaseYear}");
+            string serializedAlternativeTitles = string.IsNullOrWhiteSpace(model.AlternativeTitles) ?
+                                    null :
+                                    JsonSerializer.Serialize(model.AlternativeTitles.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList());
+            _logger.LogInformation($"  SerializedAlternativeTitles: {serializedAlternativeTitles}");
+            _logger.LogInformation($"  RelatedNovelIds: {model.RelatedNovelIds}");
+            _logger.LogInformation($"  AuthorId: {model.AuthorId}");
+
             var novelToCreate = new Novel
             {
                 Title = model.Title,
                 Description = model.Description,
-                Genres = model.Genres,
-                Tags = model.Tags,
+                Genres = processedGenres,
+                Tags = processedTags,
                 Type = model.Type,
                 Format = model.Format,
                 ReleaseYear = model.ReleaseYear,
-                AlternativeTitles = string.IsNullOrWhiteSpace(model.AlternativeTitles) ?
-                                    null :
-                                    JsonSerializer.Serialize(model.AlternativeTitles.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList()),
+                AlternativeTitles = serializedAlternativeTitles, // Use the already prepared variable
                 RelatedNovelIds = model.RelatedNovelIds,
                 Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 AuthorId = model.AuthorId
@@ -178,20 +256,34 @@ namespace BulbaLib.Controllers
 
             if (_permissionService.CanAddNovelDirectly(currentUser))
             {
-                novelToCreate.Covers = JsonSerializer.Serialize(new List<string>());
+                _logger.LogInformation("[Create Novel POST] Path taken: CanAddNovelDirectly");
+                novelToCreate.Covers = JsonSerializer.Serialize(new List<string>()); // Initialize Covers before logging
+                _logger.LogInformation($"[Create Novel POST] novelToCreate for direct add: {JsonSerializer.Serialize(novelToCreate)}");
                 int newNovelId = _mySqlService.CreateNovel(novelToCreate);
+                _logger.LogInformation($"[Create Novel POST] newNovelId: {newNovelId}");
 
                 if (hasCoverFileToProcess)
                 {
+                    _logger.LogInformation("[Create Novel POST] Starting cover file processing.");
                     string coverPath = await _fileService.SaveNovelCoverAsync(model.CoverFile, newNovelId);
+                    _logger.LogInformation($"[Create Novel POST] coverPath: {coverPath}");
                     if (!string.IsNullOrEmpty(coverPath))
                     {
                         var createdNovel = _mySqlService.GetNovel(newNovelId);
                         if (createdNovel != null)
                         {
+                            _logger.LogInformation($"[Create Novel POST] Found createdNovel with Id: {createdNovel.Id}. Updating with cover path.");
                             createdNovel.Covers = JsonSerializer.Serialize(new List<string> { coverPath });
                             _mySqlService.UpdateNovel(createdNovel);
                         }
+                        else
+                        {
+                            _logger.LogError($"[Create Novel POST] ERROR: createdNovel is null after GetNovel({newNovelId}). Cannot update cover path.");
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogError("[Create Novel POST] ERROR: coverPath is null or empty after SaveNovelCoverAsync.");
                     }
                 }
                 TempData["SuccessMessage"] = "Новелла успешно добавлена.";
@@ -199,18 +291,24 @@ namespace BulbaLib.Controllers
             }
             else if (_permissionService.CanSubmitNovelForModeration(currentUser))
             {
-                novelToCreate.Covers = JsonSerializer.Serialize(new List<string>());
+                _logger.LogInformation("[Create Novel POST] Path taken: CanSubmitNovelForModeration");
+                novelToCreate.Covers = JsonSerializer.Serialize(new List<string>()); // Initialize Covers before logging
+                _logger.LogInformation($"[Create Novel POST] novelToCreate for moderation: {JsonSerializer.Serialize(novelToCreate)}");
 
                 var moderationRequest = new ModerationRequest
                 {
                     RequestType = ModerationRequestType.AddNovel,
                     UserId = currentUser.Id,
-                    RequestData = JsonSerializer.Serialize(novelToCreate),
+                    RequestData = JsonSerializer.Serialize(novelToCreate), // Serialize the final novelToCreate
                     Status = ModerationStatus.Pending,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
+                _logger.LogInformation($"[Create Novel POST] moderationRequest for submission: {JsonSerializer.Serialize(moderationRequest)}");
                 _mySqlService.CreateModerationRequest(moderationRequest);
+                // Assuming CreateModerationRequest doesn't return ID, or it's not needed for logging here.
+                // If it does, it could be logged: _logger.LogInformation($"[Create Novel POST] Created ModerationRequest with ID: {requestId}");
+                _logger.LogInformation("[Create Novel POST] ModerationRequest created successfully.");
                 TempData["SuccessMessage"] = "Запрос на добавление новеллы отправлен на модерацию.";
                 return RedirectToAction("Index", "CatalogView");
             }
@@ -218,6 +316,7 @@ namespace BulbaLib.Controllers
             // If neither CanAddNovelDirectly nor CanSubmitNovelForModeration is true,
             // it implies a permission issue or an unexpected state.
             // Redirect to Access Denied as per subtask requirement.
+            _logger.LogWarning("[Create Novel POST] Fallback: Neither CanAddNovelDirectly nor CanSubmitNovelForModeration is true. Redirecting to AccessDenied.");
             return RedirectToAction("AccessDenied", "AuthView");
         }
 
@@ -362,7 +461,7 @@ namespace BulbaLib.Controllers
                     var moderationRequest = new ModerationRequest
                     {
                         RequestType = ModerationRequestType.EditNovel,
-                        UserId = currentUser..Id,
+                        UserId = currentUser.Id,
                         NovelId = originalNovel.Id,
                         RequestData = JsonSerializer.Serialize(novelWithChanges),
                         Status = ModerationStatus.Pending,
