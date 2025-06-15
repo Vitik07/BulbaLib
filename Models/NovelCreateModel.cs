@@ -18,6 +18,9 @@ namespace BulbaLib.Models
         public IFormFile CoverFile { get; set; }
         // public string Covers { get; set; } // Old property commented out or removed
 
+        [Display(Name = "Автор")]
+        public int? AuthorId { get; set; }
+
         [Display(Name = "Жанры")]
         public string Genres { get; set; } // Comma-separated or JSON string
         [Display(Name = "Теги")]

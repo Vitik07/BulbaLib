@@ -42,6 +42,17 @@
                     <span asp-validation-for="Description" class="text-danger"></span>
                 </div>
 
+                <!-- Author selection START -->
+                <div class="form-group mb-3">
+                    <label asp-for="AuthorId" class="control-label">Автор</label>
+                    <input type="text" id="authorNameInput" name="authorName" class="form-control" placeholder="Начните вводить имя автора..." autocomplete="off" />
+                    <input type="hidden" asp-for="AuthorId" /> <!-- Bound to NovelCreateModel.AuthorId -->
+                    <span asp-validation-for="AuthorId" class="text-danger"></span>
+                    <div id="authorSuggestionsContainer" class="list-group mt-1" style="position: absolute; z-index: 1000; width: calc(100% - 30px);"></div>
+                    <!-- Suggestions container, width adjusted to roughly match form-control width considering padding/border -->
+                </div>
+                <!-- Author selection END -->
+
                 <div class="form-group mb-3">
                     <label asp-for="CoverFile" class="control-label"></label>
                     <input asp-for="CoverFile" type="file" class="form-control" accept="image/jpeg, image/png, image/gif, image/webp" />
@@ -354,6 +365,74 @@
                     if (tagModal) tagModal.style.display = 'none';
                 }
             }
+
+            // --- Author Autocomplete START ---
+            const authorNameInput = document.getElementById('authorNameInput');
+            const authorIdInput = document.getElementById('AuthorId'); // Assumes asp-for="AuthorId" generates ID "AuthorId"
+            const authorSuggestionsContainer = document.getElementById('authorSuggestionsContainer');
+
+            authorNameInput.addEventListener('input', function() {
+                const query = this.value;
+                authorIdInput.value = ''; // Clear previous selection if user types again
+
+                if (query.length < 2) { // Minimum characters to trigger search
+                    authorSuggestionsContainer.innerHTML = '';
+                    return;
+                }
+
+                fetch(`/api/users/search?nameQuery=${encodeURIComponent(query)}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(users => {
+                        authorSuggestionsContainer.innerHTML = ''; // Clear previous
+                        if (users && users.length > 0) {
+                            users.forEach(user => {
+                                const suggestionDiv = document.createElement('a');
+                                suggestionDiv.href = '#';
+                                suggestionDiv.className = 'list-group-item list-group-item-action d-flex align-items-center';
+
+                                const img = document.createElement('img');
+                                img.src = user.avatarUrl || '/Resource/default-avatar.jpg'; // Default avatar
+                                img.alt = user.login;
+                                img.className = 'rounded-circle me-2';
+                                img.style.width = '32px';
+                                img.style.height = '32px';
+                                suggestionDiv.appendChild(img);
+
+                                const nameSpan = document.createElement('span');
+                                nameSpan.textContent = user.login;
+                                suggestionDiv.appendChild(nameSpan);
+
+                                suggestionDiv.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    authorNameInput.value = user.login;
+                                    authorIdInput.value = user.id;
+                                    authorSuggestionsContainer.innerHTML = '';
+                                });
+                                authorSuggestionsContainer.appendChild(suggestionDiv);
+                            });
+                        } else {
+                            authorSuggestionsContainer.innerHTML = '<div class="list-group-item">Пользователи не найдены</div>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching users:', error);
+                        authorSuggestionsContainer.innerHTML = '<div class="list-group-item">Ошибка загрузки</div>';
+                    });
+            });
+
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', function(event) {
+                if (!authorNameInput.contains(event.target) && !authorSuggestionsContainer.contains(event.target)) {
+                    authorSuggestionsContainer.innerHTML = '';
+                }
+            });
+            // --- Author Autocomplete END ---
+
         });
         </script>
 </body>
