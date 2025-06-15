@@ -380,7 +380,7 @@
                     return;
                 }
 
-                fetch(`/api/users/search?nameQuery=${encodeURIComponent(query)}`)
+                fetch(`/api/Users/search?nameQuery=${encodeURIComponent(query)}`)
                     .then(response => {
                         if (!response.ok) {
                             throw new Error(`HTTP error! status: ${response.status}`);
