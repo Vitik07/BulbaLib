@@ -340,18 +340,55 @@ namespace BulbaLib.Controllers
                 Id = novel.Id,
                 Title = novel.Title,
                 Description = novel.Description,
-                Covers = novel.Covers,
+                // Covers = novel.Covers, // To be replaced
                 Genres = novel.Genres,
                 Tags = novel.Tags,
                 Type = novel.Type,
                 Format = novel.Format,
                 ReleaseYear = novel.ReleaseYear,
-                AlternativeTitles = string.IsNullOrWhiteSpace(novel.AlternativeTitles) ?
-                                    null :
-                                    string.Join("\n", JsonSerializer.Deserialize<List<string>>(novel.AlternativeTitles) ?? new List<string>()),
-                RelatedNovelIds = novel.RelatedNovelIds,
+                // AlternativeTitles = string.IsNullOrWhiteSpace(novel.AlternativeTitles) ?
+                //                    null :
+                //                    string.Join("\n", JsonSerializer.Deserialize<List<string>>(novel.AlternativeTitles) ?? new List<string>()),
+                RelatedNovelIds = novel.RelatedNovelIds, // This will be handled in a later step
                 AuthorId = novel.AuthorId
             };
+
+            // Handle Covers separately with error catching and deserialization
+            List<string> currentCovers = new List<string>();
+            if (!string.IsNullOrWhiteSpace(novel.Covers))
+            {
+                try
+                {
+                    currentCovers = JsonSerializer.Deserialize<List<string>>(novel.Covers) ?? new List<string>();
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Error deserializing novel.Covers JSON in Edit GET: {CoversJson}", novel.Covers);
+                    // Initialize with empty list if JSON is malformed
+                }
+            }
+            novelEditModel.Covers = currentCovers;
+
+            // Handle AlternativeTitles separately with error catching
+            if (string.IsNullOrWhiteSpace(novel.AlternativeTitles))
+            {
+                novelEditModel.AlternativeTitles = null;
+            }
+            else
+            {
+                try
+                {
+                    // Try to deserialize as a JSON list of strings
+                    var altTitlesList = JsonSerializer.Deserialize<List<string>>(novel.AlternativeTitles);
+                    novelEditModel.AlternativeTitles = string.Join("\n", altTitlesList ?? new List<string>());
+                }
+                catch (JsonException)
+                {
+                    // If deserialization fails, assume it's a plain multi-line string
+                    // The NovelEditModel.AlternativeTitles expects a single string where newlines separate titles.
+                    novelEditModel.AlternativeTitles = novel.AlternativeTitles;
+                }
+            }
             if (novel.AuthorId.HasValue)
             {
                 var authorUser = _mySqlService.GetUser(novel.AuthorId.Value);
@@ -403,8 +440,14 @@ namespace BulbaLib.Controllers
 
                 if (_permissionService.CanAddNovelDirectly(currentUser))
                 {
-                    if (model.NewCoverFile != null && model.NewCoverFile.Length > 0)
+                    // Inside Edit POST, within if (_permissionService.CanAddNovelDirectly(currentUser))
+
+                    List<string> finalCoverPaths = new List<string>();
+                    bool newFilesUploaded = model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0);
+
+                    if (newFilesUploaded)
                     {
+                        // Delete old covers if new ones are being uploaded
                         if (!string.IsNullOrWhiteSpace(originalNovel.Covers))
                         {
                             try
@@ -414,30 +457,48 @@ namespace BulbaLib.Controllers
                                 {
                                     foreach (var oldCoverPath in existingCovers)
                                     {
-                                        _fileService.DeleteFile(oldCoverPath);
+                                        _fileService.DeleteFile(oldCoverPath); // Assuming _fileService.DeleteFile takes the relative path
                                     }
                                 }
                             }
                             catch (JsonException ex)
                             {
-                                Debug.WriteLine($"Error parsing originalNovel.Covers JSON: {ex.Message}");
+                                _logger.LogWarning(ex, "Error deserializing originalNovel.Covers for deletion: {CoversJson}", originalNovel.Covers);
                             }
                         }
 
-                        string newCoverPath = await _fileService.SaveNovelCoverAsync(model.NewCoverFile, originalNovel.Id);
-                        if (!string.IsNullOrEmpty(newCoverPath))
+                        foreach (var file in model.NewCoverFiles)
                         {
-                            novelWithChanges.Covers = JsonSerializer.Serialize(new List<string> { newCoverPath });
+                            if (file != null && file.Length > 0)
+                            {
+                                string newPath = await _fileService.SaveNovelCoverAsync(file, originalNovel.Id);
+                                if (!string.IsNullOrEmpty(newPath))
+                                {
+                                    finalCoverPaths.Add(newPath);
+                                }
+                            }
                         }
-                        else
-                        {
-                            novelWithChanges.Covers = originalNovel.Covers;
-                        }
+                        novelWithChanges.Covers = JsonSerializer.Serialize(finalCoverPaths);
                     }
                     else
                     {
-                        novelWithChanges.Covers = originalNovel.Covers;
+                        // If no new files are uploaded, try to use the Covers list from the model.
+                        // This list (Model.Covers) will eventually be populated by the view with images the user wants to keep.
+                        // For now, if it's null (e.g. not yet bound from a multi-select or similar in the view),
+                        // preserve original covers to prevent accidental deletion.
+                        // Once the view is updated to send the list of current/kept covers, this will be more robust.
+                        if (model.Covers != null)
+                        {
+                            novelWithChanges.Covers = JsonSerializer.Serialize(model.Covers);
+                        }
+                        else
+                        {
+                            novelWithChanges.Covers = originalNovel.Covers; // Fallback to prevent data loss
+                        }
                     }
+
+                    // ... then assign novelWithChanges.Covers to originalNovel.Covers before _mySqlService.UpdateNovel(originalNovel);
+                    originalNovel.Covers = novelWithChanges.Covers;
 
                     originalNovel.Title = novelWithChanges.Title;
                     originalNovel.Description = novelWithChanges.Description;

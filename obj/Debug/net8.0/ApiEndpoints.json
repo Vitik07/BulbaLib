@@ -306,6 +306,22 @@
   },
   {
     "ContainingType": "BulbaLib.Controllers.NovelsController",
+    "Method": "GetNovelDetailsByIds",
+    "RelativePath": "api/Novels/api/Novels/detailsByIds",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ids",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "BulbaLib.Controllers.NovelsController",
     "Method": "SearchNovelsApi",
     "RelativePath": "api/Novels/search",
     "HttpMethod": "GET",

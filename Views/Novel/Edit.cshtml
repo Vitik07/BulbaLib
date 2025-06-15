@@ -1,29 +1,27 @@
-﻿@model BulbaLib.Models.NovelEditModel // Предполагаем, что для редактирования будет своя модель NovelEditModel
+﻿@model BulbaLib.Models.NovelEditModel
 @{
-    Layout = null; // Отключаем основной Layout
+    Layout = null; // Можно заменить на общий Layout, если требуется
 
-    ViewData["Title"] = "Редактирование новеллы";
+    ViewData["Title"] = "Редактировать новеллу";
 }
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"]: @Model.Title - BulbaLib</title>
-    @* <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" /> *@
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <title>@ViewData["Title"] - BulbaLib</title>
     <link rel="stylesheet" href="~/css/novel_form.css" asp-append-version="true" />
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
     <div class="container">
         <main role="main" class="pb-3">
-
             <h2>@ViewData["Title"]: @Model.Title</h2>
-
-            <form asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data">
+            <form asp-action="Edit" asp-route-id="@Model.Id" method="post">
                 @Html.AntiForgeryToken()
-                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
                 <input type="hidden" asp-for="Id" />
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
                 <div class="form-group mb-3">
                     <label asp-for="Title" class="control-label">Название новеллы</label>
@@ -37,71 +35,59 @@
                     <span asp-validation-for="Description" class="text-danger"></span>
                 </div>
 
-                <div class="form-group mb-3">
-                    <label class="control-label">Текущая основная обложка</label>
-                    @{
-                        string currentCoverUrl = null;
+                <!-- Author selection -->
+                <div class="form-group mb-3" style="position:relative;">
+                    <label asp-for="AuthorId" class="control-label">Автор</label>
+                    <input type="text" id="authorNameInput" name="authorName" class="form-control" placeholder="Начните вводить имя автора..." autocomplete="off" value="@Model.AuthorLogin" />
+                    <input type="hidden" asp-for="AuthorId" id="AuthorId" />
+                    <span asp-validation-for="AuthorId" class="text-danger"></span>
+                    <div id="authorSuggestionsContainer"></div>
+                </div>
 
-                        if (!string.IsNullOrWhiteSpace(Model.Covers))
+                <div class="form-group mb-3">
+                    <label class="control-label">Текущие обложки</label>
+                    <div id="currentCoversContainer" class="mt-2 d-flex flex-wrap">
+                        @if (Model.Covers != null && Model.Covers.Any())
                         {
-
-                            try
+                            for (int i = 0; i < Model.Covers.Count; i++)
                             {
-                                var coversList = System.Text.Json.JsonSerializer.Deserialize<List<string>>(Model.Covers);
-                                if (coversList != null && coversList.Count > 0)
-                                {
-
-                                    currentCoverUrl = coversList.First(); // Показываем первую обложку как основную
-                                }
-
+                                var coverPath = Model.Covers[i];
+                                <div class="current-cover-item me-2 mb-2" style="position: relative;">
+                                    <img src="@Url.Content("~/" + coverPath)" alt="Обложка" style="max-width: 150px; max-height: 200px; display: block;" />
+                                    <button type="button" class="btn btn-danger btn-sm remove-cover-btn" data-cover-path="@coverPath" style="position: absolute; top: 5px; right: 5px;">&times;</button>
+                                    @* Hidden input to send back kept covers *@
+                                    <input type="hidden" name="Covers[@i]" value="@coverPath" class="kept-cover-input" />
+                                </div>
                             }
-                            catch { /* Ошибка парсинга JSON, ничего не показываем */ }
-
                         }
-                    }
-                    @if (!string.IsNullOrWhiteSpace(currentCoverUrl))
-
-                    {
-                        <div class="mb-2">
-                            <img src="@Url.Content(currentCoverUrl)" alt="Текущая обложка" style="max-width: 200px; max-height: 200px; display:block;" />
-                        </div>
-                    }
-
-                    else
-
-                    {
-                        <p class="text-muted">Основная обложка не загружена.</p>
-                    }
+                        else
+                        {
+                            <p>Нет загруженных обложек.</p>
+                        }
+                    </div>
+                    <span asp-validation-for="Covers" class="text-danger"></span>
                 </div>
 
                 <div class="form-group mb-3">
-                    <label asp-for="NewCoverFile" class="control-label"></label>
-                    <input asp-for="NewCoverFile" type="file" class="form-control" accept="image/jpeg, image/png, image/gif, image/webp" />
-                    <span asp-validation-for="NewCoverFile" class="text-danger"></span>
-                    <small class="form-text text-muted">Выберите новый файл, если хотите заменить основную обложку (jpg, png, gif, webp).</small>
+                    <label asp-for="NewCoverFiles" class="control-label">Загрузить новые обложки (старые будут удалены)</label>
+                    <input asp-for="NewCoverFiles" type="file" multiple class="form-control" />
+                    <span asp-validation-for="NewCoverFiles" class="text-danger"></span>
+                    <small class="form-text text-muted">Выберите один или несколько файлов. Если вы загружаете новые обложки, все существующие будут заменены.</small>
                 </div>
-
-                @* Скрытое поле для Model.Covers, чтобы передать текущее значение, если файл не меняется.
-                Это важно, если мы не хотим потерять существующие обложки, если новый файл не загружен.
-                Однако, если NewCoverFile загружен, это значение будет перезаписано в контроллере.
-                *@
-                <input type="hidden" asp-for="Covers" />
 
                 <div class="form-group mb-3">
                     <label asp-for="Genres" class="control-label"></label>
-                    @* Новый интерфейс выбора жанров будет здесь *@
-                    <div id="selectedGenresContainer" class="mt-2"></div> @* Контейнер для отображения выбранных жанров *@
+                    <div id="selectedGenresContainer" class="mt-2"></div>
                     <button type="button" id="addGenreBtn" class="btn btn-sm btn-primary mt-1">Добавить жанр</button>
-                    <input type="hidden" asp-for="Genres" /> @* Скрытое поле для отправки данных *@
+                    <input type="hidden" asp-for="Genres" />
                     <span asp-validation-for="Genres" class="text-danger"></span>
                 </div>
 
                 <div class="form-group mb-3">
                     <label asp-for="Tags" class="control-label"></label>
-                    @* Новый интерфейс выбора тегов будет здесь *@
-                    <div id="selectedTagsContainer" class="mt-2"></div> @* Контейнер для отображения выбранных тегов *@
+                    <div id="selectedTagsContainer" class="mt-2"></div>
                     <button type="button" id="addTagBtn" class="btn btn-sm btn-primary mt-1">Добавить тег</button>
-                    <input type="hidden" asp-for="Tags" /> @* Скрытое поле для отправки данных *@
+                    <input type="hidden" asp-for="Tags" />
                     <span asp-validation-for="Tags" class="text-danger"></span>
                 </div>
 
@@ -137,61 +123,52 @@
                 </div>
 
                 <div class="form-group mb-3">
+                    <label for="relatedNovelSearchInput" class="control-label">Связанные новеллы (поиск по названию)</label>
+                    <input type="text" id="relatedNovelSearchInput" class="form-control" autocomplete="off" placeholder="Начните вводить название новеллы..." />
+                    <div id="relatedNovelSuggestionsContainer" class="author-suggestions-container" style="display: none; max-height: 200px; overflow-y: auto; position:relative;">
+                        @* Результаты поиска будут здесь *@
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label class="control-label">Выбранные связанные новеллы</label>
+                    <div id="selectedRelatedNovelsContainer" class="mt-1 selected-items-container">
+                        @* Выбранные новеллы (как бэджи/теги) будут здесь *@
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
                     <label asp-for="AlternativeTitles" class="control-label">Альтернативные названия</label>
                     <textarea asp-for="AlternativeTitles" class="form-control" rows="3"></textarea>
                     <span asp-validation-for="AlternativeTitles" class="text-danger"></span>
                     <small class="form-text text-muted">Каждое альтернативное название вводите с новой строки.</small>
                 </div>
 
-                @* Отображение AuthorId и TranslatorId, если это необходимо *@
-                @if (Model.AuthorId.HasValue)
-
-                {
-                    <div class="form-group mb-3">
-                        <label class="control-label">ID Автора</label>
-                        <input type="text" class="form-control" value="@Model.AuthorId.Value" readonly />
-                    </div>
-                }
-                <div class="form-group mb-3">
-                    <label asp-for="AuthorLogin" class="control-label">Логин автора</label>
-                    <input asp-for="AuthorLogin" class="form-control" readonly />
-                </div>
-
+                <input type="hidden" asp-for="RelatedNovelIds" />
 
                 <div class="form-group mt-3">
-                    <input type="submit" value="Сохранить изменения" class="btn btn-success" />
+                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
                     <a asp-controller="NovelView" asp-action="Details" asp-route-id="@Model.Id" class="btn btn-secondary">Отмена</a>
                 </div>
             </form>
         </main>
     </div>
 
-    @* <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script> *@
-    <script src="~/js/site.js" asp-append-version="true"></script>
-
-    @* Модальное окно для Жанров *@
-    <div id="genreModal" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.4);">
-        <div class="modal-content" style="background-color:#fefefe; margin:15% auto; padding:20px; border:1px solid #888; width:80%; max-width:500px; border-radius:8px;">
-            <span class="close-btn" id="closeGenreModal" style="color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;">&times;</span>
+    <div id="genreModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="closeGenreModal">&times;</span>
             <h4>Выберите или добавьте жанры</h4>
-            <div id="genreListContainer" style="max-height: 200px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #ccc; padding: 10px;">
-                @* Сюда будут загружаться чекбоксы с жанрами *@
-            </div>
+            <div id="genreListContainer"></div>
             <input type="text" id="customGenreInput" placeholder="Добавить свой жанр" class="form-control mb-2" />
             <button type="button" id="addCustomGenreBtn" class="btn btn-sm btn-secondary">Добавить свой</button>
             <button type="button" id="saveGenreSelectionBtn" class="btn btn-sm btn-success float-end">Сохранить выбор</button>
         </div>
     </div>
-
-    @* Модальное окно для Тегов *@
-    <div id="tagModal" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.4);">
-        <div class="modal-content" style="background-color:#fefefe; margin:15% auto; padding:20px; border:1px solid #888; width:80%; max-width:500px; border-radius:8px;">
-            <span class="close-btn" id="closeTagModal" style="color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;">&times;</span>
+    <div id="tagModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="closeTagModal">&times;</span>
             <h4>Выберите или добавьте теги</h4>
-            <div id="tagListContainer" style="max-height: 200px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #ccc; padding: 10px;">
-                @* Сюда будут загружаться чекбоксы с тегами *@
-            </div>
+            <div id="tagListContainer"></div>
             <input type="text" id="customTagInput" placeholder="Добавить свой тег" class="form-control mb-2" />
             <button type="button" id="addCustomTagBtn" class="btn btn-sm btn-secondary">Добавить свой</button>
             <button type="button" id="saveTagSelectionBtn" class="btn btn-sm btn-success float-end">Сохранить выбор</button>
@@ -199,192 +176,435 @@
     </div>
 
     @{
+        var genresToSerialize = (ViewData["AllGenres"] as List<string>) ?? new List<string>();
+
+        var tagsToSerialize = (ViewData["AllTags"] as List<string>) ?? new List<string>();
+
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
+    <script>
+        // Весь JS-код из Create.cshtml (жанры, теги, автор, связанные новеллы), только поправить инициализацию значений для редактирования:
+        document.addEventListener('DOMContentLoaded', function () {
+            function decodeHtmlEntities(text) {
+                if (text === null || typeof text === 'undefined') {
+                    return '';
+                }
+                var textArea = document.createElement('textarea');
+                textArea.innerHTML = text;
+                return textArea.value;
+            }
 
-    @section Scripts {
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                const allGenresList = @Html.Raw(Json.Serialize(ViewData["AllGenres"] as List<string> ?? new List<string>()));
-                const allTagsList = @Html.Raw(Json.Serialize(ViewData["AllTags"] as List<string> ?? new List<string>()));
+            // --- Жанры и теги ---
+            const allGenres = @Html.Raw(Json.Serialize(genresToSerialize));
+            const allTags = @Html.Raw(Json.Serialize(tagsToSerialize));
+            let selectedGenres = [];
+            let selectedTags = [];
+            const hiddenGenresInput = document.getElementById('Genres');
+            const hiddenTagsInput = document.getElementById('Tags');
+            // Инициализация для Edit
+            function parseInitialItems(initialString) {
+                if (!initialString) return [];
+                
+                const decodedString = decodeHtmlEntities(initialString); // Decode first
 
-                let currentSelectedGenres = [];
-                let currentSelectedTags = [];
+                try {
+                    // Attempt to parse as JSON (common for values set by JS like ["Action", "Adventure"])
+                    const jsonParsed = JSON.parse(decodedString);
+                    if (Array.isArray(jsonParsed)) {
+                        return jsonParsed.map(item => decodeHtmlEntities(item.toString())); // Decode items again in case of double encoding or already JSON encoded HTML
+                    }
+                } catch (e) {
+                    // Fallback: if not valid JSON, treat as comma-separated string
+                    // (common for values directly from DB like "Драма,Комедия")
+                    return decodedString.split(',')
+                                    .map(item => item.trim())
+                                    .filter(item => item)
+                                    .map(item => decodeHtmlEntities(item)); // Ensure individual items are also decoded
+                }
+                // If it was JSON but not an array (should not happen for genres/tags list)
+                // or if initialString was empty after decoding.
+                return decodedString.split(',')
+                             .map(item => item.trim())
+                             .filter(item => item)
+                             .map(item => decodeHtmlEntities(item));
+            }
+            selectedGenres = parseInitialItems("@Html.Raw(Model.Genres)");
+            selectedTags = parseInitialItems("@Html.Raw(Model.Tags)");
+            if (hiddenGenresInput) hiddenGenresInput.value = JSON.stringify(selectedGenres);
+            if (hiddenTagsInput) hiddenTagsInput.value = JSON.stringify(selectedTags);
+            function renderSelectedItemsAsBadges(containerId, selectedArray, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                container.innerHTML = '';
+                selectedArray.forEach(item => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-secondary me-1 mb-1';
+                    badge.textContent = item;
+                    const removeBtn = document.createElement('span');
+                    removeBtn.innerHTML = '&times;';
+                    removeBtn.className = 'ms-1 fw-bold';
+                    removeBtn.style.cursor = 'pointer';
+                    removeBtn.onclick = function () {
+                        const index = globalSelectedArrayRef.indexOf(item);
+                        if (index > -1) {
+                            globalSelectedArrayRef.splice(index, 1);
+                        }
+                        if (hiddenInputElement) hiddenInputElement.value = JSON.stringify(globalSelectedArrayRef);
+                        renderSelectedItemsAsBadges(containerId, globalSelectedArrayRef, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef);
+                    };
+                    badge.appendChild(removeBtn);
+                    container.appendChild(badge);
+                });
+            }
+            function populateModalWithCheckboxes(containerId, items, selectedItemsArray, type) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                container.innerHTML = '';
+                items.forEach(item => {
+                    const checkboxId = `${type}-${item.replace(/\s+/g, '-')}`;
+                    const isChecked = selectedItemsArray.includes(item);
+                    container.innerHTML += `
+                                <div>
+                                    <input type="checkbox" id="${checkboxId}" name="${type}" value="${item}" ${isChecked ? 'checked' : ''}>
+                                    <label for="${checkboxId}">${item}</label>
+                                </div>`;
+                });
+            }
+            const genreModal = document.getElementById('genreModal');
+            const addGenreBtn = document.getElementById('addGenreBtn');
+            const closeGenreModal = document.getElementById('closeGenreModal');
+            if (addGenreBtn) addGenreBtn.onclick = function () {
+                populateModalWithCheckboxes('genreListContainer', allGenres, selectedGenres, 'genre');
+                if (genreModal) genreModal.style.display = 'block';
+            }
+            if (closeGenreModal) closeGenreModal.onclick = function () { if (genreModal) genreModal.style.display = 'none'; }
+            const tagModal = document.getElementById('tagModal');
+            const addTagBtn = document.getElementById('addTagBtn');
+            const closeTagModal = document.getElementById('closeTagModal');
+            if (addTagBtn) addTagBtn.onclick = function () {
+                populateModalWithCheckboxes('tagListContainer', allTags, selectedTags, 'tag');
+                if (tagModal) tagModal.style.display = 'block';
+            }
+            if (closeTagModal) closeTagModal.onclick = function () { if (tagModal) tagModal.style.display = 'none'; }
+            const saveGenreSelectionBtn = document.getElementById('saveGenreSelectionBtn');
+            if (saveGenreSelectionBtn) saveGenreSelectionBtn.onclick = function () {
+                selectedGenres = [];
+                document.querySelectorAll('#genreListContainer input[type="checkbox"]:checked').forEach(cb => {
+                    selectedGenres.push(cb.value);
+                });
+                if (hiddenGenresInput) hiddenGenresInput.value = JSON.stringify(selectedGenres);
+                if (genreModal) genreModal.style.display = 'none';
+                renderSelectedItemsAsBadges('selectedGenresContainer', selectedGenres, hiddenGenresInput, 'genre', allGenres, selectedGenres);
+            }
+            const saveTagSelectionBtn = document.getElementById('saveTagSelectionBtn');
+            if (saveTagSelectionBtn) saveTagSelectionBtn.onclick = function () {
+                selectedTags = [];
+                document.querySelectorAll('#tagListContainer input[type="checkbox"]:checked').forEach(cb => {
+                    selectedTags.push(cb.value);
+                });
+                if (hiddenTagsInput) hiddenTagsInput.value = JSON.stringify(selectedTags);
+                if (tagModal) tagModal.style.display = 'none';
+                renderSelectedItemsAsBadges('selectedTagsContainer', selectedTags, hiddenTagsInput, 'tag', allTags, selectedTags);
+            }
+            const addCustomGenreBtn = document.getElementById('addCustomGenreBtn');
+            const customGenreInput = document.getElementById('customGenreInput');
+            if (addCustomGenreBtn && customGenreInput) addCustomGenreBtn.onclick = function () {
+                const newGenre = customGenreInput.value.trim();
+                if (newGenre && !allGenres.includes(newGenre)) {
+                    allGenres.push(newGenre);
+                }
+                if (newGenre && !selectedGenres.includes(newGenre)) {
+                    selectedGenres.push(newGenre);
+                }
+                populateModalWithCheckboxes('genreListContainer', allGenres, selectedGenres, 'genre');
+                if (customGenreInput) customGenreInput.value = '';
+            };
+            const addCustomTagBtn = document.getElementById('addCustomTagBtn');
+            const customTagInput = document.getElementById('customTagInput');
+            if (addCustomTagBtn && customTagInput) addCustomTagBtn.onclick = function () {
+                const newTag = customTagInput.value.trim();
+                if (newTag && !allTags.includes(newTag)) {
+                    allTags.push(newTag);
+                }
+                if (newTag && !selectedTags.includes(newTag)) {
+                    selectedTags.push(newTag);
+                }
+                populateModalWithCheckboxes('tagListContainer', allTags, selectedTags, 'tag');
+                if (customTagInput) customTagInput.value = '';
+            };
+            window.onclick = function (event) {
+                if (event.target == genreModal) {
+                    if (genreModal) genreModal.style.display = 'none';
+                }
+                if (event.target == tagModal) {
+                    if (tagModal) tagModal.style.display = 'none';
+                }
+            };
+            renderSelectedItemsAsBadges('selectedGenresContainer', selectedGenres, hiddenGenresInput, 'genre', allGenres, selectedGenres);
+            renderSelectedItemsAsBadges('selectedTagsContainer', selectedTags, hiddenTagsInput, 'tag', allTags, selectedTags);
 
-                const modelGenresJson = '@Html.Raw(Model.Genres)'; // Получаем JSON-строку из модели
-                const modelTagsJson = '@Html.Raw(Model.Tags)';   // Получаем JSON-строку из модели
-
-                // --- НОВАЯ ФУНКЦИЯ RENDER BADGES (скопирована из Create, идентична) ---
-                function renderSelectedItemsAsBadges(containerId, selectedArray, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef) {
-                    const container = document.getElementById(containerId);
-                    if (!container) return;
-                    container.innerHTML = ''; // Очищаем контейнер
-
-                    selectedArray.forEach(item => {
-                        const badge = document.createElement('span');
-                        badge.className = 'badge bg-secondary me-1 mb-1';
-                        badge.textContent = item;
-
-                        const removeBtn = document.createElement('span');
-                        removeBtn.innerHTML = '&times;';
-                        removeBtn.className = 'ms-1 fw-bold';
-                        removeBtn.style.cursor = 'pointer';
-                        removeBtn.onclick = function () {
-                            const index = globalSelectedArrayRef.indexOf(item);
-                            if (index > -1) {
-                                globalSelectedArrayRef.splice(index, 1);
-                            }
-                            if (hiddenInputElement) hiddenInputElement.value = JSON.stringify(globalSelectedArrayRef);
-                            renderSelectedItemsAsBadges(containerId, globalSelectedArrayRef, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef);
-                        };
-
-                        badge.appendChild(removeBtn);
-                        container.appendChild(badge);
+            // --- Author Autocomplete ---
+            const authorNameInput = document.getElementById('authorNameInput');
+            const authorIdInput = document.getElementById('AuthorId');
+            const suggestions = document.getElementById('authorSuggestionsContainer');
+            authorNameInput.addEventListener('input', function () {
+                const query = this.value.trim();
+                authorIdInput.value = '';
+                if (query.length < 2) {
+                    suggestions.style.display = 'none';
+                    suggestions.innerHTML = '';
+                    return;
+                }
+                fetch('/api/Users/search?nameQuery=' + encodeURIComponent(query) + '&limit=4')
+                    .then(res => res.ok ? res.json() : [])
+                    .then(users => {
+                        suggestions.innerHTML = '';
+                        if (users && users.length > 0) {
+                            users.forEach(u => {
+                                const div = document.createElement('div');
+                                div.className = 'author-suggestion-item';
+                                div.innerHTML = `<img src="${u.avatarUrl || '/Resource/default-avatar.jpg'}" class="author-suggestion-avatar" alt="">
+                                                            <span>${u.login}</span>`;
+                                div.addEventListener('mousedown', function (evt) {
+                                    evt.preventDefault();
+                                    authorNameInput.value = u.login;
+                                    authorIdInput.value = u.id;
+                                    suggestions.style.display = 'none';
+                                });
+                                suggestions.appendChild(div);
+                            });
+                            suggestions.style.display = 'block';
+                        } else {
+                            suggestions.style.display = 'none';
+                        }
                     });
+            });
+            document.addEventListener('mousedown', function (e) {
+                if (!suggestions.contains(e.target) && e.target !== authorNameInput) {
+                    suggestions.style.display = 'none';
                 }
-                // --- КОНЕЦ НОВОЙ ФУНКЦИИ RENDER BADGES ---
-
-                if (modelGenresJson) {
-                    try {
-                        currentSelectedGenres = JSON.parse(modelGenresJson);
-                        if (!Array.isArray(currentSelectedGenres)) currentSelectedGenres = [];
-                    } catch (e) {
-                        console.error("Error parsing Model.Genres JSON:", e);
-                        currentSelectedGenres = [];
-                    }
-                }
-
-                if (modelTagsJson) {
-                    try {
-                        currentSelectedTags = JSON.parse(modelTagsJson);
-                        if (!Array.isArray(currentSelectedTags)) currentSelectedTags = [];
-                    } catch (e) {
-                        console.error("Error parsing Model.Tags JSON:", e);
-                        currentSelectedTags = [];
-                    }
-                }
-
-                const hiddenGenresField = document.getElementById('Genres');
-                const hiddenTagsField = document.getElementById('Tags');
-
-                // Устанавливаем начальные значения для скрытых полей, если они есть в модели
-                // (на случай, если пользователь ничего не изменит в модалках, но форма будет отправлена)
-                if (hiddenGenresField && currentSelectedGenres.length > 0) hiddenGenresField.value = JSON.stringify(currentSelectedGenres);
-                if (hiddenTagsField && currentSelectedTags.length > 0) hiddenTagsField.value = JSON.stringify(currentSelectedTags);
-
-                // --- ИНИЦИАЛИЗАЦИЯ ПЛАШЕК ПРИ ЗАГРУЗКЕ ---
-                renderSelectedItemsAsBadges('selectedGenresContainer', currentSelectedGenres, hiddenGenresField, 'genre', allGenresList, currentSelectedGenres);
-                renderSelectedItemsAsBadges('selectedTagsContainer', currentSelectedTags, hiddenTagsField, 'tag', allTagsList, currentSelectedTags);
-                // --- КОНЕЦ ИНИЦИАЛИЗАЦИИ ПЛАШЕК ---
-
-                function populateModalWithCheckboxes(containerId, items, selectedItemsArray, type) {
-                    const container = document.getElementById(containerId);
-                    if (!container) return; // Добавлена проверка
-                    container.innerHTML = '';
-                    items.forEach(item => {
-                        const checkboxId = `${type}-${item.replace(/\s+/g, '-')}`;
-                        const isChecked = selectedItemsArray.includes(item);
-                        container.innerHTML += `
-                                    <div>
-                                        <input type="checkbox" id="${checkboxId}" name="${type}" value="${item}" ${isChecked ? 'checked' : ''}>
-                                        <label for="${checkboxId}">${item}</label>
-                                    </div>`;
-                    });
-                }
-
-                // Жанры (в Edit.cshtml)
-                const genreModalElement = document.getElementById('genreModal');
-                const addGenreButton = document.getElementById('addGenreBtn');
-                const closeGenreModalButton = document.getElementById('closeGenreModal');
-                const genreListContainer = document.getElementById('genreListContainer'); // Определяем для custom
-
-                if (addGenreButton) addGenreButton.onclick = function () {
-                    populateModalWithCheckboxes('genreListContainer', allGenresList, currentSelectedGenres, 'genre');
-                    if (genreModalElement) genreModalElement.style.display = 'block';
-                }
-                if (closeGenreModalButton) closeGenreModalButton.onclick = function () { if (genreModalElement) genreModalElement.style.display = 'none'; }
-
-                // Теги (в Edit.cshtml)
-                const tagModalElement = document.getElementById('tagModal');
-                const addTagButton = document.getElementById('addTagBtn');
-                const closeTagModalButton = document.getElementById('closeTagModal');
-                const tagListContainer = document.getElementById('tagListContainer'); // Определяем для custom
-
-                if (addTagButton) addTagButton.onclick = function () {
-                    populateModalWithCheckboxes('tagListContainer', allTagsList, currentSelectedTags, 'tag');
-                    if (tagModalElement) tagModalElement.style.display = 'block';
-                }
-                if (closeTagModalButton) closeTagModalButton.onclick = function () { if (tagModalElement) tagModalElement.style.display = 'none'; }
-
-                // Сохранение жанров (в Edit.cshtml)
-                const saveGenreSelectionButton = document.getElementById('saveGenreSelectionBtn');
-                if (saveGenreSelectionButton) saveGenreSelectionButton.onclick = function () {
-                    currentSelectedGenres = [];
-                    document.querySelectorAll('#genreListContainer input[type="checkbox"]:checked').forEach(cb => {
-                        currentSelectedGenres.push(cb.value);
-                    });
-                    if (hiddenGenresField) hiddenGenresField.value = JSON.stringify(currentSelectedGenres);
-                    if (genreModalElement) genreModalElement.style.display = 'none';
-                    renderSelectedItemsAsBadges('selectedGenresContainer', currentSelectedGenres, hiddenGenresField, 'genre', allGenresList, currentSelectedGenres);
-                    console.log('Selected Genres (Edit):', currentSelectedGenres);
-                }
-
-                // Сохранение тегов (в Edit.cshtml)
-                const saveTagSelectionButton = document.getElementById('saveTagSelectionBtn');
-                if (saveTagSelectionButton) saveTagSelectionButton.onclick = function () {
-                    currentSelectedTags = [];
-                    document.querySelectorAll('#tagListContainer input[type="checkbox"]:checked').forEach(cb => {
-                        currentSelectedTags.push(cb.value);
-                    });
-                    if (hiddenTagsField) hiddenTagsField.value = JSON.stringify(currentSelectedTags);
-                    if (tagModalElement) tagModalElement.style.display = 'none';
-                    renderSelectedItemsAsBadges('selectedTagsContainer', currentSelectedTags, hiddenTagsField, 'tag', allTagsList, currentSelectedTags);
-                    console.log('Selected Tags (Edit):', currentSelectedTags);
-                }
-
-                // --- ЛОГИКА ДОБАВЛЕНИЯ CUSTOM ЭЛЕМЕНТОВ (Edit.cshtml) ---
-                const addCustomGenreBtn = document.getElementById('addCustomGenreBtn');
-                const customGenreInput = document.getElementById('customGenreInput');
-
-                if (addCustomGenreBtn) addCustomGenreBtn.onclick = function () {
-                    const newGenre = customGenreInput.value.trim();
-                    if (newGenre && !allGenresList.includes(newGenre)) {
-                        allGenresList.push(newGenre);
-                    }
-                    if (newGenre && !currentSelectedGenres.includes(newGenre)) {
-                        currentSelectedGenres.push(newGenre);
-                    }
-                    populateModalWithCheckboxes('genreListContainer', allGenresList, currentSelectedGenres, 'genre');
-                    if (customGenreInput) customGenreInput.value = '';
-                };
-
-                const addCustomTagBtn = document.getElementById('addCustomTagBtn');
-                const customTagInput = document.getElementById('customTagInput');
-
-                if (addCustomTagBtn) addCustomTagBtn.onclick = function () {
-                    const newTag = customTagInput.value.trim();
-                    if (newTag && !allTagsList.includes(newTag)) {
-                        allTagsList.push(newTag);
-                    }
-                    if (newTag && !currentSelectedTags.includes(newTag)) {
-                        currentSelectedTags.push(newTag);
-                    }
-                    populateModalWithCheckboxes('tagListContainer', allTagsList, currentSelectedTags, 'tag');
-                    if (customTagInput) customTagInput.value = '';
-                };
-                // --- КОНЕЦ ЛОГИКИ CUSTOM ЭЛЕМЕНТОВ ---
-
-                // Закрытие модалки по клику вне контента
-                window.onclick = function (event) {
-                    if (event.target == genreModalElement) {
-                        if (genreModalElement) genreModalElement.style.display = 'none';
-                    }
-                    if (event.target == tagModalElement) {
-                        if (tagModalElement) tagModalElement.style.display = 'none';
+            });
+            authorNameInput.addEventListener('keydown', function (e) {
+                if ((e.key === 'Enter' || e.key === 'Tab') && suggestions.style.display === 'block') {
+                    const firstItem = suggestions.querySelector('.author-suggestion-item');
+                    if (firstItem) {
+                        e.preventDefault();
+                        firstItem.dispatchEvent(new MouseEvent('mousedown'));
                     }
                 }
             });
-        </script>
-    }
+
+            // --- Related Novels ---
+            const relatedNovelSearchInput = document.getElementById('relatedNovelSearchInput');
+            const relatedNovelSuggestionsContainer = document.getElementById('relatedNovelSuggestionsContainer');
+            const selectedRelatedNovelsContainer = document.getElementById('selectedRelatedNovelsContainer');
+            const hiddenRelatedNovelIdsInput = document.getElementById('RelatedNovelIds');
+            let selectedNovelsData = []; // { id: number, title: string, coverUrl?: string }
+
+            // Инициализация для Edit
+            const initialRelatedNovelIdsString = "@Html.Raw(Model.RelatedNovelIds)"; // Use Html.Raw
+
+            function fetchAndRenderInitialRelatedNovels() {
+                if (initialRelatedNovelIdsString && hiddenRelatedNovelIdsInput) {
+                    const initialIds = initialRelatedNovelIdsString.split(',')
+                        .map(idStr => parseInt(idStr.trim(), 10))
+                        .filter(id => !isNaN(id) && id > 0);
+
+                    if (initialIds.length > 0) {
+                        // Display initial badges with IDs first
+                        selectedNovelsData = initialIds.map(id => ({ id: id, title: "ID: " + id + " (загрузка...)" }));
+                        renderSelectedNovelsBadges(); 
+                        updateHiddenRelatedNovelIdsInput(); // Keep this to ensure IDs are set
+
+                        // Fetch full details
+                        fetch(`/api/Novels/detailsByIds?ids=${initialIds.join(',')}`)
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                }
+                                return response.json();
+                            })
+                            .then(novelsFromServer => {
+                                if (novelsFromServer && Array.isArray(novelsFromServer)) {
+                                    // Update selectedNovelsData with titles and potentially cover URLs
+                                    selectedNovelsData = selectedNovelsData.map(selNovel => {
+                                        const foundNovel = novelsFromServer.find(srvNovel => srvNovel.id === selNovel.id);
+                                        return foundNovel ? { id: foundNovel.id, title: foundNovel.title, coverUrl: foundNovel.firstCoverUrl } : selNovel;
+                                    });
+                                    renderSelectedNovelsBadges(); // Re-render with actual titles
+                                }
+                            })
+                            .catch(error => {
+                                console.error("Error fetching initial related novel details:", error);
+                                // Optionally, update badges to show "ID: X (ошибка загрузки)"
+                                selectedNovelsData = selectedNovelsData.map(novel => ({ ...novel, title: `ID: ${novel.id} (ошибка)` }));
+                                renderSelectedNovelsBadges();
+                            });
+                    }
+                }
+            }
+            
+            function createNovelBadge(novel) { // novel is { id: number, title: string, coverUrl?: string }
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-info me-1 mb-1 d-flex align-items-center p-1'; // Use d-flex for layout
+                
+                let badgeContent = '';
+                if (novel.coverUrl) {
+                    // Assuming novel.coverUrl is like "uploads/covers/file.jpg" (no leading ~ or /)
+                    // and @Url.Content("~/") resolves to the application's base path (e.g., "/")
+                    let imageUrl = novel.coverUrl;
+                    if (!novel.coverUrl.startsWith('http') && !novel.coverUrl.startsWith('/')) {
+                        imageUrl = '@Url.Content("~/")' + novel.coverUrl;
+                    } else if (novel.coverUrl.startsWith('~/')) {
+                         imageUrl = '@Url.Content("~/")' + novel.coverUrl.substring(2);
+                    }
+                    badgeContent += '<img src="' + imageUrl + '" alt="' + novel.title + '" style="width: 20px; height: 20px; margin-right: 5px; object-fit: cover;"> ';
+                }
+                badgeContent += novel.title;
+
+                badge.innerHTML = badgeContent; // Set innerHTML to include image if present
+
+                const removeBtn = document.createElement('span');
+                removeBtn.innerHTML = '&times;';
+                removeBtn.className = 'ms-2 fw-bold remove-related-novel-btn'; // Added class for specific targeting if needed
+                removeBtn.style.cursor = 'pointer';
+                removeBtn.style.marginLeft = 'auto'; // Push remove button to the right
+                removeBtn.onclick = function () {
+                    selectedNovelsData = selectedNovelsData.filter(n => n.id !== novel.id);
+                    renderSelectedNovelsBadges();
+                    updateHiddenRelatedNovelIdsInput();
+                };
+                badge.appendChild(removeBtn);
+                return badge;
+            }
+
+            function renderSelectedNovelsBadges() {
+                if (!selectedRelatedNovelsContainer) return;
+                selectedRelatedNovelsContainer.innerHTML = '';
+                selectedNovelsData.forEach(novel => {
+                    const badge = createNovelBadge(novel);
+                    selectedRelatedNovelsContainer.appendChild(badge);
+                });
+            }
+            
+            function updateHiddenRelatedNovelIdsInput() {
+                if (hiddenRelatedNovelIdsInput) {
+                    hiddenRelatedNovelIdsInput.value = selectedNovelsData.map(n => n.id).join(',');
+                }
+            }
+            
+            // Call the function to load initial related novels
+            fetchAndRenderInitialRelatedNovels();
+
+            // --- Cover Image Management ---
+            const currentCoversContainer = document.getElementById('currentCoversContainer');
+            if (currentCoversContainer) {
+                currentCoversContainer.addEventListener('click', function(event) {
+                    if (event.target.classList.contains('remove-cover-btn')) {
+                        const coverItemDiv = event.target.closest('.current-cover-item');
+                        if (coverItemDiv) {
+                            // Remove the hidden input associated with this cover
+                            const hiddenInput = coverItemDiv.querySelector('.kept-cover-input');
+                            if (hiddenInput) {
+                                hiddenInput.remove(); // This effectively removes it from being submitted in the Covers list
+                            }
+                            coverItemDiv.remove(); // Remove the visual representation
+
+                            // Optional: if no covers left, show a message
+                            if (!currentCoversContainer.querySelector('.current-cover-item')) {
+                                const noCoversMsg = document.createElement('p');
+                                noCoversMsg.textContent = 'Все обложки удалены. При сохранении, если не будут загружены новые, новелла останется без обложек.';
+                                currentCoversContainer.appendChild(noCoversMsg);
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Renumber kept cover inputs before form submission to ensure correct model binding for List<string> Covers
+            const form = document.querySelector('form[asp-action="Edit"]');
+            if (form) {
+                form.addEventListener('submit', function() {
+                    if (currentCoversContainer) { // ensure container exists
+                        const keptCoverInputs = currentCoversContainer.querySelectorAll('input[type="hidden"].kept-cover-input');
+                        keptCoverInputs.forEach((input, index) => {
+                            input.name = `Covers[${index}]`;
+                        });
+                    }
+                });
+            }
+            function debounce(func, delay) {
+                let timeout;
+                return function (...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), delay);
+                };
+            }
+            const debouncedFetchRelatedNovels = debounce(function (query) {
+                if (!relatedNovelSuggestionsContainer) return;
+                if (query.length < 2) {
+                    relatedNovelSuggestionsContainer.style.display = 'none';
+                    relatedNovelSuggestionsContainer.innerHTML = '';
+                    return;
+                }
+                fetch('/api/Novels/search?query=' + encodeURIComponent(query) + '&limit=5')
+                    .then(response => response.ok ? response.json() : Promise.reject('Failed to fetch'))
+                    .then(novels => {
+                        relatedNovelSuggestionsContainer.innerHTML = '';
+                        if (novels && novels.length > 0) {
+                            novels.forEach(novel => {
+                                if (selectedNovelsData.some(selected => selected.id === novel.id)) {
+                                    return;
+                                }
+                                const suggestionDiv = document.createElement('div');
+                                suggestionDiv.className = 'author-suggestion-item';
+                                suggestionDiv.style.cursor = 'pointer';
+                                const imageUrl = novel.firstCoverUrl ? novel.firstCoverUrl : '/Resource/default.jpg';
+                                suggestionDiv.innerHTML = `
+                                            <img src="${imageUrl}" class="author-suggestion-avatar related-novel-suggestion-cover" alt="Cover">
+                                            <span>${novel.title} (ID: ${novel.id})</span>`;
+                                suggestionDiv.addEventListener('click', function () {
+                                    if (!selectedNovelsData.some(selected => selected.id === novel.id)) {
+                                        selectedNovelsData.push({ id: novel.id, title: novel.title, coverUrl: novel.firstCoverUrl }); // Add coverUrl here too
+                                        renderSelectedNovelsBadges();
+                                        updateHiddenRelatedNovelIdsInput();
+                                    }
+                                    if (relatedNovelSearchInput) relatedNovelSearchInput.value = '';
+                                    relatedNovelSuggestionsContainer.style.display = 'none';
+                                    relatedNovelSuggestionsContainer.innerHTML = '';
+                                });
+                                relatedNovelSuggestionsContainer.appendChild(suggestionDiv);
+                            });
+                            relatedNovelSuggestionsContainer.style.display = 'block';
+                        } else {
+                            relatedNovelSuggestionsContainer.style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error fetching related novels:", error);
+                        if (relatedNovelSuggestionsContainer) relatedNovelSuggestionsContainer.style.display = 'none';
+                    });
+            }, 300);
+            if (relatedNovelSearchInput) {
+                relatedNovelSearchInput.addEventListener('input', function () {
+                    debouncedFetchRelatedNovels(this.value.trim());
+                });
+                document.addEventListener('click', function (e) {
+                    if (relatedNovelSuggestionsContainer && !relatedNovelSuggestionsContainer.contains(e.target) && e.target !== relatedNovelSearchInput) {
+                        relatedNovelSuggestionsContainer.style.display = 'none';
+                    }
+                });
+                relatedNovelSearchInput.addEventListener('keydown', function (e) {
+                    if ((e.key === 'Enter' || e.key === 'Tab') && relatedNovelSuggestionsContainer && relatedNovelSuggestionsContainer.style.display === 'block') {
+                        const firstItem = relatedNovelSuggestionsContainer.querySelector('.author-suggestion-item');
+                        if (firstItem) {
+                            e.preventDefault();
+                            firstItem.dispatchEvent(new MouseEvent('click'));
+                        }
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

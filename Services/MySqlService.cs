@@ -824,6 +824,61 @@ namespace BulbaLib.Services
             return tags.OrderBy(t => t).ToList();
         }
 
+        public List<Novel> GetNovelsByIds(List<int> ids)
+        {
+            var novels = new List<Novel>();
+            if (ids == null || !ids.Any())
+            {
+                return novels;
+            }
+
+            using (var connection = new MySqlConnection(_connectionString))
+            {
+                connection.Open();
+                // Sanitize IDs by creating parameter placeholders to prevent SQL injection
+                var parameters = new string[ids.Count];
+                for (int i = 0; i < ids.Count; i++)
+                {
+                    parameters[i] = $"@id{i}";
+                }
+                string commandText = $"SELECT * FROM Novels WHERE Id IN ({string.Join(",", parameters)})";
+
+                using (var command = new MySqlCommand(commandText, connection))
+                {
+                    for (int i = 0; i < ids.Count; i++)
+                    {
+                        command.Parameters.AddWithValue(parameters[i], ids[i]);
+                    }
+
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            novels.Add(new Novel
+                            {
+                                Id = reader.GetInt32("Id"),
+                                Title = reader.IsDBNull(reader.GetOrdinal("Title")) ? null : reader.GetString("Title"),
+                                Description = reader.IsDBNull(reader.GetOrdinal("Description")) ? null : reader.GetString("Description"),
+                                Covers = reader.IsDBNull(reader.GetOrdinal("Covers")) ? null : reader.GetString("Covers"),
+                                Genres = reader.IsDBNull(reader.GetOrdinal("Genres")) ? null : reader.GetString("Genres"),
+                                Tags = reader.IsDBNull(reader.GetOrdinal("Tags")) ? null : reader.GetString("Tags"),
+                                Type = reader.IsDBNull(reader.GetOrdinal("Type")) ? null : reader.GetString("Type"),
+                                Format = reader.IsDBNull(reader.GetOrdinal("Format")) ? null : reader.GetString("Format"),
+                                ReleaseYear = reader.IsDBNull(reader.GetOrdinal("ReleaseYear")) ? (int?)null : reader.GetInt32("ReleaseYear"),
+                                AuthorId = reader.IsDBNull(reader.GetOrdinal("AuthorId")) ? (int?)null : reader.GetInt32("AuthorId"),
+                                TranslatorId = reader.IsDBNull(reader.GetOrdinal("TranslatorId")) ? null : reader.GetString("TranslatorId"),
+                                AlternativeTitles = reader.IsDBNull(reader.GetOrdinal("AlternativeTitles")) ? null : reader.GetString("AlternativeTitles"),
+                                RelatedNovelIds = reader.IsDBNull(reader.GetOrdinal("RelatedNovelIds")) ? null : reader.GetString("RelatedNovelIds"),
+                                Date = reader.IsDBNull(reader.GetOrdinal("Date")) ? 0 : reader.GetInt64("Date"),
+                                Status = reader.IsDBNull(reader.GetOrdinal("Status")) ? null : reader.GetString("Status")
+                            });
+                        }
+                    }
+                }
+            }
+            return novels;
+        }
+
         // ---------- MODERATION REQUESTS ----------
 
         public List<ModerationRequest> GetPendingModerationRequestsByType(List<ModerationRequestType> types, int limit, int offset)

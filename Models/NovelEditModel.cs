@@ -17,10 +17,10 @@ namespace BulbaLib.Models
         [DataType(DataType.MultilineText)]
         public string Description { get; set; }
 
-        public string Covers { get; set; } // JSON string array e.g., ["url1", "url2"]
+        public List<string> Covers { get; set; } = new List<string>(); // JSON string array e.g., ["url1", "url2"]
 
-        [Display(Name = "Загрузить новую основную обложку")]
-        public IFormFile NewCoverFile { get; set; }
+        [Display(Name = "Загрузить новые обложки")]
+        public List<IFormFile> NewCoverFiles { get; set; } = new List<IFormFile>();
 
         [Display(Name = "Жанры")]
         public string Genres { get; set; } // Comma-separated or JSON string

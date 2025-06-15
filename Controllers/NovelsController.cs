@@ -291,6 +291,54 @@ namespace BulbaLib.Controllers
 
             return Ok(results);
         }
+
+        // Add using System.Linq; if not already present
+        // Add using BulbaLib.Models; if not already present
+
+        [HttpGet("api/Novels/detailsByIds")]
+        public IActionResult GetNovelDetailsByIds([FromQuery] string ids)
+        {
+            if (string.IsNullOrWhiteSpace(ids))
+            {
+                return BadRequest("IDs cannot be empty.");
+            }
+
+            var idList = new List<int>();
+            try
+            {
+                idList = ids.Split(',').Select(int.Parse).ToList();
+            }
+            catch (FormatException)
+            {
+                return BadRequest("Invalid ID format. IDs should be comma-separated integers.");
+            }
+
+            if (!idList.Any())
+            {
+                return Ok(new List<object>()); // Return empty list if no valid IDs parsed, though split would likely yield one empty string then fail int.Parse
+            }
+
+            // Assuming _mySqlService can fetch multiple novels by IDs.
+            // If not, this needs to be implemented in MySqlService.
+            // For now, let's assume a method GetNovelsByIds exists or iterate.
+            var novels = _db.GetNovelsByIds(idList); // This method needs to exist in MySqlService
+
+            if (novels == null || !novels.Any())
+            {
+                return NotFound("No novels found for the provided IDs.");
+            }
+
+            // Select only needed data to prevent over-fetching
+            var result = novels.Select(n => new {
+                n.Id,
+                n.Title,
+                FirstCoverUrl = !string.IsNullOrWhiteSpace(n.Covers) ?
+                                (System.Text.Json.JsonSerializer.Deserialize<List<string>>(n.Covers)?.FirstOrDefault()) :
+                                null
+            }).ToList();
+
+            return Ok(result);
+        }
     }
 
     // DTOs для создания/обновления
