@@ -164,9 +164,13 @@ namespace BulbaLib.Controllers
                     AuthorId = _currentUserService.GetCurrentUserId() // Set AuthorId from current user
                 };
 
+
+                // Стало (добавьте две строки):
                 if (!novelToCreate.AuthorId.HasValue)
                 {
                     ModelState.AddModelError(string.Empty, "Не удалось определить автора новеллы.");
+                    ViewData["AllGenres"] = AllGenres; // <--- ДОБАВИТЬ
+                    ViewData["AllTags"] = AllTags;     // <--- ДОБАВИТЬ
                     return View("~/Views/Novel/Create.cshtml", model);
                 }
 
@@ -218,6 +222,8 @@ namespace BulbaLib.Controllers
                 }
             }
             // If model state is invalid, return to the form with errors
+            ViewData["AllGenres"] = AllGenres; // <--- ДОБАВИТЬ
+            ViewData["AllTags"] = AllTags;     // <--- ДОБАВИТЬ
             return View("~/Views/Novel/Create.cshtml", model);
         }
 
