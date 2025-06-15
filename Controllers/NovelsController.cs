@@ -249,6 +249,48 @@ namespace BulbaLib.Controllers
             _db.DeleteNovel(id);
             return Ok(new { message = "Novel deleted" });
         }
+
+        private string? GetFirstCover(string? coversJson)
+        {
+            if (string.IsNullOrWhiteSpace(coversJson))
+            {
+                return null;
+            }
+            try
+            {
+                var coversList = System.Text.Json.JsonSerializer.Deserialize<List<string>>(coversJson);
+                return coversList?.FirstOrDefault();
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // Optional: Log error (_logger would need to be injected into this controller)
+                // For now, returning null on parsing error.
+                return null;
+            }
+        }
+
+        [HttpGet("search")] // Will be routed as /api/Novels/search
+        [AllowAnonymous]    // Assuming search should be public
+        public IActionResult SearchNovelsApi([FromQuery] string query, [FromQuery] int limit = 5)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return BadRequest("Search query cannot be empty.");
+            }
+            if (limit <= 0) limit = 5; // Default limit if invalid
+            if (limit > 20) limit = 20; // Max limit
+
+            var novelsFromDb = _db.SearchNovelsByTitle(query, limit);
+
+            var results = novelsFromDb.Select(novel => new
+            {
+                novel.Id,
+                novel.Title,
+                FirstCoverUrl = GetFirstCover(novel.Covers)
+            }).ToList();
+
+            return Ok(results);
+        }
     }
 
     // DTOs для создания/обновления
