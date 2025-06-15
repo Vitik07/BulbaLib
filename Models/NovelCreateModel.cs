@@ -43,7 +43,7 @@ namespace BulbaLib.Models
         [Display(Name = "Альтернативные названия")]
         [DataType(DataType.MultilineText)]
         public string AlternativeTitles { get; set; } // Comma-separated
-        public string RelatedNovelIds { get; set; }   // Comma-separated IDs
+        public string? RelatedNovelIds { get; set; }   // Comma-separated IDs
 
         // AuthorId will be set in the controller based on the current user
         // TranslatorId can be set by Admin or later

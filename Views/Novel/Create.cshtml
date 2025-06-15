@@ -104,6 +104,8 @@
                     <small class="form-text text-muted">Каждое альтернативное название вводите с новой строки.</small>
                 </div>
 
+                <input type="hidden" asp-for="RelatedNovelIds" />
+
                 <div class="form-group mt-3">
                     <input type="submit" value="Добавить новеллу" class="btn btn-success" />
                     <a asp-controller="CatalogView" asp-action="Index" class="btn btn-secondary">Отмена</a>
