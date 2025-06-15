@@ -140,6 +140,34 @@ namespace BulbaLib.Controllers
                 avatar = user.Avatar != null ? Convert.ToBase64String(user.Avatar) : null
             });
         }
+
+        [HttpGet("search")] // Route will be /api/Users/search
+        [Authorize]
+        public IActionResult SearchUsersByName([FromQuery] string nameQuery)
+        {
+            if (string.IsNullOrWhiteSpace(nameQuery) || nameQuery.Length < 2)
+            {
+                return Ok(new List<object>());
+            }
+
+            // _db is the instance of MySqlService injected into UsersController
+            var users = _db.SearchUsersByLogin(nameQuery);
+
+            if (users == null)
+            {
+                return Ok(new List<object>());
+            }
+
+            var result = users.Select(u => new {
+                id = u.Id,
+                login = u.Login,
+                // Temporarily use default avatar for all users in autocomplete,
+                // as the endpoint /api/users/{userId}/avatar is not yet implemented.
+                avatarUrl = "/Resource/default-avatar.jpg"
+            });
+
+            return Ok(result);
+        }
     }
 
     // DTOs
