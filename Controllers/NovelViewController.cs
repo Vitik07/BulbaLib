@@ -362,7 +362,7 @@ namespace BulbaLib.Controllers
                     var moderationRequest = new ModerationRequest
                     {
                         RequestType = ModerationRequestType.EditNovel,
-                        UserId = currentUser..Id,
+                        UserId = currentUser.Id,
                         NovelId = originalNovel.Id,
                         RequestData = JsonSerializer.Serialize(novelWithChanges),
                         Status = ModerationStatus.Pending,
