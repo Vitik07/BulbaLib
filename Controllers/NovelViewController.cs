@@ -141,6 +141,28 @@ namespace BulbaLib.Controllers
 
             if (ModelState.IsValid)
             {
+                // VALIDATION FOR AuthorId
+                if (!model.AuthorId.HasValue)
+                {
+                    ModelState.AddModelError(nameof(model.AuthorId), "Необходимо указать автора.");
+                }
+                else
+                {
+                    var authorUser = _mySqlService.GetUser(model.AuthorId.Value);
+                    if (authorUser == null)
+                    {
+                        ModelState.AddModelError(nameof(model.AuthorId), "Выбранный автор не существует.");
+                    }
+                }
+
+                // Re-check ModelState after custom validation for AuthorId
+                if (!ModelState.IsValid)
+                {
+                    ViewData["AllGenres"] = AllGenres; // Repopulate ViewData for the view
+                    ViewData["AllTags"] = AllTags;
+                    return View("~/Views/Novel/Create.cshtml", model);
+                }
+
                 // Обработка файла обложки должна происходить ПОСЛЕ создания новеллы, чтобы иметь novelId
                 // Поэтому пока просто запомним, что файл есть, а сохраним и обновим новеллу ниже.
                 bool hasCoverFileToProcess = model.CoverFile != null && model.CoverFile.Length > 0;
@@ -161,24 +183,16 @@ namespace BulbaLib.Controllers
                                         JsonSerializer.Serialize(model.AlternativeTitles.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList()),
                     RelatedNovelIds = model.RelatedNovelIds,
                     Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                    AuthorId = _currentUserService.GetCurrentUserId() // Set AuthorId from current user
+                    AuthorId = model.AuthorId // Use AuthorId from the model
                 };
 
-
-                // Стало (добавьте две строки):
-                if (!novelToCreate.AuthorId.HasValue)
-                {
-                    ModelState.AddModelError(string.Empty, "Не удалось определить автора новеллы.");
-                    ViewData["AllGenres"] = AllGenres; // <--- ДОБАВИТЬ
-                    ViewData["AllTags"] = AllTags;     // <--- ДОБАВИТЬ
-                    return View("~/Views/Novel/Create.cshtml", model);
-                }
+                // The original block that checked novelToCreate.AuthorId.HasValue can be removed
+                // as we now validate model.AuthorId directly and would have returned if invalid.
 
                 if (_permissionService.CanAddNovelDirectly(currentUser)) // Admin
                 {
-                    // Admin can set AuthorId, but for this flow, it's the current admin.
-                    // If an admin should be able to set a different author, UI and logic would need adjustment.
-                    novelToCreate.AuthorId = currentUser.Id;
+                    // AuthorId is set from model.AuthorId
+                    // AuthorId is set from model.AuthorId
                     // For admin direct creation, Covers property will be set after file upload.
                     // Ensure it's initially null or an empty list if not processed immediately.
                     novelToCreate.Covers = JsonSerializer.Serialize(new List<string>());

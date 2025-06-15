@@ -348,6 +348,22 @@
   },
   {
     "ContainingType": "BulbaLib.Controllers.UsersController",
+    "Method": "GetUserAvatarById",
+    "RelativePath": "api/users/{userId}/avatar",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "userId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "BulbaLib.Controllers.UsersController",
     "Method": "GetUserAvatar",
     "RelativePath": "api/users/avatar",
     "HttpMethod": "GET",
@@ -416,6 +432,22 @@
     "IsController": true,
     "Order": 0,
     "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "BulbaLib.Controllers.UsersController",
+    "Method": "SearchUsersByName",
+    "RelativePath": "api/users/search",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "nameQuery",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
     "ReturnTypes": []
   },
   {

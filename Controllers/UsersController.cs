@@ -140,6 +140,52 @@ namespace BulbaLib.Controllers
                 avatar = user.Avatar != null ? Convert.ToBase64String(user.Avatar) : null
             });
         }
+
+        [HttpGet("{userId:int}/avatar")]
+        [AllowAnonymous] // Avatars can be public
+        public IActionResult GetUserAvatarById(int userId)
+        {
+            var user = _db.GetUser(userId); // _db is MySqlService
+            if (user == null || user.Avatar == null || user.Avatar.Length == 0)
+            {
+                // _env is IWebHostEnvironment, ensure it's injected if not already
+                var defaultAvatarPath = System.IO.Path.Combine(_env.WebRootPath, "Resource", "default-avatar.jpg");
+                // Check if default avatar exists to prevent 500 error if it's missing
+                if (!System.IO.File.Exists(defaultAvatarPath))
+                {
+                    // Fallback to a simple 404 if default avatar is also missing
+                    return NotFound("Default avatar not found.");
+                }
+                return PhysicalFile(defaultAvatarPath, "image/jpeg"); // Assuming default is jpg
+            }
+            return File(user.Avatar, "image/png"); // Assuming user avatars are stored as png, adjust if necessary
+        }
+
+        [HttpGet("search")] // Route will be /api/Users/search
+        [Authorize]
+        public IActionResult SearchUsersByName([FromQuery] string nameQuery)
+        {
+            if (string.IsNullOrWhiteSpace(nameQuery) || nameQuery.Length < 2)
+            {
+                return Ok(new List<object>());
+            }
+
+            // _db is the instance of MySqlService injected into UsersController
+            var users = _db.SearchUsersByLogin(nameQuery);
+
+            if (users == null)
+            {
+                return Ok(new List<object>());
+            }
+
+            var result = users.Select(u => new {
+                id = u.Id,
+                login = u.Login,
+                avatarUrl = $"/api/Users/{u.Id}/avatar" // Updated line
+            });
+
+            return Ok(result);
+        }
     }
 
     // DTOs

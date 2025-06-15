@@ -398,3 +398,47 @@ img[alt="Текущая обложка"] {
     ::-webkit-scrollbar-thumb:hover {
         background: #363657;
     }
+
+/* === Author Suggestions Dropdown === */
+#authorSuggestionsContainer {
+    background: var(--card-bg);
+    border: 1px solid var(--border-base);
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 6px 18px var(--shadow-soft);
+    max-height: 220px;
+    overflow-y: auto;
+    color: var(--text-primary);
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 1001;
+    display: none;
+}
+
+.author-suggestion-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 13px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-base);
+    transition: background 0.15s;
+}
+
+    .author-suggestion-item:last-child {
+        border-bottom: none;
+    }
+
+    .author-suggestion-item:hover {
+        background: var(--accent-blue);
+        color: #fff;
+    }
+
+.author-suggestion-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid var(--border-base);
+}

@@ -115,6 +115,40 @@ namespace BulbaLib.Services
         }
 
         // ---------- USERS ----------
+        public List<User> SearchUsersByLogin(string nameQuery)
+        {
+            if (string.IsNullOrWhiteSpace(nameQuery))
+            {
+                return new List<User>();
+            }
+            var users = new List<User>();
+            using (var connection = GetConnection()) // GetConnection() is your method to get MySqlConnection
+            {
+                // connection.Open(); // GetConnection already opens it
+                // IMPORTANT: Use parameterized queries to prevent SQL injection.
+                string query = "SELECT Id, Login, Avatar FROM Users WHERE LOWER(Login) LIKE @query LIMIT 10";
+                using (var command = new MySqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@query", "%" + nameQuery.ToLower() + "%");
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            users.Add(new User
+                            {
+                                Id = reader.GetInt32("Id"),
+                                Login = reader.GetString("Login"),
+                                // Avatar in User model is byte[], but in JS we need a URL.
+                                // This method returns User model, controller will adapt it.
+                                Avatar = reader.IsDBNull(reader.GetOrdinal("Avatar")) ? null : (byte[])reader["Avatar"]
+                            });
+                        }
+                    }
+                }
+            }
+            return users;
+        }
+
         public bool UserExists(string login)
         {
             using var conn = GetConnection();
