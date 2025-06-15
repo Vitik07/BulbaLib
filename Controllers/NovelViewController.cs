@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BulbaLib.Services; // Added
 using BulbaLib.Models;   // Added
+using System.Diagnostics; // Added for Debug.WriteLine
 using System.Security.Claims; // Added
 using Microsoft.AspNetCore.Authorization; // Added
 using System; // For DateTimeOffset, DateTime
@@ -42,38 +43,23 @@ namespace BulbaLib.Controllers
         private readonly MySqlService _mySqlService;
         private readonly PermissionService _permissionService;
         private readonly ICurrentUserService _currentUserService;
-        private readonly FileService _fileService; // Добавить это поле
+        private readonly FileService _fileService;
 
-        public NovelViewController(MySqlService mySqlService, PermissionService permissionService, ICurrentUserService currentUserService, FileService fileService /* Добавить fileService */)
+        public NovelViewController(MySqlService mySqlService, PermissionService permissionService, ICurrentUserService currentUserService, FileService fileService)
         {
             _mySqlService = mySqlService;
             _permissionService = permissionService;
             _currentUserService = currentUserService;
-            _fileService = fileService; // Присвоить здесь
+            _fileService = fileService;
         }
-
-        // private User GetCurrentUser() // Replaced by ICurrentUserService
-        // {
-        //     if (!User.Identity.IsAuthenticated)
-        //     {
-        //         return null;
-        //     }
-        //     var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        //     if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out int userId))
-        //     {
-        //         return null;
-        //     }
-        //     return _mySqlService.GetUser(userId);
-        // }
 
         [HttpGet("/novel/{id:int}")]
         public IActionResult Details(int id)
         {
-            // This is the existing Details action, ensure it also gets user and permissions
             var novel = _mySqlService.GetNovel(id);
             if (novel == null) return NotFound();
 
-            var currentUser = _currentUserService.GetCurrentUser(); // Use injected service
+            var currentUser = _currentUserService.GetCurrentUser();
             ViewData["CanEditNovel"] = currentUser != null && _permissionService.CanEditNovel(currentUser, novel);
             ViewData["CanDeleteNovel"] = currentUser != null && _permissionService.CanDeleteNovel(currentUser, novel);
 
@@ -83,7 +69,7 @@ namespace BulbaLib.Controllers
                 canAddChapter = _permissionService.CanAddChapterDirectly(currentUser) || _permissionService.CanSubmitChapterForModeration(currentUser, novel);
             }
             ViewData["CanAddChapter"] = canAddChapter;
-            ViewData["NovelId"] = novel.Id; // For "Add Chapter" button form
+            ViewData["NovelId"] = novel.Id;
 
             List<Chapter> chaptersFromDb = _mySqlService.GetChaptersByNovel(id);
             var chapterViewModels = new List<ChapterViewModel>();
@@ -102,157 +88,148 @@ namespace BulbaLib.Controllers
                 }
             }
             ViewData["ChapterViewModels"] = chapterViewModels;
-            // ViewData["OriginalChapters"] = chaptersFromDb; // Keep if view still uses it, otherwise remove for cleanliness
-
-            // Add other view data as needed, e.g. for chapters, author, etc.
-
-            // ViewBag.NovelId = id; // Redundant as novel.Id is available and passed in ViewData["NovelId"]
-            return View("~/Views/Novel/Novel.cshtml", novel); // Pass the novel model to the view
+            return View("~/Views/Novel/Novel.cshtml", novel);
         }
 
         [Authorize(Roles = "Admin,Author")]
         [HttpGet]
         public IActionResult Create()
         {
-            var currentUser = _currentUserService.GetCurrentUser(); // Use injected service
+            var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null || !(_permissionService.CanAddNovelDirectly(currentUser) || _permissionService.CanSubmitNovelForModeration(currentUser)))
             {
                 return RedirectToAction("AccessDenied", "AuthView");
             }
             ViewData["AllGenres"] = AllGenres;
             ViewData["AllTags"] = AllTags;
-            // Pass NovelCreateModel to the view
             return View("~/Views/Novel/Create.cshtml", new NovelCreateModel());
         }
 
         [Authorize(Roles = "Admin,Author")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(NovelCreateModel model) // Changed to NovelCreateModel and async
+        public async Task<IActionResult> Create(NovelCreateModel model)
         {
-            var currentUser = _currentUserService.GetCurrentUser(); // Use injected service
+            Debug.WriteLine($"Received NovelCreateModel: Title='{model.Title}', Description='{model.Description}', AuthorId='{model.AuthorId}', CoverFile='{(model.CoverFile != null ? model.CoverFile.FileName : "null")}', Genres='{model.Genres}', Tags='{model.Tags}', Type='{model.Type}', Format='{model.Format}', ReleaseYear='{model.ReleaseYear}', AlternativeTitles='{model.AlternativeTitles}', RelatedNovelIds='{model.RelatedNovelIds}'");
+
+            var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null) return Unauthorized();
 
-            // Check permissions again, although [Authorize] attribute should handle role part
             if (!(_permissionService.CanAddNovelDirectly(currentUser) || _permissionService.CanSubmitNovelForModeration(currentUser)))
             {
                 return RedirectToAction("AccessDenied", "AuthView");
             }
 
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
-                // VALIDATION FOR AuthorId
-                if (!model.AuthorId.HasValue)
+                Debug.WriteLine("ModelState is invalid. Errors:");
+                foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
                 {
-                    ModelState.AddModelError(nameof(model.AuthorId), "Необходимо указать автора.");
+                    Debug.WriteLine($"- {error.ErrorMessage}");
                 }
-                else
+                ViewData["AllGenres"] = AllGenres;
+                ViewData["AllTags"] = AllTags;
+                return View("~/Views/Novel/Create.cshtml", model);
+            }
+
+            if (!model.AuthorId.HasValue)
+            {
+                ModelState.AddModelError(nameof(model.AuthorId), "Необходимо указать автора.");
+            }
+            else
+            {
+                var authorUser = _mySqlService.GetUser(model.AuthorId.Value);
+                if (authorUser == null)
                 {
-                    var authorUser = _mySqlService.GetUser(model.AuthorId.Value);
-                    if (authorUser == null)
-                    {
-                        ModelState.AddModelError(nameof(model.AuthorId), "Выбранный автор не существует.");
-                    }
-                }
-
-                // Re-check ModelState after custom validation for AuthorId
-                if (!ModelState.IsValid)
-                {
-                    ViewData["AllGenres"] = AllGenres; // Repopulate ViewData for the view
-                    ViewData["AllTags"] = AllTags;
-                    return View("~/Views/Novel/Create.cshtml", model);
-                }
-
-                // Обработка файла обложки должна происходить ПОСЛЕ создания новеллы, чтобы иметь novelId
-                // Поэтому пока просто запомним, что файл есть, а сохраним и обновим новеллу ниже.
-                bool hasCoverFileToProcess = model.CoverFile != null && model.CoverFile.Length > 0;
-
-                var novelToCreate = new Novel
-                {
-                    Title = model.Title,
-                    Description = model.Description,
-                    // Covers will be set after saving the file, if admin direct create
-                    // For moderation, it will be an empty list initially
-                    Genres = model.Genres,
-                    Tags = model.Tags,
-                    Type = model.Type,
-                    Format = model.Format,
-                    ReleaseYear = model.ReleaseYear,
-                    AlternativeTitles = string.IsNullOrWhiteSpace(model.AlternativeTitles) ?
-                                        null :
-                                        JsonSerializer.Serialize(model.AlternativeTitles.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList()),
-                    RelatedNovelIds = model.RelatedNovelIds,
-                    Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                    AuthorId = model.AuthorId // Use AuthorId from the model
-                };
-
-                // The original block that checked novelToCreate.AuthorId.HasValue can be removed
-                // as we now validate model.AuthorId directly and would have returned if invalid.
-
-                if (_permissionService.CanAddNovelDirectly(currentUser)) // Admin
-                {
-                    // AuthorId is set from model.AuthorId
-                    // AuthorId is set from model.AuthorId
-                    // For admin direct creation, Covers property will be set after file upload.
-                    // Ensure it's initially null or an empty list if not processed immediately.
-                    novelToCreate.Covers = JsonSerializer.Serialize(new List<string>());
-                    int newNovelId = _mySqlService.CreateNovel(novelToCreate);
-
-                    if (hasCoverFileToProcess)
-                    {
-                        string coverPath = await _fileService.SaveNovelCoverAsync(model.CoverFile, newNovelId);
-                        if (!string.IsNullOrEmpty(coverPath))
-                        {
-                            // Get the just created novel to update its Covers property
-                            var createdNovel = _mySqlService.GetNovel(newNovelId);
-                            if (createdNovel != null)
-                            {
-                                createdNovel.Covers = JsonSerializer.Serialize(new List<string> { coverPath });
-                                _mySqlService.UpdateNovel(createdNovel);    // Обновляем в БД
-                            }
-                        }
-                    }
-                    TempData["SuccessMessage"] = "Новелла успешно добавлена.";
-                    return RedirectToAction("Details", "NovelView", new { id = newNovelId });
-                }
-                else if (_permissionService.CanSubmitNovelForModeration(currentUser)) // Author
-                {
-                    // AuthorId is already set to current user's ID above
-                    novelToCreate.Covers = JsonSerializer.Serialize(new List<string>()); // Пустой список обложек для модерации
-
-                    var moderationRequest = new ModerationRequest
-                    {
-                        RequestType = ModerationRequestType.AddNovel,
-                        UserId = currentUser.Id, // The user making the request
-                        RequestData = JsonSerializer.Serialize(novelToCreate), // Serialize the full Novel object intended for creation
-                        Status = ModerationStatus.Pending,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                        // NovelId is null because the novel doesn't exist yet
-                    };
-                    _mySqlService.CreateModerationRequest(moderationRequest);
-                    TempData["SuccessMessage"] = "Запрос на добавление новеллы отправлен на модерацию.";
-                    return RedirectToAction("Index", "CatalogView"); // Or user's dashboard
+                    ModelState.AddModelError(nameof(model.AuthorId), "Выбранный автор не существует.");
                 }
             }
-            // If model state is invalid, return to the form with errors
-            ViewData["AllGenres"] = AllGenres; // <--- ДОБАВИТЬ
-            ViewData["AllTags"] = AllTags;     // <--- ДОБАВИТЬ
-            return View("~/Views/Novel/Create.cshtml", model);
+
+            if (!ModelState.IsValid)
+            {
+                Debug.WriteLine("ModelState became invalid after custom AuthorId validation. Errors:");
+                foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    Debug.WriteLine($"- {error.ErrorMessage}");
+                }
+                ViewData["AllGenres"] = AllGenres;
+                ViewData["AllTags"] = AllTags;
+                return View("~/Views/Novel/Create.cshtml", model);
+            }
+
+            bool hasCoverFileToProcess = model.CoverFile != null && model.CoverFile.Length > 0;
+
+            var novelToCreate = new Novel
+            {
+                Title = model.Title,
+                Description = model.Description,
+                Genres = model.Genres,
+                Tags = model.Tags,
+                Type = model.Type,
+                Format = model.Format,
+                ReleaseYear = model.ReleaseYear,
+                AlternativeTitles = string.IsNullOrWhiteSpace(model.AlternativeTitles) ?
+                                    null :
+                                    JsonSerializer.Serialize(model.AlternativeTitles.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList()),
+                RelatedNovelIds = model.RelatedNovelIds,
+                Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                AuthorId = model.AuthorId
+            };
+
+            if (_permissionService.CanAddNovelDirectly(currentUser))
+            {
+                novelToCreate.Covers = JsonSerializer.Serialize(new List<string>());
+                int newNovelId = _mySqlService.CreateNovel(novelToCreate);
+
+                if (hasCoverFileToProcess)
+                {
+                    string coverPath = await _fileService.SaveNovelCoverAsync(model.CoverFile, newNovelId);
+                    if (!string.IsNullOrEmpty(coverPath))
+                    {
+                        var createdNovel = _mySqlService.GetNovel(newNovelId);
+                        if (createdNovel != null)
+                        {
+                            createdNovel.Covers = JsonSerializer.Serialize(new List<string> { coverPath });
+                            _mySqlService.UpdateNovel(createdNovel);
+                        }
+                    }
+                }
+                TempData["SuccessMessage"] = "Новелла успешно добавлена.";
+                return RedirectToAction("Details", "NovelView", new { id = newNovelId });
+            }
+            else if (_permissionService.CanSubmitNovelForModeration(currentUser))
+            {
+                novelToCreate.Covers = JsonSerializer.Serialize(new List<string>());
+
+                var moderationRequest = new ModerationRequest
+                {
+                    RequestType = ModerationRequestType.AddNovel,
+                    UserId = currentUser.Id,
+                    RequestData = JsonSerializer.Serialize(novelToCreate),
+                    Status = ModerationStatus.Pending,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _mySqlService.CreateModerationRequest(moderationRequest);
+                TempData["SuccessMessage"] = "Запрос на добавление новеллы отправлен на модерацию.";
+                return RedirectToAction("Index", "CatalogView");
+            }
+
+            // If neither CanAddNovelDirectly nor CanSubmitNovelForModeration is true,
+            // it implies a permission issue or an unexpected state.
+            // Redirect to Access Denied as per subtask requirement.
+            return RedirectToAction("AccessDenied", "AuthView");
         }
 
         [Authorize(Roles = "Admin,Author")]
         [HttpGet]
         public IActionResult Edit(int id)
         {
-            var currentUser = _currentUserService.GetCurrentUser(); // Use injected service
+            var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null) return RedirectToAction("Login", "AuthView");
 
             Novel novel = _mySqlService.GetNovel(id);
-            if (novel == null)
-            {
-                return NotFound();
-            }
+            if (novel == null) return NotFound();
 
             if (!_permissionService.CanEditNovel(currentUser, novel))
             {
@@ -289,21 +266,15 @@ namespace BulbaLib.Controllers
         [Authorize(Roles = "Admin,Author")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, NovelEditModel model) // Changed to NovelEditModel and async
+        public async Task<IActionResult> Edit(int id, NovelEditModel model)
         {
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null) return Unauthorized();
 
-            if (id != model.Id)
-            {
-                return BadRequest();
-            }
+            if (id != model.Id) return BadRequest();
 
             Novel originalNovel = _mySqlService.GetNovel(id);
-            if (originalNovel == null)
-            {
-                return NotFound("Оригинальная новелла не найдена.");
-            }
+            if (originalNovel == null) return NotFound("Оригинальная новелла не найдена.");
 
             if (!_permissionService.CanEditNovel(currentUser, originalNovel))
             {
@@ -317,7 +288,6 @@ namespace BulbaLib.Controllers
                     Id = originalNovel.Id,
                     Title = model.Title,
                     Description = model.Description,
-                    // Covers will be handled below based on NewCoverFile and originalNovel.Covers
                     Genres = model.Genres,
                     Tags = model.Tags,
                     Type = model.Type,
@@ -327,22 +297,15 @@ namespace BulbaLib.Controllers
                                         null :
                                         JsonSerializer.Serialize(model.AlternativeTitles.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList()),
                     RelatedNovelIds = model.RelatedNovelIds,
-                    AuthorId = originalNovel.AuthorId, // Preserve original AuthorId
-                    Date = originalNovel.Date, // Preserve original creation date
-                    TranslatorId = originalNovel.TranslatorId // Preserve original, unless editable in NovelEditModel
+                    AuthorId = originalNovel.AuthorId,
+                    Date = originalNovel.Date,
+                    TranslatorId = originalNovel.TranslatorId
                 };
-                // If Admin is allowed to change AuthorId, and NovelEditModel contains a new AuthorId:
-                // if (currentUser.Role == "Admin" && model.AuthorId.HasValue && model.AuthorId != originalNovel.AuthorId)
-                // {
-                //    novelWithChanges.AuthorId = model.AuthorId;
-                // }
 
-
-                if (_permissionService.CanAddNovelDirectly(currentUser)) // Admin can edit directly
+                if (_permissionService.CanAddNovelDirectly(currentUser))
                 {
                     if (model.NewCoverFile != null && model.NewCoverFile.Length > 0)
                     {
-                        // Удаляем старые обложки (если они есть и мы заменяем одной основной)
                         if (!string.IsNullOrWhiteSpace(originalNovel.Covers))
                         {
                             try
@@ -358,33 +321,28 @@ namespace BulbaLib.Controllers
                             }
                             catch (JsonException ex)
                             {
-                                // Логирование ошибки парсинга JSON старых обложек
-                                Console.WriteLine($"Error parsing originalNovel.Covers JSON: {ex.Message}");
+                                Debug.WriteLine($"Error parsing originalNovel.Covers JSON: {ex.Message}");
                             }
                         }
 
                         string newCoverPath = await _fileService.SaveNovelCoverAsync(model.NewCoverFile, originalNovel.Id);
                         if (!string.IsNullOrEmpty(newCoverPath))
                         {
-                            // Сохраняем путь к новой обложке (как список с одним элементом)
                             novelWithChanges.Covers = JsonSerializer.Serialize(new List<string> { newCoverPath });
                         }
                         else
                         {
-                            // Если сохранение файла не удалось, оставляем старые обложки или делаем поле пустым
-                            novelWithChanges.Covers = originalNovel.Covers; // или JsonSerializer.Serialize(new List<string>());
+                            novelWithChanges.Covers = originalNovel.Covers;
                         }
                     }
                     else
                     {
-                        // Если новый файл не загружен, оставляем текущие обложки как есть
                         novelWithChanges.Covers = originalNovel.Covers;
                     }
 
-                    // Update originalNovel with changes
                     originalNovel.Title = novelWithChanges.Title;
                     originalNovel.Description = novelWithChanges.Description;
-                    originalNovel.Covers = novelWithChanges.Covers; // <--- Обновляем здесь
+                    originalNovel.Covers = novelWithChanges.Covers;
                     originalNovel.Genres = novelWithChanges.Genres;
                     originalNovel.Tags = novelWithChanges.Tags;
                     originalNovel.Type = novelWithChanges.Type;
@@ -392,25 +350,21 @@ namespace BulbaLib.Controllers
                     originalNovel.ReleaseYear = novelWithChanges.ReleaseYear;
                     originalNovel.AlternativeTitles = novelWithChanges.AlternativeTitles;
                     originalNovel.RelatedNovelIds = novelWithChanges.RelatedNovelIds;
-                    // originalNovel.AuthorId = novelWithChanges.AuthorId; // If admin can change author
-                    // originalNovel.TranslatorId = novelWithChanges.TranslatorId; // If admin can change translator
 
                     _mySqlService.UpdateNovel(originalNovel);
                     TempData["SuccessMessage"] = "Новелла успешно обновлена.";
                     return RedirectToAction("Details", "NovelView", new { id = originalNovel.Id });
                 }
-                else if (currentUser.Role == UserRole.Author && originalNovel.AuthorId == currentUser.Id) // Author (owner) submits for moderation
+                else if (currentUser.Role == UserRole.Author && originalNovel.AuthorId == currentUser.Id)
                 {
-                    // Автор не может напрямую менять обложки через этот поток, только через модерацию файла.
-                    // Информация о model.NewCoverFile должна обрабатываться отдельно для модератора.
                     novelWithChanges.Covers = originalNovel.Covers;
 
                     var moderationRequest = new ModerationRequest
                     {
                         RequestType = ModerationRequestType.EditNovel,
-                        UserId = currentUser.Id,
+                        UserId = currentUser..Id,
                         NovelId = originalNovel.Id,
-                        RequestData = JsonSerializer.Serialize(novelWithChanges), // novelWithChanges теперь содержит одобренный Covers
+                        RequestData = JsonSerializer.Serialize(novelWithChanges),
                         Status = ModerationStatus.Pending,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
@@ -424,8 +378,10 @@ namespace BulbaLib.Controllers
                     return RedirectToAction("AccessDenied", "AuthView");
                 }
             }
-            // If model state is invalid, repopulate non-mapped fields for display
+
             model.AuthorLogin = _mySqlService.GetUser(model.AuthorId ?? 0)?.Login;
+            ViewData["AllGenres"] = AllGenres;
+            ViewData["AllTags"] = AllTags;
             return View("~/Views/NovelView/Edit.cshtml", model);
         }
 
@@ -434,50 +390,43 @@ namespace BulbaLib.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult Delete(int id)
         {
-            var currentUser = _currentUserService.GetCurrentUser(); // Use injected service
+            var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null) return Unauthorized();
 
             Novel novel = _mySqlService.GetNovel(id);
-            if (novel == null)
-            {
-                return NotFound();
-            }
+            if (novel == null) return NotFound();
 
             if (!_permissionService.CanDeleteNovel(currentUser, novel))
             {
                 return RedirectToAction("AccessDenied", "AuthView");
             }
 
-            if (_permissionService.CanAddNovelDirectly(currentUser)) // Admin can delete directly
+            if (_permissionService.CanAddNovelDirectly(currentUser))
             {
                 _mySqlService.DeleteNovel(id);
                 TempData["SuccessMessage"] = "Новелла успешно удалена.";
                 return RedirectToAction("Index", "CatalogView");
             }
-            // Author (owner) submits for moderation
             else if (currentUser.Role == UserRole.Author && novel.AuthorId == currentUser.Id)
             {
                 var moderationRequest = new ModerationRequest
                 {
                     RequestType = ModerationRequestType.DeleteNovel,
                     UserId = currentUser.Id,
-                    NovelId = novel.Id, // Link to the existing novel
-                    RequestData = JsonSerializer.Serialize(new { novel.Title }), // Store title for context
+                    NovelId = novel.Id,
+                    RequestData = JsonSerializer.Serialize(new { novel.Title }),
                     Status = ModerationStatus.Pending,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
                 _mySqlService.CreateModerationRequest(moderationRequest);
                 TempData["SuccessMessage"] = "Запрос на удаление новеллы отправлен на модерацию.";
-                return RedirectToAction("Details", "NovelView", new { id = novel.Id }); // Stay on page after request
+                return RedirectToAction("Details", "NovelView", new { id = novel.Id });
             }
             else
             {
-                // This case implies a non-admin, non-author_owner who somehow passed CanDeleteNovel.
-                // This should ideally not be reached if PermissionService.CanDeleteNovel is correctly implemented.
-                // CanDeleteNovel for Author should mean they are the owner.
                 return Forbid();
             }
         }
-    }
-}
+    } // End of NovelViewController class
+} // End of BulbaLib.Controllers namespace
