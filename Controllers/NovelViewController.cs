@@ -404,6 +404,20 @@ namespace BulbaLib.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, NovelEditModel model)
         {
+            _logger.LogInformation($"[Edit Novel POST] Received Model ID: {model.Id}");
+            _logger.LogInformation($"  Model Title: {model.Title}");
+            _logger.LogInformation($"  Model Description: {model.Description}");
+            _logger.LogInformation($"  Model Genres: {model.Genres}");
+            _logger.LogInformation($"  Model Tags: {model.Tags}");
+            _logger.LogInformation($"  Model Type: {model.Type}");
+            _logger.LogInformation($"  Model Format: {model.Format}");
+            _logger.LogInformation($"  Model ReleaseYear: {model.ReleaseYear}");
+            _logger.LogInformation($"  Model AlternativeTitles: {model.AlternativeTitles}");
+            _logger.LogInformation($"  Model RelatedNovelIds: {model.RelatedNovelIds}");
+            _logger.LogInformation($"  Model Covers (existing, kept by user): {(model.Covers == null ? "null" : string.Join(", ", model.Covers))}");
+            _logger.LogInformation($"  Model NewCoverFiles count: {(model.NewCoverFiles == null ? 0 : model.NewCoverFiles.Count(f => f != null && f.Length > 0))}");
+            // TODO: Log other relevant properties from NovelEditModel if any are added later e.g. AuthorLogin if it were part of POST
+
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null) return Unauthorized();
 
@@ -416,6 +430,9 @@ namespace BulbaLib.Controllers
             {
                 return RedirectToAction("AccessDenied", "AuthView");
             }
+
+            // Explicitly remove any model state errors for NewCoverFiles before custom validation runs
+            ModelState.Remove(nameof(NovelEditModel.NewCoverFiles));
 
             if (ModelState.IsValid)
             {
@@ -479,13 +496,54 @@ namespace BulbaLib.Controllers
                     originalNovel.AlternativeTitles = novelWithChanges.AlternativeTitles;
                     originalNovel.RelatedNovelIds = novelWithChanges.RelatedNovelIds;
 
+                    _logger.LogInformation("[Edit Novel POST - Admin Path] Logging final novel data before UpdateNovel:");
+                    _logger.LogInformation($"  ID: {originalNovel.Id}");
+                    _logger.LogInformation($"  Title: {originalNovel.Title}");
+                    _logger.LogInformation($"  Description: {originalNovel.Description}");
+                    _logger.LogInformation($"  Covers (JSON): {originalNovel.Covers}");
+                    _logger.LogInformation($"  Genres: {originalNovel.Genres}");
+                    _logger.LogInformation($"  Tags: {originalNovel.Tags}");
+                    _logger.LogInformation($"  Type: {originalNovel.Type}");
+                    _logger.LogInformation($"  Format: {originalNovel.Format}");
+                    _logger.LogInformation($"  ReleaseYear: {originalNovel.ReleaseYear}");
+                    _logger.LogInformation($"  AlternativeTitles (JSON): {originalNovel.AlternativeTitles}");
+                    _logger.LogInformation($"  RelatedNovelIds: {originalNovel.RelatedNovelIds}");
+                    _logger.LogInformation($"  AuthorId: {originalNovel.AuthorId}");
+                    // TODO: Log other relevant properties from Novel if any are added later e.g. TranslatorId
+
                     _mySqlService.UpdateNovel(originalNovel);
                     TempData["SuccessMessage"] = "Новелла успешно обновлена.";
                     return RedirectToAction("Details", "NovelView", new { id = originalNovel.Id });
                 }
                 else if (currentUser.Role == UserRole.Author && originalNovel.AuthorId == currentUser.Id)
                 {
-                    novelWithChanges.Covers = originalNovel.Covers;
+                    // Initialize a list for updated cover paths
+                    List<string> updatedCoverPaths = new List<string>();
+
+                    // Add existing covers that were kept by the user
+                    if (model.Covers != null)
+                    {
+                        updatedCoverPaths.AddRange(model.Covers);
+                    }
+
+                    // Process newly uploaded files
+                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0))
+                    {
+                        foreach (var file in model.NewCoverFiles)
+                        {
+                            if (file != null && file.Length > 0)
+                            {
+                                string newPath = await _fileService.SaveNovelCoverAsync(file, originalNovel.Id);
+                                if (!string.IsNullOrEmpty(newPath))
+                                {
+                                    updatedCoverPaths.Add(newPath);
+                                }
+                            }
+                        }
+                    }
+
+                    // Update novelWithChanges.Covers with the new list
+                    novelWithChanges.Covers = JsonSerializer.Serialize(updatedCoverPaths.Distinct().ToList());
 
                     var moderationRequest = new ModerationRequest
                     {
@@ -497,6 +555,22 @@ namespace BulbaLib.Controllers
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };
+
+                    _logger.LogInformation("[Edit Novel POST - Author Path] Logging novel data for ModerationRequest:");
+                    _logger.LogInformation($"  ID: {novelWithChanges.Id}");
+                    _logger.LogInformation($"  Title: {novelWithChanges.Title}");
+                    _logger.LogInformation($"  Description: {novelWithChanges.Description}");
+                    _logger.LogInformation($"  Covers (JSON): {novelWithChanges.Covers}");
+                    _logger.LogInformation($"  Genres: {novelWithChanges.Genres}");
+                    _logger.LogInformation($"  Tags: {novelWithChanges.Tags}");
+                    _logger.LogInformation($"  Type: {novelWithChanges.Type}");
+                    _logger.LogInformation($"  Format: {novelWithChanges.Format}");
+                    _logger.LogInformation($"  ReleaseYear: {novelWithChanges.ReleaseYear}");
+                    _logger.LogInformation($"  AlternativeTitles (JSON): {novelWithChanges.AlternativeTitles}");
+                    _logger.LogInformation($"  RelatedNovelIds: {novelWithChanges.RelatedNovelIds}");
+                    _logger.LogInformation($"  AuthorId: {novelWithChanges.AuthorId}");
+                    // TODO: Log other relevant properties from Novel if any are added later e.g. TranslatorId
+
                     _mySqlService.CreateModerationRequest(moderationRequest);
                     TempData["SuccessMessage"] = "Запрос на редактирование новеллы отправлен на модерацию.";
                     return RedirectToAction("Details", "NovelView", new { id = originalNovel.Id });

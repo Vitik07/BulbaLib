@@ -48,7 +48,7 @@
                     <label asp-for="NewCoverFiles" class="control-label">Добавить новые обложки</label>
                     <input asp-for="NewCoverFiles" type="file" multiple class="form-control" />
                     <span asp-validation-for="NewCoverFiles" class="text-danger"></span>
-                    <small class="form-text text-muted">Выберите один или несколько файлов. Если вы загружаете новые обложки, все существующие будут заменены.</small>
+                    <small class="form-text text-muted">Выберите один или несколько файлов. Новые обложки будут добавлены к существующим. Вы можете удалить отдельные текущие обложки с помощью кнопки (×).</small>
                 </div>
 
                 <div class="form-group mb-3">
@@ -511,16 +511,137 @@
                 });
             }
 
+            // --- Live Preview for New Cover Images ---
+            const newCoverFilesInput = document.getElementById('NewCoverFiles');
+            let newSelectedFiles = []; // Array to store File objects
+            const newCoversPreviewContainer = document.createElement('div');
+            newCoversPreviewContainer.id = 'newCoversPreviewContainer';
+            newCoversPreviewContainer.className = 'mt-2 d-flex flex-wrap'; // Similar styling to currentCoversContainer
+            // Insert the preview container after the file input's form-group.
+            const fileInputFormGroup = newCoverFilesInput.closest('.form-group');
+            if (fileInputFormGroup) {
+                // Insert after the form-group, not inside it or after the input itself.
+                fileInputFormGroup.parentNode.insertBefore(newCoversPreviewContainer, fileInputFormGroup.nextSibling);
+            }
+
+            if (newCoverFilesInput) {
+                newCoverFilesInput.addEventListener('change', function(event) {
+                    newCoversPreviewContainer.innerHTML = ''; // Clear previous previews
+                    newSelectedFiles = []; // Reset the array of selected files
+                    const files = event.target.files;
+
+                    if (files && files.length > 0) {
+                        const titleLabel = document.createElement('p');
+                        titleLabel.textContent = 'Предпросмотр новых обложек:';
+                        titleLabel.className = 'w-100 mb-1';
+                        newCoversPreviewContainer.appendChild(titleLabel);
+                    }
+
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        if (file.type.startsWith('image/')) {
+                            newSelectedFiles.push(file); // Add file to our array
+                            // const fileIndex = newSelectedFiles.length - 1; // Get index for removal - not used with current removal logic
+
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                const previewItem = document.createElement('div');
+                                previewItem.className = 'current-cover-item me-2 mb-2';
+                                previewItem.style.position = 'relative';
+                                previewItem.style.border = '1px solid #007bff';
+                                previewItem.style.padding = '5px';
+                                previewItem.style.width = '112px';
+                                previewItem.style.height = '162px';
+
+                                const img = document.createElement('img');
+                                img.src = e.target.result;
+                                img.alt = 'Предпросмотр новой обложки';
+                                img.style.width = '100px';
+                                img.style.height = '150px';
+                                img.style.display = 'block';
+                                img.style.objectFit = 'cover';
+
+                                const removeBtn = document.createElement('button');
+                                removeBtn.innerHTML = '&times;';
+                                removeBtn.type = 'button'; // Important: prevent form submission
+                                removeBtn.className = 'btn btn-danger btn-sm';
+                                removeBtn.style.position = 'absolute';
+                                removeBtn.style.top = '0px';
+                                removeBtn.style.right = '0px';
+                                removeBtn.style.padding = '1px 4px';
+                                removeBtn.style.lineHeight = '1';
+                                removeBtn.onclick = function() {
+                                    previewItem.remove();
+                                    const originalFileRef = file; // closure will capture the correct 'file'
+                                    newSelectedFiles = newSelectedFiles.filter(f => f !== originalFileRef);
+
+                                    if (newCoversPreviewContainer.querySelectorAll('.current-cover-item').length === 0) {
+                                        const existingTitle = newCoversPreviewContainer.querySelector('p');
+                                        if (existingTitle) existingTitle.remove();
+                                    }
+                                };
+
+                                previewItem.appendChild(img);
+                                previewItem.appendChild(removeBtn);
+                                newCoversPreviewContainer.appendChild(previewItem);
+                            }
+                            reader.readAsDataURL(file);
+                        }
+                    }
+                    // Important: Clear the original file input so it doesn't submit if form is not sent via FormData
+                    event.target.value = null;
+                });
+            }
+
             // Renumber kept cover inputs before form submission to ensure correct model binding for List<string> Covers
             const form = document.querySelector('form[asp-action="Edit"]');
             if (form) {
-                form.addEventListener('submit', function() {
-                    if (currentCoversContainer) { // ensure container exists
+                form.addEventListener('submit', function(event) {
+                    event.preventDefault(); // Prevent default submission
+
+                    // Renumber kept cover inputs (existing logic)
+                    if (currentCoversContainer) {
                         const keptCoverInputs = currentCoversContainer.querySelectorAll('input[type="hidden"].kept-cover-input');
                         keptCoverInputs.forEach((input, index) => {
                             input.name = `Covers[${index}]`;
                         });
                     }
+
+                    const formData = new FormData(form); // Initialize FormData with existing form fields
+
+                    // Append files from our managed array
+                    if (newSelectedFiles && newSelectedFiles.length > 0) {
+                        newSelectedFiles.forEach(file => {
+                            formData.append('NewCoverFiles', file, file.name); // 'NewCoverFiles' must match parameter name in C#
+                        });
+                    }
+                    
+                    // Submit the FormData using fetch
+                    fetch(form.action, {
+                        method: form.method,
+                        body: formData,
+                        headers: {
+                            // AntiForgeryToken is included via FormData as it's a hidden input in the form
+                        }
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            if (response.redirected) {
+                                window.location.href = response.url;
+                            } else {
+                                 window.location.reload(); 
+                            }
+                        } else {
+                            response.text().then(text => {
+                                console.error('Form submission error:', text);
+                                alert('Произошла ошибка при сохранении. Подробности в консоли.');
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Network error or other issue:', error);
+                        alert('Сетевая ошибка или другая проблема при отправке формы.');
+                    });
                 });
             }
             function debounce(func, delay) {
