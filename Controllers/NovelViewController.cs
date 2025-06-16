@@ -440,33 +440,16 @@ namespace BulbaLib.Controllers
 
                 if (_permissionService.CanAddNovelDirectly(currentUser))
                 {
-                    // Inside Edit POST, within if (_permissionService.CanAddNovelDirectly(currentUser))
-
-                    List<string> finalCoverPaths = new List<string>();
-                    bool newFilesUploaded = model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0);
-
-                    if (newFilesUploaded)
+                    // Initialize a list with covers that the user decided to keep (not removed via UI)
+                    List<string> updatedCoverPaths = new List<string>();
+                    if (model.Covers != null) // model.Covers contains paths from hidden inputs for existing covers
                     {
-                        // Delete old covers if new ones are being uploaded
-                        if (!string.IsNullOrWhiteSpace(originalNovel.Covers))
-                        {
-                            try
-                            {
-                                var existingCovers = JsonSerializer.Deserialize<List<string>>(originalNovel.Covers);
-                                if (existingCovers != null)
-                                {
-                                    foreach (var oldCoverPath in existingCovers)
-                                    {
-                                        _fileService.DeleteFile(oldCoverPath); // Assuming _fileService.DeleteFile takes the relative path
-                                    }
-                                }
-                            }
-                            catch (JsonException ex)
-                            {
-                                _logger.LogWarning(ex, "Error deserializing originalNovel.Covers for deletion: {CoversJson}", originalNovel.Covers);
-                            }
-                        }
+                        updatedCoverPaths.AddRange(model.Covers);
+                    }
 
+                    // Process newly uploaded files and add their paths to the list
+                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0))
+                    {
                         foreach (var file in model.NewCoverFiles)
                         {
                             if (file != null && file.Length > 0)
@@ -474,32 +457,17 @@ namespace BulbaLib.Controllers
                                 string newPath = await _fileService.SaveNovelCoverAsync(file, originalNovel.Id);
                                 if (!string.IsNullOrEmpty(newPath))
                                 {
-                                    finalCoverPaths.Add(newPath);
+                                    updatedCoverPaths.Add(newPath);
                                 }
                             }
                         }
-                        novelWithChanges.Covers = JsonSerializer.Serialize(finalCoverPaths);
-                    }
-                    else
-                    {
-                        // If no new files are uploaded, try to use the Covers list from the model.
-                        // This list (Model.Covers) will eventually be populated by the view with images the user wants to keep.
-                        // For now, if it's null (e.g. not yet bound from a multi-select or similar in the view),
-                        // preserve original covers to prevent accidental deletion.
-                        // Once the view is updated to send the list of current/kept covers, this will be more robust.
-                        if (model.Covers != null)
-                        {
-                            novelWithChanges.Covers = JsonSerializer.Serialize(model.Covers);
-                        }
-                        else
-                        {
-                            novelWithChanges.Covers = originalNovel.Covers; // Fallback to prevent data loss
-                        }
                     }
 
-                    // ... then assign novelWithChanges.Covers to originalNovel.Covers before _mySqlService.UpdateNovel(originalNovel);
-                    originalNovel.Covers = novelWithChanges.Covers;
+                    // Assign the consolidated list of unique cover paths to the novel object being prepared for update.
+                    // Using .Distinct() to avoid duplicate paths if any somehow occur.
+                    novelWithChanges.Covers = JsonSerializer.Serialize(updatedCoverPaths.Distinct().ToList());
 
+                    // Ensure originalNovel fields are updated before calling UpdateNovel
                     originalNovel.Title = novelWithChanges.Title;
                     originalNovel.Description = novelWithChanges.Description;
                     originalNovel.Covers = novelWithChanges.Covers;

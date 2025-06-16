@@ -45,6 +45,13 @@
                 </div>
 
                 <div class="form-group mb-3">
+                    <label asp-for="NewCoverFiles" class="control-label">Загрузить новые обложки (старые будут удалены)</label>
+                    <input asp-for="NewCoverFiles" type="file" multiple class="form-control" />
+                    <span asp-validation-for="NewCoverFiles" class="text-danger"></span>
+                    <small class="form-text text-muted">Выберите один или несколько файлов. Если вы загружаете новые обложки, все существующие будут заменены.</small>
+                </div>
+
+                <div class="form-group mb-3">
                     <label class="control-label">Текущие обложки</label>
                     <div id="currentCoversContainer" class="mt-2 d-flex flex-wrap">
                         @if (Model.Covers != null && Model.Covers.Any())
@@ -66,13 +73,6 @@
                         }
                     </div>
                     <span asp-validation-for="Covers" class="text-danger"></span>
-                </div>
-
-                <div class="form-group mb-3">
-                    <label asp-for="NewCoverFiles" class="control-label">Загрузить новые обложки (старые будут удалены)</label>
-                    <input asp-for="NewCoverFiles" type="file" multiple class="form-control" />
-                    <span asp-validation-for="NewCoverFiles" class="text-danger"></span>
-                    <small class="form-text text-muted">Выберите один или несколько файлов. Если вы загружаете новые обложки, все существующие будут заменены.</small>
                 </div>
 
                 <div class="form-group mb-3">

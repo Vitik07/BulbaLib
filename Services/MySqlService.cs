@@ -841,7 +841,7 @@ namespace BulbaLib.Services
                 {
                     parameters[i] = $"@id{i}";
                 }
-                string commandText = $"SELECT * FROM Novels WHERE Id IN ({string.Join(",", parameters)})";
+                string commandText = $"SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, TranslatorId, AlternativeTitles, RelatedNovelIds, Date FROM Novels WHERE Id IN ({string.Join(",", parameters)})";
 
                 using (var command = new MySqlCommand(commandText, connection))
                 {
@@ -869,8 +869,7 @@ namespace BulbaLib.Services
                                 TranslatorId = reader.IsDBNull(reader.GetOrdinal("TranslatorId")) ? null : reader.GetString("TranslatorId"),
                                 AlternativeTitles = reader.IsDBNull(reader.GetOrdinal("AlternativeTitles")) ? null : reader.GetString("AlternativeTitles"),
                                 RelatedNovelIds = reader.IsDBNull(reader.GetOrdinal("RelatedNovelIds")) ? null : reader.GetString("RelatedNovelIds"),
-                                Date = reader.IsDBNull(reader.GetOrdinal("Date")) ? 0 : reader.GetInt64("Date"),
-                                Status = reader.IsDBNull(reader.GetOrdinal("Status")) ? null : reader.GetString("Status")
+                                Date = reader.IsDBNull(reader.GetOrdinal("Date")) ? 0 : reader.GetInt64("Date")
                             });
                         }
                     }

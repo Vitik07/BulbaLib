@@ -307,7 +307,7 @@
   {
     "ContainingType": "BulbaLib.Controllers.NovelsController",
     "Method": "GetNovelDetailsByIds",
-    "RelativePath": "api/Novels/api/Novels/detailsByIds",
+    "RelativePath": "api/Novels/detailsByIds",
     "HttpMethod": "GET",
     "IsController": true,
     "Order": 0,

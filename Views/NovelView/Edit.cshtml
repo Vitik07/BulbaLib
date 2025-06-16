@@ -45,16 +45,23 @@
                 </div>
 
                 <div class="form-group mb-3">
+                    <label asp-for="NewCoverFiles" class="control-label">Добавить новые обложки</label>
+                    <input asp-for="NewCoverFiles" type="file" multiple class="form-control" />
+                    <span asp-validation-for="NewCoverFiles" class="text-danger"></span>
+                    <small class="form-text text-muted">Выберите один или несколько файлов. Если вы загружаете новые обложки, все существующие будут заменены.</small>
+                </div>
+
+                <div class="form-group mb-3">
                     <label class="control-label">Текущие обложки</label>
-                    <div id="currentCoversContainer" class="mt-2 d-flex flex-wrap">
+                    <div id="currentCoversContainer" class="mt-2 d-flex flex-wrap" style="display: flex; flex-wrap: wrap; flex-direction: row;">
                         @if (Model.Covers != null && Model.Covers.Any())
                         {
                             for (int i = 0; i < Model.Covers.Count; i++)
                             {
                                 var coverPath = Model.Covers[i];
-                                <div class="current-cover-item me-2 mb-2" style="position: relative;">
-                                    <img src="@Url.Content("~/" + coverPath)" alt="Обложка" style="max-width: 150px; max-height: 200px; display: block;" />
-                                    <button type="button" class="btn btn-danger btn-sm remove-cover-btn" data-cover-path="@coverPath" style="position: absolute; top: 5px; right: 5px;">&times;</button>
+                                <div class="current-cover-item me-2 mb-2" style="position: relative; border: 1px solid #ddd; padding: 5px; width: 112px; height: 162px; /* width = 100px (img) + 5px*2 (padding) + 1px*2 (border), height similar */">
+                                    <img src="@Url.Content(coverPath)" alt="Обложка" style="width: 100px; height: 150px; display: block; object-fit: cover;" />
+                                    <button type="button" class="btn btn-danger btn-sm remove-cover-btn" data-cover-path="@coverPath" style="position: absolute; top: 0px; right: 0px; padding: 1px 4px; line-height: 1;">&times;</button>
                                     @* Hidden input to send back kept covers *@
                                     <input type="hidden" name="Covers[@i]" value="@coverPath" class="kept-cover-input" />
                                 </div>
@@ -66,13 +73,6 @@
                         }
                     </div>
                     <span asp-validation-for="Covers" class="text-danger"></span>
-                </div>
-
-                <div class="form-group mb-3">
-                    <label asp-for="NewCoverFiles" class="control-label">Загрузить новые обложки (старые будут удалены)</label>
-                    <input asp-for="NewCoverFiles" type="file" multiple class="form-control" />
-                    <span asp-validation-for="NewCoverFiles" class="text-danger"></span>
-                    <small class="form-text text-muted">Выберите один или несколько файлов. Если вы загружаете новые обложки, все существующие будут заменены.</small>
                 </div>
 
                 <div class="form-group mb-3">
@@ -446,23 +446,13 @@
             
             function createNovelBadge(novel) { // novel is { id: number, title: string, coverUrl?: string }
                 const badge = document.createElement('span');
-                badge.className = 'badge bg-info me-1 mb-1 d-flex align-items-center p-1'; // Use d-flex for layout
+                badge.className = 'badge bg-info me-2 mb-2 d-flex align-items-center p-1'; // Use d-flex for layout
                 
-                let badgeContent = '';
-                if (novel.coverUrl) {
-                    // Assuming novel.coverUrl is like "uploads/covers/file.jpg" (no leading ~ or /)
-                    // and @Url.Content("~/") resolves to the application's base path (e.g., "/")
-                    let imageUrl = novel.coverUrl;
-                    if (!novel.coverUrl.startsWith('http') && !novel.coverUrl.startsWith('/')) {
-                        imageUrl = '@Url.Content("~/")' + novel.coverUrl;
-                    } else if (novel.coverUrl.startsWith('~/')) {
-                         imageUrl = '@Url.Content("~/")' + novel.coverUrl.substring(2);
-                    }
-                    badgeContent += '<img src="' + imageUrl + '" alt="' + novel.title + '" style="width: 20px; height: 20px; margin-right: 5px; object-fit: cover;"> ';
-                }
-                badgeContent += novel.title;
+                let badgeContent = ''; // Initialize badgeContent
+                // The 'if (novel.coverUrl)' block that added the image is removed.
+                badgeContent += novel.title; // Append title
 
-                badge.innerHTML = badgeContent; // Set innerHTML to include image if present
+                badge.innerHTML = badgeContent; // Set innerHTML to include title
 
                 const removeBtn = document.createElement('span');
                 removeBtn.innerHTML = '&times;';

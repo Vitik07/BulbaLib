@@ -295,7 +295,7 @@ namespace BulbaLib.Controllers
         // Add using System.Linq; if not already present
         // Add using BulbaLib.Models; if not already present
 
-        [HttpGet("api/Novels/detailsByIds")]
+        [HttpGet("detailsByIds")]
         public IActionResult GetNovelDetailsByIds([FromQuery] string ids)
         {
             if (string.IsNullOrWhiteSpace(ids))
