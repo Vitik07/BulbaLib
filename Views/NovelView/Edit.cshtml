@@ -48,7 +48,7 @@
                     <label asp-for="NewCoverFiles" class="control-label">Добавить новые обложки</label>
                     <input asp-for="NewCoverFiles" type="file" multiple class="form-control" />
                     <span asp-validation-for="NewCoverFiles" class="text-danger"></span>
-                    <small class="form-text text-muted">Выберите один или несколько файлов. Если вы загружаете новые обложки, все существующие будут заменены.</small>
+                    <small class="form-text text-muted">Выберите один или несколько файлов. Новые обложки будут добавлены к существующим. Вы можете удалить отдельные текущие обложки с помощью кнопки (×).</small>
                 </div>
 
                 <div class="form-group mb-3">
@@ -506,6 +506,60 @@
                                 noCoversMsg.textContent = 'Все обложки удалены. При сохранении, если не будут загружены новые, новелла останется без обложек.';
                                 currentCoversContainer.appendChild(noCoversMsg);
                             }
+                        }
+                    }
+                });
+            }
+
+            // --- Live Preview for New Cover Images ---
+            const newCoverFilesInput = document.getElementById('NewCoverFiles');
+            const newCoversPreviewContainer = document.createElement('div');
+            newCoversPreviewContainer.id = 'newCoversPreviewContainer';
+            newCoversPreviewContainer.className = 'mt-2 d-flex flex-wrap'; // Similar styling to currentCoversContainer
+            // Insert the preview container after the file input's form-group.
+            const fileInputFormGroup = newCoverFilesInput.closest('.form-group');
+            if (fileInputFormGroup) {
+                // Insert after the form-group, not inside it or after the input itself.
+                fileInputFormGroup.parentNode.insertBefore(newCoversPreviewContainer, fileInputFormGroup.nextSibling);
+            }
+
+            if (newCoverFilesInput) {
+                newCoverFilesInput.addEventListener('change', function(event) {
+                    // Clear previous previews
+                    newCoversPreviewContainer.innerHTML = '';
+                    const files = event.target.files;
+                    if (files && files.length > 0) {
+                        const titleLabel = document.createElement('p');
+                        titleLabel.textContent = 'Предпросмотр новых обложек:';
+                        titleLabel.className = 'w-100 mb-1'; // Make it full width and add some margin
+                        newCoversPreviewContainer.appendChild(titleLabel);
+                    }
+
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        if (file.type.startsWith('image/')) {
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                const previewItem = document.createElement('div');
+                                previewItem.className = 'current-cover-item me-2 mb-2'; // Use similar styling
+                                previewItem.style.position = 'relative';
+                                previewItem.style.border = '1px solid #007bff'; // Highlight new uploads
+                                previewItem.style.padding = '5px';
+                                previewItem.style.width = '112px'; // Standard size
+                                previewItem.style.height = '162px';
+
+                                const img = document.createElement('img');
+                                img.src = e.target.result;
+                                img.alt = 'Предпросмотр новой обложки';
+                                img.style.width = '100px';
+                                img.style.height = '150px';
+                                img.style.display = 'block';
+                                img.style.objectFit = 'cover';
+
+                                previewItem.appendChild(img);
+                                newCoversPreviewContainer.appendChild(previewItem);
+                            }
+                            reader.readAsDataURL(file);
                         }
                     }
                 });

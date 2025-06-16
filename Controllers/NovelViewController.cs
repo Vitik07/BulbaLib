@@ -485,7 +485,33 @@ namespace BulbaLib.Controllers
                 }
                 else if (currentUser.Role == UserRole.Author && originalNovel.AuthorId == currentUser.Id)
                 {
-                    novelWithChanges.Covers = originalNovel.Covers;
+                    // Initialize a list for updated cover paths
+                    List<string> updatedCoverPaths = new List<string>();
+
+                    // Add existing covers that were kept by the user
+                    if (model.Covers != null)
+                    {
+                        updatedCoverPaths.AddRange(model.Covers);
+                    }
+
+                    // Process newly uploaded files
+                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0))
+                    {
+                        foreach (var file in model.NewCoverFiles)
+                        {
+                            if (file != null && file.Length > 0)
+                            {
+                                string newPath = await _fileService.SaveNovelCoverAsync(file, originalNovel.Id);
+                                if (!string.IsNullOrEmpty(newPath))
+                                {
+                                    updatedCoverPaths.Add(newPath);
+                                }
+                            }
+                        }
+                    }
+
+                    // Update novelWithChanges.Covers with the new list
+                    novelWithChanges.Covers = JsonSerializer.Serialize(updatedCoverPaths.Distinct().ToList());
 
                     var moderationRequest = new ModerationRequest
                     {
