@@ -432,7 +432,50 @@ namespace BulbaLib.Controllers
             }
 
             // Explicitly remove any model state errors for NewCoverFiles before custom validation runs
+            _logger.LogInformation($"[Edit Novel POST] Перед ModelState.Remove. NewCoverFiles is null: {model.NewCoverFiles == null}");
+            if (model.NewCoverFiles != null)
+            {
+                _logger.LogInformation($"[Edit Novel POST] Перед ModelState.Remove. NewCoverFiles count: {model.NewCoverFiles.Count}");
+                for (int i = 0; i < model.NewCoverFiles.Count; i++)
+                {
+                    if (model.NewCoverFiles[i] == null)
+                    {
+                        _logger.LogInformation($"[Edit Novel POST] File {i} is null");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"[Edit Novel POST] File {i} Name: {model.NewCoverFiles[i].FileName}, Length: {model.NewCoverFiles[i].Length}");
+                    }
+                }
+            }
+
+            var newCoverFilesEntry = ModelState[nameof(NovelEditModel.NewCoverFiles)];
+            if (newCoverFilesEntry != null && newCoverFilesEntry.Errors.Any())
+            {
+                foreach (var error in newCoverFilesEntry.Errors)
+                {
+                    _logger.LogWarning($"[Edit Novel POST] Ошибка валидации для NewCoverFiles ПЕРЕД REMOVE: {error.ErrorMessage}");
+                }
+            }
+            else if (newCoverFilesEntry == null || !newCoverFilesEntry.Errors.Any())
+            {
+                _logger.LogInformation("[Edit Novel POST] Нет ошибок валидации для NewCoverFiles ПЕРЕД REMOVE.");
+            }
+
             ModelState.Remove(nameof(NovelEditModel.NewCoverFiles));
+
+            var newCoverFilesEntryAfterRemove = ModelState[nameof(NovelEditModel.NewCoverFiles)];
+            if (newCoverFilesEntryAfterRemove != null && newCoverFilesEntryAfterRemove.Errors.Any())
+            {
+                foreach (var error in newCoverFilesEntryAfterRemove.Errors)
+                {
+                    _logger.LogWarning($"[Edit Novel POST] Ошибка валидации для NewCoverFiles ПОСЛЕ REMOVE: {error.ErrorMessage}");
+                }
+            }
+            else
+            {
+                _logger.LogInformation("[Edit Novel POST] Запись ModelState для NewCoverFiles успешно удалена или не содержит ошибок после Remove.");
+            }
 
             if (ModelState.IsValid)
             {
@@ -581,6 +624,18 @@ namespace BulbaLib.Controllers
                 }
             }
 
+            _logger.LogWarning("[Edit Novel POST] ModelState НЕ валиден. Ошибки:");
+            foreach (var stateKey in ModelState.Keys)
+            {
+                var stateEntry = ModelState[stateKey];
+                if (stateEntry.Errors.Any())
+                {
+                    foreach (var error in stateEntry.Errors)
+                    {
+                        _logger.LogWarning($"  Свойство: {stateKey}, Ошибка: {error.ErrorMessage}");
+                    }
+                }
+            }
             model.AuthorLogin = _mySqlService.GetUser(model.AuthorId ?? 0)?.Login;
             ViewData["AllGenres"] = AllGenres;
             ViewData["AllTags"] = AllTags;

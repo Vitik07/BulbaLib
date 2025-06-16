@@ -179,9 +179,10 @@
         var genresToSerialize = (ViewData["AllGenres"] as List<string>) ?? new List<string>();
 
         var tagsToSerialize = (ViewData["AllTags"] as List<string>) ?? new List<string>();
-
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
+
+
     <script>
         // Весь JS-код из Create.cshtml (жанры, теги, автор, связанные новеллы), только поправить инициализацию значений для редактирования:
         document.addEventListener('DOMContentLoaded', function () {
@@ -593,6 +594,7 @@
                 });
             }
 
+            
             // Renumber kept cover inputs before form submission to ensure correct model binding for List<string> Covers
             const form = document.querySelector('form[asp-action="Edit"]');
             if (form) {
@@ -644,6 +646,7 @@
                     });
                 });
             }
+       
             function debounce(func, delay) {
                 let timeout;
                 return function (...args) {
@@ -717,5 +720,6 @@
             }
         });
     </script>
+
 </body>
 </html>

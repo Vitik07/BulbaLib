@@ -76,7 +76,7 @@ namespace BulbaLib.Models
                 // though it's a combined condition.
                 yield return new ValidationResult(
                     "Новелла должна иметь хотя бы одну обложку. Пожалуйста, загрузите новую или убедитесь, что существующая обложка не удалена.",
-                    new[] { nameof(NewCoverFiles) }); // Or use an empty array for model-level error: new string[] { }
+                    new string[] { }); // Or use an empty array for model-level error: new string[] { }
             }
         }
     }
