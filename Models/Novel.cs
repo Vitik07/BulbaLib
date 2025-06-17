@@ -14,7 +14,6 @@ namespace BulbaLib.Models
         public string Format { get; set; }
         public int? ReleaseYear { get; set; }
         public int? AuthorId { get; set; }
-        public string TranslatorId { get; set; }
         public string AlternativeTitles { get; set; }
         public string? RelatedNovelIds { get; set; }
         public long Date { get; set; }

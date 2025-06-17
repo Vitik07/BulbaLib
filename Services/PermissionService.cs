@@ -44,13 +44,20 @@ namespace BulbaLib.Services
         public bool CanEditNovel(User currentUser, Novel novel)
         {
             if (currentUser == null || novel == null) return false;
+            // Admins can directly edit any novel.
             if (currentUser.Role == UserRole.Admin) return true;
-            return currentUser.Role == UserRole.Author && novel.AuthorId == currentUser.Id;
+            // Authors cannot directly edit novels; they must submit for moderation.
+            // The check for novel.AuthorId == currentUser.Id is done in the controller before creating a moderation request.
+            return false;
         }
 
         public bool CanDeleteNovel(User currentUser, Novel novel)
         {
-            return CanEditNovel(currentUser, novel); // Same logic
+            if (currentUser == null || novel == null) return false;
+            // Admins can directly delete any novel.
+            if (currentUser.Role == UserRole.Admin) return true;
+            // Authors cannot directly delete novels; they must submit for moderation.
+            return false;
         }
 
         public bool CanSubmitChapterForModeration(User currentUser, Novel novel)
@@ -71,18 +78,21 @@ namespace BulbaLib.Services
         public bool CanEditChapter(User currentUser, Chapter chapter, Novel novel)
         {
             if (currentUser == null || chapter == null || novel == null) return false;
+            // Admins can directly edit any chapter.
             if (currentUser.Role == UserRole.Admin) return true;
-            // Assuming TranslatorId in Novel can be a list of IDs or a single ID.
-            // For simplicity, check if the current user's ID is part of the TranslatorId string.
-            // This might need refinement based on how TranslatorId is actually stored and formatted.
-            return currentUser.Role == UserRole.Translator &&
-                   chapter.CreatorId == currentUser.Id &&
-                   IsTranslatorAssignedToNovel(currentUser, novel);
+            // Translators cannot directly edit chapters; they must submit for moderation.
+            // The check for chapter.CreatorId == currentUser.Id and IsTranslatorAssignedToNovel is done
+            // in the controller before creating a moderation request.
+            return false;
         }
 
         public bool CanDeleteChapter(User currentUser, Chapter chapter, Novel novel)
         {
-            return CanEditChapter(currentUser, chapter, novel); // Same logic
+            if (currentUser == null || chapter == null || novel == null) return false;
+            // Admins can directly delete any chapter.
+            if (currentUser.Role == UserRole.Admin) return true;
+            // Translators cannot directly delete chapters; they must submit for moderation.
+            return false;
         }
 
         public bool CanViewAdminPanel(User currentUser)

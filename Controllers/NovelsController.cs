@@ -6,6 +6,8 @@ using System.Linq;
 using BulbaLib.Models;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using System.Text.Json; // Added for moderation
+using System; // Added for DateTime
 
 namespace BulbaLib.Controllers
 {
@@ -56,7 +58,6 @@ namespace BulbaLib.Controllers
                 format = n.Format,
                 releaseYear = n.ReleaseYear,
                 authorId = n.AuthorId,
-                translatorId = n.TranslatorId,
                 alternativeTitles = n.AlternativeTitles,
                 relatedNovelIds = n.RelatedNovelIds,
                 date = n.Date // <<<<<< ДОБАВЛЕНО для фронта!
@@ -102,22 +103,6 @@ namespace BulbaLib.Controllers
 
             var author = novel.AuthorId.HasValue ? _db.GetUser(novel.AuthorId.Value) : null;
 
-            // --- Переводчики как список объектов {id, login}
-            List<dynamic> translatorsList = new List<dynamic>();
-            if (!string.IsNullOrWhiteSpace(novel.TranslatorId))
-            {
-                var ids = novel.TranslatorId.Split(',', System.StringSplitOptions.RemoveEmptyEntries)
-                                .Select(s => s.Trim())
-                                .Where(s => int.TryParse(s, out _))
-                                .Select(int.Parse);
-                foreach (var uid in ids)
-                {
-                    var tr = _db.GetUser(uid);
-                    if (tr != null)
-                        translatorsList.Add(new { id = tr.Id, login = tr.Login });
-                }
-            }
-
             var chaptersResult = chapters.Select(ch => new {
                 id = ch.Id,
                 novelId = ch.NovelId,
@@ -142,7 +127,6 @@ namespace BulbaLib.Controllers
                 chapterCount,
                 author = author != null ? new { id = author.Id, login = author.Login } : null,
                 alternativeTitles = novel.AlternativeTitles,
-                translators = translatorsList,
                 chapters = chaptersResult,
                 relatedNovelIds = novel.RelatedNovelIds,
                 bookmarkChapterId = bookmarkChapterId,
@@ -165,28 +149,69 @@ namespace BulbaLib.Controllers
             // For an API, we might simplify this. If CanAddNovelDirectly, it's direct.
             // If CanSubmitNovelForModeration, the status of the novel should be 'PendingModeration'.
             // This example assumes direct creation if allowed.
-            if (!_permissionService.CanAddNovelDirectly(currentUser) && !_permissionService.CanSubmitNovelForModeration(currentUser))
+            // MODIFIED FOR MODERATION
+            if (currentUser.Role == UserRole.Author)
             {
-                return Forbid();
-            }
+                if (!_permissionService.CanSubmitNovelForModeration(currentUser))
+                {
+                    return Forbid("Authors are not allowed to submit novels for moderation based on current permissions.");
+                }
 
-            var novel = new Novel
+                var novelDataForModeration = new Novel
+                {
+                    Title = req.Title,
+                    Description = req.Description,
+                    CoversList = req.Covers,
+                    Genres = req.Genres,
+                    Tags = req.Tags,
+                    Type = req.Type,
+                    Format = req.Format,
+                    ReleaseYear = req.ReleaseYear,
+                    AuthorId = currentUser.Id, // Author creating the novel is the author
+                    AlternativeTitles = req.AlternativeTitles,
+                    Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                };
+
+                var moderationRequest = new ModerationRequest
+                {
+                    RequestType = ModerationRequestType.NovelCreate,
+                    UserId = currentUser.Id,
+                    NovelId = null,
+                    RequestData = JsonSerializer.Serialize(novelDataForModeration),
+                    Status = ModerationStatus.Pending,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _db.CreateModerationRequest(moderationRequest);
+                return Accepted(new { message = "Novel creation request submitted for moderation." });
+            }
+            else if (currentUser.Role == UserRole.Admin) // Assuming Admin can create directly
             {
-                Title = req.Title,
-                Description = req.Description,
-                CoversList = req.Covers,
-                Genres = req.Genres,
-                Tags = req.Tags,
-                Type = req.Type,
-                Format = req.Format,
-                ReleaseYear = req.ReleaseYear,
-                AuthorId = req.AuthorId,
-                TranslatorId = req.TranslatorId,
-                AlternativeTitles = req.AlternativeTitles,
-                Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds() // гарантируем заполнение даты
-            };
-            _db.CreateNovel(novel);
-            return StatusCode(201, new { message = "Novel created" });
+                if (!_permissionService.CanAddNovelDirectly(currentUser)) // Check if admin actually has direct add permission
+                {
+                     return Forbid("Admins are not allowed to add novels directly based on current permissions.");
+                }
+                var novel = new Novel
+                {
+                    Title = req.Title,
+                    Description = req.Description,
+                    CoversList = req.Covers,
+                    Genres = req.Genres,
+                    Tags = req.Tags,
+                    Type = req.Type,
+                    Format = req.Format,
+                    ReleaseYear = req.ReleaseYear,
+                    AuthorId = req.AuthorId ?? currentUser.Id, // Admin can specify AuthorId, defaults to self
+                    AlternativeTitles = req.AlternativeTitles,
+                    Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                };
+                _db.CreateNovel(novel);
+                return StatusCode(201, new { message = "Novel created directly by Admin." });
+            }
+            else
+            {
+                return Forbid("User role not authorized for this action.");
+            }
         }
 
         // PUT /api/novels/{id}
@@ -204,26 +229,56 @@ namespace BulbaLib.Controllers
             if (novel == null)
                 return NotFound(new { error = "Novel not found" });
 
-            if (!_permissionService.CanEditNovel(currentUser, novel))
+            // MODIFIED FOR MODERATION
+            if (currentUser.Role == UserRole.Author)
             {
-                return Forbid();
+                if (novel.AuthorId != currentUser.Id)
+                {
+                    return Forbid("Authors can only request updates for their own novels.");
+                }
+                if (!_permissionService.CanSubmitNovelForModeration(currentUser, novel)) // Assuming similar perm check for update
+                {
+                    return Forbid("Authors are not allowed to submit novel updates for moderation based on current permissions.");
+                }
+
+                var moderationRequest = new ModerationRequest
+                {
+                    RequestType = ModerationRequestType.NovelUpdate,
+                    UserId = currentUser.Id,
+                    NovelId = id,
+                    RequestData = JsonSerializer.Serialize(req), // req is NovelUpdateRequest
+                    Status = ModerationStatus.Pending,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _db.CreateModerationRequest(moderationRequest);
+                return Accepted(new { message = "Novel update request submitted for moderation." });
             }
+            else if (currentUser.Role == UserRole.Admin) // Assuming Admin can update directly
+            {
+                 if (!_permissionService.CanEditNovel(currentUser, novel)) // Check if admin actually has direct edit permission
+                {
+                    return Forbid("Admins are not allowed to edit this novel directly based on current permissions.");
+                }
+                novel.Title = req.Title ?? novel.Title;
+                novel.Description = req.Description ?? novel.Description;
+                if (req.Covers != null) novel.CoversList = req.Covers;
+                novel.Genres = req.Genres ?? novel.Genres;
+                novel.Tags = req.Tags ?? novel.Tags;
+                novel.Type = req.Type ?? novel.Type;
+                novel.Format = req.Format ?? novel.Format;
+                novel.ReleaseYear = req.ReleaseYear ?? novel.ReleaseYear;
+                // Admin might be allowed to change AuthorId, if req.AuthorId is part of NovelUpdateRequest and handled
+                if (req.AuthorId.HasValue) novel.AuthorId = req.AuthorId;
+                novel.AlternativeTitles = req.AlternativeTitles ?? novel.AlternativeTitles;
 
-            novel.Title = req.Title ?? novel.Title;
-            novel.Description = req.Description ?? novel.Description;
-            if (req.Covers != null) novel.CoversList = req.Covers;
-            novel.Genres = req.Genres ?? novel.Genres;
-            novel.Tags = req.Tags ?? novel.Tags;
-            novel.Type = req.Type ?? novel.Type;
-            novel.Format = req.Format ?? novel.Format;
-            novel.ReleaseYear = req.ReleaseYear ?? novel.ReleaseYear;
-            novel.AuthorId = req.AuthorId ?? novel.AuthorId;
-            novel.TranslatorId = req.TranslatorId ?? novel.TranslatorId;
-            novel.AlternativeTitles = req.AlternativeTitles ?? novel.AlternativeTitles;
-            // не обновляем дату при редактировании, только при создании
-
-            _db.UpdateNovel(novel);
-            return Ok(new { message = "Novel updated" });
+                _db.UpdateNovel(novel);
+                return Ok(new { message = "Novel updated directly by Admin." });
+            }
+            else
+            {
+                return Forbid("User role not authorized for this action.");
+            }
         }
 
         // DELETE /api/novels/{id}
@@ -241,13 +296,44 @@ namespace BulbaLib.Controllers
             if (novel == null)
                 return NotFound(new { error = "Novel not found" });
 
-            if (!_permissionService.CanDeleteNovel(currentUser, novel))
+            // MODIFIED FOR MODERATION
+            if (currentUser.Role == UserRole.Author)
             {
-                return Forbid();
-            }
+                if (novel.AuthorId != currentUser.Id)
+                {
+                    return Forbid("Authors can only request deletion for their own novels.");
+                }
+                 if (!_permissionService.CanSubmitNovelForModeration(currentUser, novel)) // Assuming similar perm check for delete
+                {
+                    return Forbid("Authors are not allowed to submit novel deletions for moderation based on current permissions.");
+                }
 
-            _db.DeleteNovel(id);
-            return Ok(new { message = "Novel deleted" });
+                var moderationRequest = new ModerationRequest
+                {
+                    RequestType = ModerationRequestType.NovelDelete,
+                    UserId = currentUser.Id,
+                    NovelId = id,
+                    RequestData = JsonSerializer.Serialize(new { novel.Title }), // Optional info
+                    Status = ModerationStatus.Pending,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _db.CreateModerationRequest(moderationRequest);
+                return Accepted(new { message = "Novel deletion request submitted for moderation." });
+            }
+            else if (currentUser.Role == UserRole.Admin) // Assuming Admin can delete directly
+            {
+                if (!_permissionService.CanDeleteNovel(currentUser, novel)) // Check if admin actually has direct delete permission
+                {
+                    return Forbid("Admins are not allowed to delete this novel directly based on current permissions.");
+                }
+                _db.DeleteNovel(id);
+                return Ok(new { message = "Novel deleted directly by Admin." });
+            }
+            else
+            {
+                return Forbid("User role not authorized for this action.");
+            }
         }
 
         private string? GetFirstCover(string? coversJson)
@@ -353,7 +439,6 @@ namespace BulbaLib.Controllers
         public string Format { get; set; }
         public int? ReleaseYear { get; set; }
         public int? AuthorId { get; set; }
-        public string TranslatorId { get; set; }
         public string AlternativeTitles { get; set; }
     }
     public class NovelUpdateRequest
@@ -367,7 +452,6 @@ namespace BulbaLib.Controllers
         public string Format { get; set; }
         public int? ReleaseYear { get; set; }
         public int? AuthorId { get; set; }
-        public string TranslatorId { get; set; }
         public string AlternativeTitles { get; set; }
     }
 }

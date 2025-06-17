@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http; // For IFormFile
 using System; // For DateTimeOffset, Guid
 using System.Collections.Generic; // For List
 using System.Linq; // For Select
+using System.Text.Json; // Added for Moderation
 
 namespace BulbaLib.Controllers
 {
@@ -111,28 +112,13 @@ namespace BulbaLib.Controllers
             ViewData["CanEditChapter"] = canEdit;
             ViewData["CanDeleteChapter"] = canDelete;
 
-            string chapterText = "";
-            if (!string.IsNullOrEmpty(chapter.Content))
-            {
-                var wwwroot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-                var filePath = Path.Combine(wwwroot, chapter.Content.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-                if (System.IO.File.Exists(filePath))
-                {
-                    chapterText = System.IO.File.ReadAllText(filePath);
-                }
-                else
-                {
-                    chapterText = "[Текст главы не найден: " + filePath + "]";
-                }
-            }
-
             return Ok(new
             {
                 id = chapter.Id,
                 novelId = chapter.NovelId,
                 number = chapter.Number,
                 title = chapter.Title,
-                content = chapterText,
+                content = chapter.Content, // Use chapter.Content directly
                 date = chapter.Date
             });
         }
@@ -157,23 +143,51 @@ namespace BulbaLib.Controllers
                 return BadRequest(new { error = "Новелла для добавления главы не найдена" });
             }
 
-            // Permission Check
-            if (!_permissionService.CanAddChapterDirectly(currentUser) &&
-                !_permissionService.CanSubmitChapterForModeration(currentUser, novel))
+            // MODIFIED FOR MODERATION
+            if (currentUser.Role == UserRole.Translator && _permissionService.CanSubmitChapterForModeration(currentUser, novel))
             {
-                return Forbid();
-            }
+                var chapterDataForModeration = new Chapter
+                {
+                    NovelId = req.NovelId,
+                    Number = req.Number,
+                    Title = req.Title,
+                    Content = req.Content ?? "",
+                    Date = req.Date ?? DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                    CreatorId = currentUser.Id // Translator creating the chapter is the creator
+                };
 
-            var chapter = new Chapter
+                var moderationRequest = new ModerationRequest
+                {
+                    RequestType = ModerationRequestType.ChapterCreate,
+                    UserId = currentUser.Id,
+                    NovelId = req.NovelId,
+                    ChapterId = null,
+                    RequestData = JsonSerializer.Serialize(chapterDataForModeration),
+                    Status = ModerationStatus.Pending,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _db.CreateModerationRequest(moderationRequest);
+                return Accepted(new { message = "Chapter creation request submitted for moderation." });
+            }
+            else if (_permissionService.CanAddChapterDirectly(currentUser)) // e.g. Admin
             {
-                NovelId = req.NovelId,
-                Number = req.Number,
-                Title = req.Title,
-                Content = req.Content ?? "",
-                Date = req.Date ?? DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-            };
-            _db.CreateChapter(chapter);
-            return StatusCode(201, new { message = "Chapter created" });
+                var chapter = new Chapter
+                {
+                    NovelId = req.NovelId,
+                    Number = req.Number,
+                    Title = req.Title,
+                    Content = req.Content ?? "",
+                    Date = req.Date ?? DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                };
+                chapter.CreatorId = currentUser.Id; // Set CreatorId
+                _db.CreateChapter(chapter);
+                return StatusCode(201, new { message = "Chapter created directly." });
+            }
+            else
+            {
+                 return Forbid("User not authorized for this action or to bypass moderation.");
+            }
         }
 
         // PUT /api/chapters/{id}
@@ -194,19 +208,39 @@ namespace BulbaLib.Controllers
             var novel = _db.GetNovel(chapter.NovelId);
             if (novel == null)
             {
+                // This case should ideally not happen if data integrity is maintained
                 return NotFound(new { error = "Родительская новелла для главы не найдена" });
             }
 
-            if (!_permissionService.CanEditChapter(currentUser, chapter, novel))
+            // MODIFIED FOR MODERATION
+            if (currentUser.Role == UserRole.Translator && chapter.CreatorId == currentUser.Id && _permissionService.CanSubmitChapterForModeration(currentUser, novel))
             {
-                return Forbid();
+                var moderationRequest = new ModerationRequest
+                {
+                    RequestType = ModerationRequestType.ChapterUpdate,
+                    UserId = currentUser.Id,
+                    NovelId = chapter.NovelId,
+                    ChapterId = id,
+                    RequestData = JsonSerializer.Serialize(req), // req is ChapterUpdateRequest
+                    Status = ModerationStatus.Pending,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _db.CreateModerationRequest(moderationRequest);
+                return Accepted(new { message = "Chapter update request submitted for moderation." });
             }
-
-            chapter.Number = req.Number ?? chapter.Number;
-            chapter.Title = req.Title ?? chapter.Title;
-            chapter.Content = req.Content ?? chapter.Content;
-            _db.UpdateChapter(chapter);
-            return Ok(new { message = "Chapter updated" });
+            else if (_permissionService.CanEditChapter(currentUser, chapter, novel)) // e.g. Admin
+            {
+                chapter.Number = req.Number ?? chapter.Number;
+                chapter.Title = req.Title ?? chapter.Title;
+                chapter.Content = req.Content ?? chapter.Content;
+                _db.UpdateChapter(chapter);
+                return Ok(new { message = "Chapter updated directly." });
+            }
+            else
+            {
+                return Forbid("User not authorized for this action or to bypass moderation.");
+            }
         }
 
         // DELETE /api/chapters/{id}
@@ -227,16 +261,36 @@ namespace BulbaLib.Controllers
             var novel = _db.GetNovel(chapter.NovelId);
             if (novel == null)
             {
+                 // This case should ideally not happen if data integrity is maintained
                 return NotFound(new { error = "Родительская новелла для главы не найдена" });
             }
 
-            if (!_permissionService.CanDeleteChapter(currentUser, chapter, novel))
+            // MODIFIED FOR MODERATION
+            if (currentUser.Role == UserRole.Translator && chapter.CreatorId == currentUser.Id && _permissionService.CanSubmitChapterForModeration(currentUser, novel))
             {
-                return Forbid();
+                var moderationRequest = new ModerationRequest
+                {
+                    RequestType = ModerationRequestType.ChapterDelete,
+                    UserId = currentUser.Id,
+                    NovelId = chapter.NovelId,
+                    ChapterId = id,
+                    RequestData = JsonSerializer.Serialize(new { chapter.Number, chapter.Title }), // Optional info
+                    Status = ModerationStatus.Pending,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _db.CreateModerationRequest(moderationRequest);
+                return Accepted(new { message = "Chapter deletion request submitted for moderation." });
             }
-
-            _db.DeleteChapter(id);
-            return Ok(new { message = "Chapter deleted" });
+            else if (_permissionService.CanDeleteChapter(currentUser, chapter, novel)) // e.g. Admin
+            {
+                _db.DeleteChapter(id);
+                return Ok(new { message = "Chapter deleted directly." });
+            }
+            else
+            {
+                return Forbid("User not authorized for this action or to bypass moderation.");
+            }
         }
 
         [HttpPost("{chapterId}/upload-image")]
