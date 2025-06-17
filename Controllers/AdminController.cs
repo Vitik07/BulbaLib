@@ -13,18 +13,24 @@ namespace BulbaLib.Controllers
         private readonly MySqlService _mySqlService;
         private readonly PermissionService _permissionService;
         private readonly ICurrentUserService _currentUserService;
-        private readonly INotificationService _notificationService; // Added
+        private readonly INotificationService _notificationService;
+        private readonly FileService _fileService; // Added
+        private readonly ILogger<AdminController> _logger; // Added
 
         public AdminController(
             MySqlService mySqlService,
             PermissionService permissionService,
             ICurrentUserService currentUserService,
-            INotificationService notificationService) // Added
+            INotificationService notificationService,
+            FileService fileService, // Added
+            ILogger<AdminController> logger) // Added
         {
             _mySqlService = mySqlService;
             _permissionService = permissionService;
             _currentUserService = currentUserService;
-            _notificationService = notificationService; // Added
+            _notificationService = notificationService;
+            _fileService = fileService; // Added
+            _logger = logger; // Added
         }
 
         // private User GetCurrentUser() // Replaced by _currentUserService
@@ -208,7 +214,7 @@ namespace BulbaLib.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult ApproveNovelRequest(int requestId)
+        public async Task<IActionResult> ApproveNovelRequest(int requestId) // Changed to async Task
         {
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null || !_permissionService.CanModerateNovelRequests(currentUser))
@@ -233,10 +239,58 @@ namespace BulbaLib.Controllers
                     case ModerationRequestType.AddNovel:
                         novelData = System.Text.Json.JsonSerializer.Deserialize<Novel>(request.RequestData);
                         // AuthorId should be from the user who made the request (request.UserId)
-                        novelData.AuthorId = request.UserId;
+                        novelData.AuthorId = request.UserId; // AuthorId set from the user who made the request
                         novelData.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                        novelData.Covers = string.IsNullOrWhiteSpace(novelData.Covers) ? "[]" : novelData.Covers;
-                        _mySqlService.CreateNovel(novelData);
+                        // novelData.Covers currently holds JSON array with one temp path (or "[]")
+
+                        // Create a temporary Novel object for DB creation, without covers initially, or with empty covers
+                        var novelForDbCreation = new Novel
+                        {
+                            Title = novelData.Title,
+                            Description = novelData.Description,
+                            AuthorId = novelData.AuthorId,
+                            Genres = novelData.Genres,
+                            Tags = novelData.Tags,
+                            Type = novelData.Type,
+                            Format = novelData.Format,
+                            ReleaseYear = novelData.ReleaseYear,
+                            AlternativeTitles = novelData.AlternativeTitles,
+                            RelatedNovelIds = novelData.RelatedNovelIds,
+                            TranslatorId = novelData.TranslatorId, // ensure this is copied if present
+                            Date = novelData.Date,
+                            Covers = "[]" // Start with empty covers
+                        };
+                        int newNovelId = _mySqlService.CreateNovel(novelForDbCreation); // Create novel to get ID
+
+                        List<string> tempPaths = new List<string>();
+                        if (!string.IsNullOrEmpty(novelData.Covers)) {
+                            try { tempPaths = System.Text.Json.JsonSerializer.Deserialize<List<string>>(novelData.Covers); } catch {}
+                        }
+
+                        List<string> finalNovelCoverPaths = new List<string>();
+                        if (tempPaths != null && tempPaths.Any()) {
+                            foreach(var tempPath in tempPaths) {
+                                if (!string.IsNullOrEmpty(tempPath) && tempPath.Contains("/temp_covers/")) { // Process only temp paths
+                                     string finalPath = await _fileService.CommitTempCoverAsync(tempPath, newNovelId);
+                                     if (!string.IsNullOrEmpty(finalPath)) {
+                                        finalNovelCoverPaths.Add(finalPath);
+                                     }
+                                }
+                            }
+                        }
+
+                        if (finalNovelCoverPaths.Any())
+                        {
+                            var novelToUpdate = _mySqlService.GetNovel(newNovelId);
+                            if (novelToUpdate != null)
+                            {
+                                novelToUpdate.Covers = System.Text.Json.JsonSerializer.Serialize(finalNovelCoverPaths);
+                                _mySqlService.UpdateNovel(novelToUpdate);
+                                novelData.Covers = novelToUpdate.Covers; // Update novelData for notification consistency
+                            }
+                        } else {
+                             novelData.Covers = "[]"; // Ensure novelData reflects no covers if commit failed or no temp paths
+                        }
                         break;
                     case ModerationRequestType.EditNovel:
                         novelData = System.Text.Json.JsonSerializer.Deserialize<Novel>(request.RequestData);
@@ -255,7 +309,56 @@ namespace BulbaLib.Controllers
                         existingNovel.AlternativeTitles = novelData.AlternativeTitles;
                         // Ensure AuthorId is not changed by edit request unless intended by Admin specific UI
                         // existingNovel.AuthorId = novelData.AuthorId; // Usually, AuthorId should not change on edit.
+                        // Covers handling for EditNovel:
+                        List<string> pathsFromRequest = new List<string>();
+                        if(!string.IsNullOrEmpty(novelData.Covers)) {
+                            try { pathsFromRequest = System.Text.Json.JsonSerializer.Deserialize<List<string>>(novelData.Covers); } catch {}
+                        }
+
+                        List<string> finalUpdatedCoverPaths = new List<string>();
+                        List<string> tempFilesToCommit = new List<string>();
+
+                        foreach (var pathInRequest in pathsFromRequest)
+                        {
+                            if (!string.IsNullOrEmpty(pathInRequest)) // Ensure path is not null or empty
+                            {
+                                if (pathInRequest.Contains("/temp_covers/"))
+                                {
+                                    tempFilesToCommit.Add(pathInRequest);
+                                }
+                                else
+                                {
+                                    finalUpdatedCoverPaths.Add(pathInRequest); // This is an existing permanent path
+                                }
+                            }
+                        }
+
+                        foreach (var tempPath in tempFilesToCommit)
+                        {
+                            string finalPath = await _fileService.CommitTempCoverAsync(tempPath, existingNovel.Id);
+                            if (!string.IsNullOrEmpty(finalPath)) {
+                                finalUpdatedCoverPaths.Add(finalPath);
+                            }
+                        }
+
+                        // Logic to delete old covers not present in the final list
+                        List<string> existingCoversList = new List<string>();
+                        if (!string.IsNullOrWhiteSpace(existingNovel.Covers)) {
+                             try { existingCoversList = System.Text.Json.JsonSerializer.Deserialize<List<string>>(existingNovel.Covers); } catch {}
+                        }
+
+                        foreach (var oldCoverPath in existingCoversList)
+                        {
+                            if (!finalUpdatedCoverPaths.Contains(oldCoverPath))
+                            {
+                                await _fileService.DeleteCoverAsync(oldCoverPath);
+                            }
+                        }
+
+                        existingNovel.Covers = System.Text.Json.JsonSerializer.Serialize(finalUpdatedCoverPaths.Distinct().ToList());
+                        // Other fields were already updated above.
                         _mySqlService.UpdateNovel(existingNovel);
+                        novelData.Covers = existingNovel.Covers; // Update novelData for notification consistency
                         break;
                     case ModerationRequestType.DeleteNovel:
                         if (!request.NovelId.HasValue) throw new Exception("NovelId is missing for delete request.");
@@ -291,7 +394,7 @@ namespace BulbaLib.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult RejectNovelRequest(int requestId, string moderationComment)
+        public async Task<IActionResult> RejectNovelRequest(int requestId, string moderationComment) // Changed to async Task
         {
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null || !_permissionService.CanModerateNovelRequests(currentUser))
@@ -310,6 +413,38 @@ namespace BulbaLib.Controllers
             request.ModerationComment = moderationComment;
             request.UpdatedAt = DateTime.UtcNow;
             _mySqlService.UpdateModerationRequest(request);
+
+            // Delete temporary files if any
+            if (request.RequestType == ModerationRequestType.AddNovel || request.RequestType == ModerationRequestType.EditNovel)
+            {
+                if (!string.IsNullOrEmpty(request.RequestData))
+                {
+                    try
+                    {
+                        var novelDetails = System.Text.Json.JsonSerializer.Deserialize<Novel>(request.RequestData);
+                        if (novelDetails != null && !string.IsNullOrEmpty(novelDetails.Covers))
+                        {
+                            var coverPaths = System.Text.Json.JsonSerializer.Deserialize<List<string>>(novelDetails.Covers);
+                            if (coverPaths != null)
+                            {
+                                foreach (var path in coverPaths)
+                                {
+                                    if (!string.IsNullOrEmpty(path) && path.Contains("/temp_covers/")) // Check if it's a temp path
+                                    {
+                                        await _fileService.DeleteCoverAsync(path);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error during temp file deletion on rejection
+                        // Consider this non-critical for the rejection process itself
+                         _logger.LogError(ex, $"Error deleting temporary covers for rejected request ID {requestId}.");
+                    }
+                }
+            }
 
             // Send notification
             // Attempt to get novel title for notification message
@@ -441,7 +576,7 @@ namespace BulbaLib.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult ApproveChapterRequest(int requestId)
+        public async Task<IActionResult> ApproveChapterRequest(int requestId) // Made async
         {
             var currentUser = _currentUserService.GetCurrentUser(); // Corrected
             if (currentUser == null || !_permissionService.CanModerateChapterRequests(currentUser))
@@ -468,8 +603,29 @@ namespace BulbaLib.Controllers
                         // Ensure NovelId from request is used if chapterData.NovelId is not set (it should be)
                         chapterData.NovelId = request.NovelId ?? chapterData.NovelId;
                         chapterData.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                        chapterData.CreatorId = request.UserId; // Устанавливаем ID пользователя, создавшего запрос
                         // TODO: Consider if chapterData needs a TranslatorId or AddedByUserId set from request.UserId
                         _mySqlService.CreateChapter(chapterData);
+
+                        // ---- Start: Auto add TranslatorId on AddChapter ----
+                        if (request.NovelId.HasValue)
+                        {
+                            var novelForTranslatorUpdate = _mySqlService.GetNovel(request.NovelId.Value);
+                            if (novelForTranslatorUpdate != null)
+                            {
+                                List<string> translatorIds = !string.IsNullOrWhiteSpace(novelForTranslatorUpdate.TranslatorId) ?
+                                                             System.Text.Json.JsonSerializer.Deserialize<List<string>>(novelForTranslatorUpdate.TranslatorId) ?? new List<string>() :
+                                                             new List<string>();
+                                string translatorIdToAdd = request.UserId.ToString();
+                                if (!translatorIds.Contains(translatorIdToAdd))
+                                {
+                                    translatorIds.Add(translatorIdToAdd);
+                                    novelForTranslatorUpdate.TranslatorId = System.Text.Json.JsonSerializer.Serialize(translatorIds);
+                                    _mySqlService.UpdateNovel(novelForTranslatorUpdate);
+                                }
+                            }
+                        }
+                        // ---- End: Auto add TranslatorId on AddChapter ----
                         break;
                     case ModerationRequestType.EditChapter:
                         chapterData = System.Text.Json.JsonSerializer.Deserialize<Chapter>(request.RequestData);
@@ -484,7 +640,32 @@ namespace BulbaLib.Controllers
                         break;
                     case ModerationRequestType.DeleteChapter:
                         if (!request.ChapterId.HasValue) throw new Exception("ChapterId is missing for delete request.");
+
+                        // Store novel ID and user ID before chapter is deleted, if needed for context
+                        int novelIdForDeleteCheck = request.NovelId.Value;
+                        int userIdForDeleteCheck = request.UserId;
+
                         _mySqlService.DeleteChapter(request.ChapterId.Value);
+
+                        // ---- Start: Auto remove TranslatorId on DeleteChapter ----
+                        var novelAfterDelete = _mySqlService.GetNovel(novelIdForDeleteCheck);
+                        if (novelAfterDelete != null && !string.IsNullOrWhiteSpace(novelAfterDelete.TranslatorId))
+                        {
+                            var remainingChaptersFromTranslator = _mySqlService.GetChaptersByNovel(novelIdForDeleteCheck)
+                                                                             .Any(c => c.CreatorId == userIdForDeleteCheck);
+                            if (!remainingChaptersFromTranslator)
+                            {
+                                List<string> translatorIds = System.Text.Json.JsonSerializer.Deserialize<List<string>>(novelAfterDelete.TranslatorId) ?? new List<string>();
+                                string translatorIdToRemove = userIdForDeleteCheck.ToString();
+                                if (translatorIds.Contains(translatorIdToRemove))
+                                {
+                                    translatorIds.Remove(translatorIdToRemove);
+                                    novelAfterDelete.TranslatorId = System.Text.Json.JsonSerializer.Serialize(translatorIds);
+                                    _mySqlService.UpdateNovel(novelAfterDelete);
+                                }
+                            }
+                        }
+                        // ---- End: Auto remove TranslatorId on DeleteChapter ----
                         break;
                     default:
                         throw new InvalidOperationException("Неподдерживаемый тип запроса для глав.");

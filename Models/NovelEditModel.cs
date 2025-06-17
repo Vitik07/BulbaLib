@@ -18,7 +18,7 @@ namespace BulbaLib.Models
         [DataType(DataType.MultilineText)]
         public string Description { get; set; }
 
-        public List<string> Covers { get; set; } = new List<string>(); // JSON string array e.g., ["url1", "url2"]
+        public List<string> KeptCovers { get; set; } = new List<string>(); // Renamed from Covers
 
         [Microsoft.AspNetCore.Mvc.ModelBinding.Validation.ValidateNever]
         [Display(Name = "Загрузить новые обложки")]
@@ -55,6 +55,9 @@ namespace BulbaLib.Models
         public int? AuthorId { get; set; }
         public string? AuthorLogin { get; set; } // For display purposes
 
+        [Display(Name = "ID Переводчиков (через запятую)")]
+        public string TranslatorId { get; set; }
+
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             if (ReleaseYear.HasValue && ReleaseYear.Value > DateTime.UtcNow.Year)
@@ -65,7 +68,7 @@ namespace BulbaLib.Models
             }
 
             // Check for at least one cover
-            bool hasExistingCovers = Covers != null && Covers.Any(c => !string.IsNullOrWhiteSpace(c));
+            bool hasExistingCovers = KeptCovers != null && KeptCovers.Any(c => !string.IsNullOrWhiteSpace(c)); // Updated to KeptCovers
             bool hasNewCoverFiles = NewCoverFiles != null && NewCoverFiles.Any(f => f != null && f.Length > 0);
 
             if (!hasExistingCovers && !hasNewCoverFiles)

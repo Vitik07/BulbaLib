@@ -1,0 +1,79 @@
+@model BulbaLib.Models.Novel
+@using System.Text.Json
+
+@if (Model == null)
+{
+    <p>Нет данных для отображения.</p>
+    return;
+}
+
+<dl class="row">
+    <dt class="col-sm-4">ID Новеллы:</dt>
+    <dd class="col-sm-8">@Model.Id</dd>
+
+    <dt class="col-sm-4">Название:</dt>
+    <dd class="col-sm-8">@Model.Title</dd>
+
+    <dt class="col-sm-4">Описание:</dt>
+    <dd class="col-sm-8"><pre style="white-space: pre-wrap; font-family: inherit;">@Model.Description</pre></dd>
+
+    <dt class="col-sm-4">Обложки (JSON):</dt>
+    <dd class="col-sm-8">
+        @if (!string.IsNullOrWhiteSpace(Model.Covers))
+        {
+            try
+            {
+                var coversList = JsonSerializer.Deserialize<List<string>>(Model.Covers);
+                if (coversList != null && coversList.Any())
+                {
+                    foreach (var coverUrl in coversList)
+                    {
+                        <img src="@coverUrl" alt="Обложка" style="max-width: 100px; max-height: 150px; margin-right: 5px; border: 1px solid #ddd;" />
+                    }
+                }
+                else
+                {
+                    <text>Нет обложек</text>
+                }
+            }
+            catch
+            {
+                <text>Ошибка отображения обложек: @Model.Covers</text>
+            }
+        }
+        else
+        {
+            <text>Нет обложек</text>
+        }
+    </dd>
+
+    <dt class="col-sm-4">Жанры (JSON):</dt>
+    <dd class="col-sm-8">@Model.Genres</dd>
+
+    <dt class="col-sm-4">Теги (JSON):</dt>
+    <dd class="col-sm-8">@Model.Tags</dd>
+
+    <dt class="col-sm-4">Тип:</dt>
+    <dd class="col-sm-8">@Model.Type</dd>
+
+    <dt class="col-sm-4">Формат:</dt>
+    <dd class="col-sm-8">@Model.Format</dd>
+
+    <dt class="col-sm-4">Год выпуска:</dt>
+    <dd class="col-sm-8">@(Model.ReleaseYear.HasValue ? Model.ReleaseYear.Value.ToString() : "-")</dd>
+
+    <dt class="col-sm-4">ID Автора:</dt>
+    <dd class="col-sm-8">@(Model.AuthorId.HasValue ? Model.AuthorId.Value.ToString() : "-")</dd>
+
+    <dt class="col-sm-4">ID Переводчиков:</dt>
+    <dd class="col-sm-8">@Model.TranslatorId</dd>
+
+    <dt class="col-sm-4">Альтернативные названия (JSON):</dt>
+    <dd class="col-sm-8">@Model.AlternativeTitles</dd>
+
+    <dt class="col-sm-4">Связанные новеллы (ID):</dt>
+    <dd class="col-sm-8">@Model.RelatedNovelIds</dd>
+
+    <dt class="col-sm-4">Дата создания/обновления на сайте:</dt>
+    <dd class="col-sm-8">@DateTimeOffset.FromUnixTimeSeconds(Model.Date).ToString("yyyy-MM-dd HH:mm:ss")</dd>
+</dl>

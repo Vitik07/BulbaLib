@@ -105,7 +105,14 @@ namespace BulbaLib.Controllers
             }
             ViewData["AllGenres"] = AllGenres;
             ViewData["AllTags"] = AllTags;
-            return View("~/Views/Novel/Create.cshtml", new NovelCreateModel());
+
+            var model = new NovelCreateModel();
+            if (currentUser.Role == UserRole.Author)
+            {
+                model.AuthorId = currentUser.Id;
+                ViewData["AuthorLoginForForm"] = currentUser.Login;
+            }
+            return View("~/Views/Novel/Create.cshtml", model);
         }
 
         [Authorize(Roles = "Admin,Author")]
@@ -222,7 +229,7 @@ namespace BulbaLib.Controllers
                 AlternativeTitles = serializedAlternativeTitles, // Use the already prepared variable
                 RelatedNovelIds = model.RelatedNovelIds,
                 Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                AuthorId = model.AuthorId
+                AuthorId = currentUser.Role == UserRole.Admin ? model.AuthorId : currentUser.Id,
             };
 
             if (_permissionService.CanAddNovelDirectly(currentUser))
@@ -263,7 +270,19 @@ namespace BulbaLib.Controllers
             else if (_permissionService.CanSubmitNovelForModeration(currentUser))
             {
                 _logger.LogInformation("[Create Novel POST] Path taken: CanSubmitNovelForModeration");
-                novelToCreate.Covers = JsonSerializer.Serialize(new List<string>()); // Initialize Covers before logging
+
+                string tempCoverPathJson = "[]";
+                if (model.CoverFile != null && model.CoverFile.Length > 0)
+                {
+                    string savedTempPath = await _fileService.SaveTempNovelCoverAsync(model.CoverFile);
+                    if (!string.IsNullOrEmpty(savedTempPath))
+                    {
+                        tempCoverPathJson = JsonSerializer.Serialize(new List<string> { savedTempPath });
+                    }
+                }
+                novelToCreate.Covers = tempCoverPathJson; // Сохраняем JSON массив с временным путем
+                // AuthorId is already correctly set for Author role earlier in novelToCreate initialization.
+
                 _logger.LogInformation($"[Create Novel POST] novelToCreate for moderation: {JsonSerializer.Serialize(novelToCreate)}");
 
                 var moderationRequest = new ModerationRequest
@@ -321,7 +340,8 @@ namespace BulbaLib.Controllers
                 //                    null :
                 //                    string.Join("\n", JsonSerializer.Deserialize<List<string>>(novel.AlternativeTitles) ?? new List<string>()),
                 RelatedNovelIds = novel.RelatedNovelIds, // This will be handled in a later step
-                AuthorId = novel.AuthorId
+                AuthorId = novel.AuthorId,
+                TranslatorId = novel.TranslatorId,
             };
 
             // Handle Covers separately with error catching and deserialization
@@ -338,7 +358,7 @@ namespace BulbaLib.Controllers
                     // Initialize with empty list if JSON is malformed
                 }
             }
-            novelEditModel.Covers = currentCovers;
+            novelEditModel.KeptCovers = currentCovers;
 
             // Handle AlternativeTitles separately with error catching
             if (string.IsNullOrWhiteSpace(novel.AlternativeTitles))
@@ -367,7 +387,7 @@ namespace BulbaLib.Controllers
             }
             ViewData["AllGenres"] = AllGenres;
             ViewData["AllTags"] = AllTags;
-            return View("~/Views/NovelView/Edit.cshtml", novelEditModel);
+            return View("~/Views/Novel/Edit.cshtml", novelEditModel);
         }
 
         [Authorize(Roles = "Admin,Author")]
@@ -385,7 +405,7 @@ namespace BulbaLib.Controllers
             _logger.LogInformation($"  Model ReleaseYear: {model.ReleaseYear}");
             _logger.LogInformation($"  Model AlternativeTitles: {model.AlternativeTitles}");
             _logger.LogInformation($"  Model RelatedNovelIds: {model.RelatedNovelIds}");
-            _logger.LogInformation($"  Model Covers (existing, kept by user): {(model.Covers == null ? "null" : string.Join(", ", model.Covers))}");
+            _logger.LogInformation($"  Model KeptCovers (existing, kept by user): {(model.KeptCovers == null ? "null" : string.Join(", ", model.KeptCovers))}");
             _logger.LogInformation($"  Model NewCoverFiles count: {(model.NewCoverFiles?.Count(f => f != null && f.Length > 0) ?? 0)}");
             // TODO: Log other relevant properties from NovelEditModel if any are added later e.g. AuthorLogin if it were part of POST
 
@@ -464,80 +484,64 @@ namespace BulbaLib.Controllers
                                         null :
                                         JsonSerializer.Serialize(model.AlternativeTitles.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList()),
                     RelatedNovelIds = model.RelatedNovelIds,
-                    AuthorId = model.AuthorId, // Changed from originalNovel.AuthorId
-                    Date = originalNovel.Date,
-                    TranslatorId = originalNovel.TranslatorId
+                    AuthorId = (currentUser.Role == UserRole.Admin) ? model.AuthorId : currentUser.Id, // Admin can change, Author forced to own ID
+                    Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(), // Update date on edit
+                    TranslatorId = originalNovel.TranslatorId // TranslatorId is now managed automatically
+                    // Covers will be set below based on role
                 };
 
-                if (_permissionService.CanAddNovelDirectly(currentUser))
+                if (_permissionService.CanAddNovelDirectly(currentUser)) // Admin Path
                 {
-                    // Initialize a list with covers that the user decided to keep (not removed via UI)
-                    List<string> updatedCoverPaths = new List<string>();
-                    if (model.Covers != null) // model.Covers contains paths from hidden inputs for existing covers
-                    {
-                        updatedCoverPaths.AddRange(model.Covers);
-                    }
-                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Initial updatedCoverPaths (kept covers): {JsonSerializer.Serialize(updatedCoverPaths)}");
+                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Processing covers. KeptCovers count: {model.KeptCovers?.Count ?? 0}, NewCoverFiles count: {model.NewCoverFiles?.Count(f => f != null && f.Length > 0) ?? 0}");
+                    List<string> finalCoverPathsForNovel = new List<string>();
 
-                    // Detailed logging for NewCoverFiles
-                    _logger.LogInformation("[Edit Novel POST - Admin Path] Before processing NewCoverFiles:");
-                    if (model.NewCoverFiles == null)
+                    // Add covers that user decided to keep
+                    if (model.KeptCovers != null)
                     {
-                        _logger.LogInformation("[Edit Novel POST - Admin Path] model.NewCoverFiles IS NULL.");
+                        finalCoverPathsForNovel.AddRange(model.KeptCovers);
                     }
-                    else
-                    {
-                        _logger.LogInformation($"[Edit Novel POST - Admin Path] model.NewCoverFiles is NOT NULL. Count: {model.NewCoverFiles.Count}");
-                        if (model.NewCoverFiles.Any())
-                        {
-                            for (int i = 0; i < model.NewCoverFiles.Count; i++)
-                            {
-                                if (model.NewCoverFiles[i] == null)
-                                {
-                                    _logger.LogInformation($"[Edit Novel POST - Admin Path] model.NewCoverFiles[{i}] IS NULL.");
-                                }
-                                else
-                                {
-                                    _logger.LogInformation($"[Edit Novel POST - Admin Path] model.NewCoverFiles[{i}] FileName: {model.NewCoverFiles[i].FileName}, Length: {model.NewCoverFiles[i].Length}, ContentType: {model.NewCoverFiles[i].ContentType}");
-                                }
-                            }
-                        }
-                        else
-                        {
-                            _logger.LogInformation("[Edit Novel POST - Admin Path] model.NewCoverFiles is empty (no files selected or all were null).");
-                        }
-                    }
+                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Paths after adding KeptCovers: {JsonSerializer.Serialize(finalCoverPathsForNovel)}");
 
-                    // Process newly uploaded files and add their paths to the list
-                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0))
+                    // Process newly uploaded files by Admin, save them directly to permanent location
+                    if (model.NewCoverFiles != null)
                     {
-                        _logger.LogInformation("[Edit Novel POST - Admin Path] Entering loop to process NewCoverFiles.");
                         foreach (var file in model.NewCoverFiles.Where(f => f != null && f.Length > 0))
                         {
-                            _logger.LogInformation($"[Edit Novel POST - Admin Path] Processing file: {file.FileName}, Length: {file.Length}");
-                            string newPath = await _fileService.SaveNovelCoverAsync(file, originalNovel.Id);
-                            _logger.LogInformation($"[Edit Novel POST - Admin Path] SaveNovelCoverAsync result for {file.FileName}: '{newPath}'");
-                            if (!string.IsNullOrEmpty(newPath))
+                            _logger.LogInformation($"[Edit Novel POST - Admin Path] Saving new cover directly: {file.FileName}");
+                            string newPermanentPath = await _fileService.SaveNovelCoverAsync(file, originalNovel.Id);
+                            if (!string.IsNullOrEmpty(newPermanentPath))
                             {
-                                updatedCoverPaths.Add(newPath);
+                                finalCoverPathsForNovel.Add(newPermanentPath);
+                                _logger.LogInformation($"[Edit Novel POST - Admin Path] Saved new cover to: {newPermanentPath}");
+                            }
+                            else
+                            {
+                                _logger.LogWarning($"[Edit Novel POST - Admin Path] Failed to save new cover: {file.FileName}");
                             }
                         }
-                        _logger.LogInformation($"[Edit Novel POST - Admin Path] After processing NewCoverFiles, updatedCoverPaths: {JsonSerializer.Serialize(updatedCoverPaths)}");
                     }
-                    else
+                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Paths after processing NewCoverFiles: {JsonSerializer.Serialize(finalCoverPathsForNovel)}");
+
+                    // Determine and delete covers that were removed by the Admin
+                    List<string> originalCoversList = new List<string>();
+                    if (!string.IsNullOrWhiteSpace(originalNovel.Covers))
                     {
-                        _logger.LogInformation("[Edit Novel POST - Admin Path] No new valid files to process in NewCoverFiles.");
+                        try { originalCoversList = JsonSerializer.Deserialize<List<string>>(originalNovel.Covers) ?? new List<string>(); }
+                        catch (JsonException ex) { _logger.LogWarning(ex, $"[Edit Novel POST - Admin Path] Error deserializing originalNovel.Covers JSON: {originalNovel.Covers}"); }
                     }
 
-                    // Assign the consolidated list of unique cover paths to the novel object being prepared for update.
-                    var distinctCoverPaths = updatedCoverPaths.Distinct().ToList();
-                    novelWithChanges.Covers = JsonSerializer.Serialize(distinctCoverPaths);
-                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Final novelWithChanges.Covers (JSON serialized): {novelWithChanges.Covers}");
+                    foreach (var oldCoverPath in originalCoversList)
+                    {
+                        if (!finalCoverPathsForNovel.Contains(oldCoverPath))
+                        {
+                            _logger.LogInformation($"[Edit Novel POST - Admin Path] Deleting cover marked for removal: {oldCoverPath}");
+                            await _fileService.DeleteCoverAsync(oldCoverPath); // Use the new async delete method
+                        }
+                    }
 
-                    // Ensure originalNovel fields are updated before calling UpdateNovel
-                    originalNovel.Title = novelWithChanges.Title;
+                    // Update originalNovel instance with all changes
+                    originalNovel.Title = novelWithChanges.Title; // novelWithChanges has form data
                     originalNovel.Description = novelWithChanges.Description;
-                    originalNovel.Covers = novelWithChanges.Covers;
                     originalNovel.Genres = novelWithChanges.Genres;
                     originalNovel.Tags = novelWithChanges.Tags;
                     originalNovel.Type = novelWithChanges.Type;
@@ -545,9 +549,12 @@ namespace BulbaLib.Controllers
                     originalNovel.ReleaseYear = novelWithChanges.ReleaseYear;
                     originalNovel.AlternativeTitles = novelWithChanges.AlternativeTitles;
                     originalNovel.RelatedNovelIds = novelWithChanges.RelatedNovelIds;
-                    originalNovel.AuthorId = novelWithChanges.AuthorId; // Ensure AuthorId is updated from novelWithChanges
+                    originalNovel.AuthorId = novelWithChanges.AuthorId; // This was correctly set in novelWithChanges for Admin
+                    // originalNovel.TranslatorId = novelWithChanges.TranslatorId; // This line is removed as TranslatorId is auto-managed
+                    originalNovel.Date = novelWithChanges.Date; // Ensure date is updated
+                    originalNovel.Covers = JsonSerializer.Serialize(finalCoverPathsForNovel.Distinct().ToList());
 
-                    _logger.LogInformation("[Edit Novel POST - Admin Path] Logging final originalNovel data (which includes novelWithChanges updates) before UpdateNovel:");
+                    _logger.LogInformation("[Edit Novel POST - Admin Path] Logging final originalNovel data before UpdateNovel:");
                     _logger.LogInformation($"  ID: {originalNovel.Id}");
                     _logger.LogInformation($"  Title: {originalNovel.Title}");
                     _logger.LogInformation($"  Description: {originalNovel.Description}");
@@ -568,71 +575,35 @@ namespace BulbaLib.Controllers
                 }
                 else if (currentUser.Role == UserRole.Author && originalNovel.AuthorId == currentUser.Id)
                 {
-                    // Initialize a list for updated cover paths
-                    List<string> updatedCoverPaths = new List<string>(); // Renamed to avoid conflict with the admin block's variable
-
-                    // Add existing covers that were kept by the user
-                    if (model.Covers != null)
+                    _logger.LogInformation($"[Edit Novel POST - Author Path] Processing covers for author. KeptCovers count: {model.KeptCovers?.Count ?? 0}, NewCoverFiles count: {model.NewCoverFiles?.Count(f => f != null && f.Length > 0) ?? 0}");
+                    List<string> allCoverPaths = new List<string>();
+                    if (model.KeptCovers != null) // Пути к существующим обложкам, которые автор решил оставить
                     {
-                        updatedCoverPaths.AddRange(model.Covers);
-                    }
-                    _logger.LogInformation($"[Edit Novel POST - Author Path] Initial updatedCoverPaths (kept covers): {JsonSerializer.Serialize(updatedCoverPaths)}");
-
-
-                    // Detailed logging for NewCoverFiles (repeated for the author branch)
-                    _logger.LogInformation("[Edit Novel POST - Author Path] Before processing NewCoverFiles:");
-                    if (model.NewCoverFiles == null)
-                    {
-                        _logger.LogInformation("[Edit Novel POST - Author Path] model.NewCoverFiles IS NULL.");
-                    }
-                    else
-                    {
-                        _logger.LogInformation($"[Edit Novel POST - Author Path] model.NewCoverFiles is NOT NULL. Count: {model.NewCoverFiles.Count}");
-                        if (model.NewCoverFiles.Any())
-                        {
-                            for (int i = 0; i < model.NewCoverFiles.Count; i++)
-                            {
-                                if (model.NewCoverFiles[i] == null)
-                                {
-                                    _logger.LogInformation($"[Edit Novel POST - Author Path] model.NewCoverFiles[{i}] IS NULL.");
-                                }
-                                else
-                                {
-                                    _logger.LogInformation($"[Edit Novel POST - Author Path] model.NewCoverFiles[{i}] FileName: {model.NewCoverFiles[i].FileName}, Length: {model.NewCoverFiles[i].Length}, ContentType: {model.NewCoverFiles[i].ContentType}");
-                                }
-                            }
-                        }
-                        else
-                        {
-                            _logger.LogInformation("[Edit Novel POST - Author Path] model.NewCoverFiles is empty (no files selected or all were null).");
-                        }
+                        allCoverPaths.AddRange(model.KeptCovers);
                     }
 
-                    // Process newly uploaded files
-                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0))
+                    if (model.NewCoverFiles != null)
                     {
-                        _logger.LogInformation("[Edit Novel POST - Author Path] Entering loop to process NewCoverFiles.");
                         foreach (var file in model.NewCoverFiles.Where(f => f != null && f.Length > 0))
                         {
-                            _logger.LogInformation($"[Edit Novel POST - Author Path] Processing file: {file.FileName}, Length: {file.Length}");
-                            string newPath = await _fileService.SaveNovelCoverAsync(file, originalNovel.Id);
-                            _logger.LogInformation($"[Edit Novel POST - Author Path] SaveNovelCoverAsync result for {file.FileName}: '{newPath}'");
-                            if (!string.IsNullOrEmpty(newPath))
+                            _logger.LogInformation($"[Edit Novel POST - Author Path] Saving temp cover for file: {file.FileName}");
+                            string tempPath = await _fileService.SaveTempNovelCoverAsync(file);
+                            if (!string.IsNullOrEmpty(tempPath))
                             {
-                                updatedCoverPaths.Add(newPath);
+                                allCoverPaths.Add(tempPath);
+                                _logger.LogInformation($"[Edit Novel POST - Author Path] Saved temp cover to: {tempPath}");
+                            }
+                            else
+                            {
+                                _logger.LogWarning($"[Edit Novel POST - Author Path] Failed to save temp cover for file: {file.FileName}");
                             }
                         }
-                        _logger.LogInformation($"[Edit Novel POST - Author Path] After processing NewCoverFiles, updatedCoverPaths: {JsonSerializer.Serialize(updatedCoverPaths)}");
-                    }
-                    else
-                    {
-                        _logger.LogInformation("[Edit Novel POST - Author Path] No new valid files to process in NewCoverFiles.");
                     }
 
-                    // Update novelWithChanges.Covers with the new list
-                    var distinctCoverPaths_Author = updatedCoverPaths.Distinct().ToList(); // Renamed to avoid conflict
-                    novelWithChanges.Covers = JsonSerializer.Serialize(distinctCoverPaths_Author);
-                    _logger.LogInformation($"[Edit Novel POST - Author Path] Final novelWithChanges.Covers (JSON serialized) for ModerationRequest: {novelWithChanges.Covers}");
+                    novelWithChanges.Covers = JsonSerializer.Serialize(allCoverPaths.Distinct().ToList());
+                    _logger.LogInformation($"[Edit Novel POST - Author Path] Serialized allCoverPaths for novelWithChanges.Covers: {novelWithChanges.Covers}");
+                    // novelWithChanges.AuthorId is already set to currentUser.Id
+                    // novelWithChanges.TranslatorId is already set to originalNovel.TranslatorId
 
                     var moderationRequest = new ModerationRequest
                     {
@@ -685,7 +656,7 @@ namespace BulbaLib.Controllers
             model.AuthorLogin = _mySqlService.GetUser(model.AuthorId ?? 0)?.Login;
             ViewData["AllGenres"] = AllGenres;
             ViewData["AllTags"] = AllTags;
-            return View("~/Views/NovelView/Edit.cshtml", model);
+            return View("~/Views/Novel/Edit.cshtml", model);
         }
 
         [Authorize(Roles = "Admin,Author")]

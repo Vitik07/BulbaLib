@@ -1,8 +1,14 @@
 ﻿@model BulbaLib.Models.NovelEditModel
 @{
-    Layout = null; // Можно заменить на общий Layout, если требуется
+    Layout = null;
+
+
 
     ViewData["Title"] = "Редактировать новеллу";
+
+    var genresToSerialize = (ViewData["AllGenres"] as List<string>) ?? new List<string>();
+
+    var tagsToSerialize = (ViewData["AllTags"] as List<string>) ?? new List<string>();
 }
 <!DOCTYPE html>
 <html lang="ru">
@@ -18,7 +24,7 @@
     <div class="container">
         <main role="main" class="pb-3">
             <h2>@ViewData["Title"]: @Model.Title</h2>
-            <form asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data">
+            <form asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" id="novelEditForm">
                 @Html.AntiForgeryToken()
                 <input type="hidden" asp-for="Id" />
                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>
@@ -46,7 +52,7 @@
 
                 <div class="form-group mb-3">
                     <label asp-for="NewCoverFiles" class="control-label">Добавить новые обложки</label>
-                    <input asp-for="NewCoverFiles" type="file" multiple class="form-control" />
+                    <input asp-for="NewCoverFiles" type="file" multiple class="form-control" id="NewCoverFiles" />
                     <span asp-validation-for="NewCoverFiles" class="text-danger"></span>
                     <small class="form-text text-muted">Выберите один или несколько файлов. Новые обложки будут добавлены к существующим. Вы можете удалить отдельные текущие обложки с помощью кнопки (×).</small>
                 </div>
@@ -54,32 +60,38 @@
                 <div class="form-group mb-3">
                     <label class="control-label">Текущие обложки</label>
                     <div id="currentCoversContainer" class="mt-2 d-flex flex-wrap" style="display: flex; flex-wrap: wrap; flex-direction: row;">
-                        @if (Model.Covers != null && Model.Covers.Any())
+                        @if (Model.KeptCovers != null && Model.KeptCovers.Any())
+
                         {
-                            for (int i = 0; i < Model.Covers.Count; i++)
+
+                            for (int i = 0; i < Model.KeptCovers.Count; i++)
+
                             {
-                                var coverPath = Model.Covers[i];
-                                <div class="current-cover-item me-2 mb-2" style="position: relative; border: 1px solid #ddd; padding: 5px; width: 112px; height: 162px; /* width = 100px (img) + 5px*2 (padding) + 1px*2 (border), height similar */">
+
+                                var coverPath = Model.KeptCovers[i];
+                                <div class="current-cover-item me-2 mb-2" style="position: relative; border: 1px solid #ddd; padding: 5px; width: 112px; height: 162px;">
                                     <img src="@Url.Content(coverPath)" alt="Обложка" style="width: 100px; height: 150px; display: block; object-fit: cover;" />
                                     <button type="button" class="btn btn-danger btn-sm remove-cover-btn" data-cover-path="@coverPath" style="position: absolute; top: 0px; right: 0px; padding: 1px 4px; line-height: 1;">&times;</button>
-                                    @* Hidden input to send back kept covers *@
-                                    <input type="hidden" name="Covers[@i]" value="@coverPath" class="kept-cover-input" />
+                                    <input type="hidden" name="KeptCovers[@i]" value="@coverPath" class="kept-cover-input" />
                                 </div>
                             }
+
                         }
+
                         else
+
                         {
                             <p>Нет загруженных обложек.</p>
                         }
                     </div>
-                    <span asp-validation-for="Covers" class="text-danger"></span>
+                    <span asp-validation-for="KeptCovers" class="text-danger"></span>
                 </div>
 
                 <div class="form-group mb-3">
                     <label asp-for="Genres" class="control-label"></label>
                     <div id="selectedGenresContainer" class="mt-2"></div>
                     <button type="button" id="addGenreBtn" class="btn btn-sm btn-primary mt-1">Добавить жанр</button>
-                    <input type="hidden" asp-for="Genres" />
+                    <input type="hidden" asp-for="Genres" id="Genres" />
                     <span asp-validation-for="Genres" class="text-danger"></span>
                 </div>
 
@@ -87,7 +99,7 @@
                     <label asp-for="Tags" class="control-label"></label>
                     <div id="selectedTagsContainer" class="mt-2"></div>
                     <button type="button" id="addTagBtn" class="btn btn-sm btn-primary mt-1">Добавить тег</button>
-                    <input type="hidden" asp-for="Tags" />
+                    <input type="hidden" asp-for="Tags" id="Tags" />
                     <span asp-validation-for="Tags" class="text-danger"></span>
                 </div>
 
@@ -122,18 +134,18 @@
                     <small class="form-text text-muted">Укажите год релиза (4 цифры, например, 2023). Год должен быть не ранее 1900 и не позднее 2099.</small>
                 </div>
 
+                @* Блок для TranslatorId удален согласно задаче *@
+
                 <div class="form-group mb-3">
                     <label for="relatedNovelSearchInput" class="control-label">Связанные новеллы (поиск по названию)</label>
                     <input type="text" id="relatedNovelSearchInput" class="form-control" autocomplete="off" placeholder="Начните вводить название новеллы..." />
                     <div id="relatedNovelSuggestionsContainer" class="author-suggestions-container" style="display: none; max-height: 200px; overflow-y: auto; position:relative;">
-                        @* Результаты поиска будут здесь *@
                     </div>
                 </div>
 
                 <div class="form-group mb-3">
                     <label class="control-label">Выбранные связанные новеллы</label>
                     <div id="selectedRelatedNovelsContainer" class="mt-1 selected-items-container">
-                        @* Выбранные новеллы (как бэджи/теги) будут здесь *@
                     </div>
                 </div>
 
@@ -144,7 +156,7 @@
                     <small class="form-text text-muted">Каждое альтернативное название вводите с новой строки.</small>
                 </div>
 
-                <input type="hidden" asp-for="RelatedNovelIds" />
+                <input type="hidden" asp-for="RelatedNovelIds" id="RelatedNovelIds" />
 
                 <div class="form-group mt-3">
                     <button type="submit" class="btn btn-primary">Сохранить изменения</button>
@@ -175,17 +187,12 @@
         </div>
     </div>
 
-    @{
-        var genresToSerialize = (ViewData["AllGenres"] as List<string>) ?? new List<string>();
-
-        var tagsToSerialize = (ViewData["AllTags"] as List<string>) ?? new List<string>();
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
-
+    @await Html.PartialAsync("_ValidationScriptsPartial")
 
     <script>
-        // Весь JS-код из Create.cshtml (жанры, теги, автор, связанные новеллы), только поправить инициализацию значений для редактирования:
         document.addEventListener('DOMContentLoaded', function () {
+            console.log("DEBUG: DOMContentLoaded event fired");
+
             function decodeHtmlEntities(text) {
                 if (text === null || typeof text === 'undefined') {
                     return '';
@@ -195,44 +202,37 @@
                 return textArea.value;
             }
 
-            // --- Жанры и теги ---
             const allGenres = @Html.Raw(Json.Serialize(genresToSerialize));
             const allTags = @Html.Raw(Json.Serialize(tagsToSerialize));
             let selectedGenres = [];
             let selectedTags = [];
             const hiddenGenresInput = document.getElementById('Genres');
             const hiddenTagsInput = document.getElementById('Tags');
-            // Инициализация для Edit
+
             function parseInitialItems(initialString) {
                 if (!initialString) return [];
-                
-                const decodedString = decodeHtmlEntities(initialString); // Decode first
-
+                const decodedString = decodeHtmlEntities(initialString);
                 try {
-                    // Attempt to parse as JSON (common for values set by JS like ["Action", "Adventure"])
                     const jsonParsed = JSON.parse(decodedString);
                     if (Array.isArray(jsonParsed)) {
-                        return jsonParsed.map(item => decodeHtmlEntities(item.toString())); // Decode items again in case of double encoding or already JSON encoded HTML
+                        return jsonParsed.map(item => decodeHtmlEntities(item.toString()));
                     }
                 } catch (e) {
-                    // Fallback: if not valid JSON, treat as comma-separated string
-                    // (common for values directly from DB like "Драма,Комедия")
                     return decodedString.split(',')
-                                    .map(item => item.trim())
-                                    .filter(item => item)
-                                    .map(item => decodeHtmlEntities(item)); // Ensure individual items are also decoded
+                        .map(item => item.trim())
+                        .filter(item => item)
+                        .map(item => decodeHtmlEntities(item));
                 }
-                // If it was JSON but not an array (should not happen for genres/tags list)
-                // or if initialString was empty after decoding.
                 return decodedString.split(',')
-                             .map(item => item.trim())
-                             .filter(item => item)
-                             .map(item => decodeHtmlEntities(item));
+                    .map(item => item.trim())
+                    .filter(item => item)
+                    .map(item => decodeHtmlEntities(item));
             }
             selectedGenres = parseInitialItems(@Html.Raw(Json.Serialize(Model.Genres)));
             selectedTags = parseInitialItems(@Html.Raw(Json.Serialize(Model.Tags)));
             if (hiddenGenresInput) hiddenGenresInput.value = JSON.stringify(selectedGenres);
             if (hiddenTagsInput) hiddenTagsInput.value = JSON.stringify(selectedTags);
+
             function renderSelectedItemsAsBadges(containerId, selectedArray, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef) {
                 const container = document.getElementById(containerId);
                 if (!container) return;
@@ -257,6 +257,7 @@
                     container.appendChild(badge);
                 });
             }
+
             function populateModalWithCheckboxes(containerId, items, selectedItemsArray, type) {
                 const container = document.getElementById(containerId);
                 if (!container) return;
@@ -265,12 +266,13 @@
                     const checkboxId = `${type}-${item.replace(/\s+/g, '-')}`;
                     const isChecked = selectedItemsArray.includes(item);
                     container.innerHTML += `
-                                <div>
-                                    <input type="checkbox" id="${checkboxId}" name="${type}" value="${item}" ${isChecked ? 'checked' : ''}>
-                                    <label for="${checkboxId}">${item}</label>
-                                </div>`;
+                            <div>
+                                <input type="checkbox" id="${checkboxId}" name="${type}" value="${item}" ${isChecked ? 'checked' : ''}>
+                                <label for="${checkboxId}">${item}</label>
+                            </div>`;
                 });
             }
+
             const genreModal = document.getElementById('genreModal');
             const addGenreBtn = document.getElementById('addGenreBtn');
             const closeGenreModal = document.getElementById('closeGenreModal');
@@ -279,6 +281,7 @@
                 if (genreModal) genreModal.style.display = 'block';
             }
             if (closeGenreModal) closeGenreModal.onclick = function () { if (genreModal) genreModal.style.display = 'none'; }
+
             const tagModal = document.getElementById('tagModal');
             const addTagBtn = document.getElementById('addTagBtn');
             const closeTagModal = document.getElementById('closeTagModal');
@@ -287,6 +290,7 @@
                 if (tagModal) tagModal.style.display = 'block';
             }
             if (closeTagModal) closeTagModal.onclick = function () { if (tagModal) tagModal.style.display = 'none'; }
+
             const saveGenreSelectionBtn = document.getElementById('saveGenreSelectionBtn');
             if (saveGenreSelectionBtn) saveGenreSelectionBtn.onclick = function () {
                 selectedGenres = [];
@@ -297,6 +301,7 @@
                 if (genreModal) genreModal.style.display = 'none';
                 renderSelectedItemsAsBadges('selectedGenresContainer', selectedGenres, hiddenGenresInput, 'genre', allGenres, selectedGenres);
             }
+
             const saveTagSelectionBtn = document.getElementById('saveTagSelectionBtn');
             if (saveTagSelectionBtn) saveTagSelectionBtn.onclick = function () {
                 selectedTags = [];
@@ -307,6 +312,7 @@
                 if (tagModal) tagModal.style.display = 'none';
                 renderSelectedItemsAsBadges('selectedTagsContainer', selectedTags, hiddenTagsInput, 'tag', allTags, selectedTags);
             }
+
             const addCustomGenreBtn = document.getElementById('addCustomGenreBtn');
             const customGenreInput = document.getElementById('customGenreInput');
             if (addCustomGenreBtn && customGenreInput) addCustomGenreBtn.onclick = function () {
@@ -320,6 +326,7 @@
                 populateModalWithCheckboxes('genreListContainer', allGenres, selectedGenres, 'genre');
                 if (customGenreInput) customGenreInput.value = '';
             };
+
             const addCustomTagBtn = document.getElementById('addCustomTagBtn');
             const customTagInput = document.getElementById('customTagInput');
             if (addCustomTagBtn && customTagInput) addCustomTagBtn.onclick = function () {
@@ -333,6 +340,7 @@
                 populateModalWithCheckboxes('tagListContainer', allTags, selectedTags, 'tag');
                 if (customTagInput) customTagInput.value = '';
             };
+
             window.onclick = function (event) {
                 if (event.target == genreModal) {
                     if (genreModal) genreModal.style.display = 'none';
@@ -341,6 +349,7 @@
                     if (tagModal) tagModal.style.display = 'none';
                 }
             };
+
             renderSelectedItemsAsBadges('selectedGenresContainer', selectedGenres, hiddenGenresInput, 'genre', allGenres, selectedGenres);
             renderSelectedItemsAsBadges('selectedTagsContainer', selectedTags, hiddenTagsInput, 'tag', allTags, selectedTags);
 
@@ -365,7 +374,7 @@
                                 const div = document.createElement('div');
                                 div.className = 'author-suggestion-item';
                                 div.innerHTML = `<img src="${u.avatarUrl || '/Resource/default-avatar.jpg'}" class="author-suggestion-avatar" alt="">
-                                                            <span>${u.login}</span>`;
+                                        <span>${u.login}</span>`;
                                 div.addEventListener('mousedown', function (evt) {
                                     evt.preventDefault();
                                     authorNameInput.value = u.login;
@@ -400,11 +409,8 @@
             const relatedNovelSuggestionsContainer = document.getElementById('relatedNovelSuggestionsContainer');
             const selectedRelatedNovelsContainer = document.getElementById('selectedRelatedNovelsContainer');
             const hiddenRelatedNovelIdsInput = document.getElementById('RelatedNovelIds');
-            let selectedNovelsData = []; // { id: number, title: string, coverUrl?: string }
-
-            // Инициализация для Edit
-            const initialRelatedNovelIdsString = @Html.Raw(Json.Serialize(Model.RelatedNovelIds)); // Use Html.Raw
-
+            let selectedNovelsData = [];
+            const initialRelatedNovelIdsString = @Html.Raw(Json.Serialize(Model.RelatedNovelIds));
             function fetchAndRenderInitialRelatedNovels() {
                 if (initialRelatedNovelIdsString && hiddenRelatedNovelIdsInput) {
                     const initialIds = initialRelatedNovelIdsString.split(',')
@@ -412,12 +418,10 @@
                         .filter(id => !isNaN(id) && id > 0);
 
                     if (initialIds.length > 0) {
-                        // Display initial badges with IDs first
                         selectedNovelsData = initialIds.map(id => ({ id: id, title: "ID: " + id + " (загрузка...)" }));
-                        renderSelectedNovelsBadges(); 
-                        updateHiddenRelatedNovelIdsInput(); // Keep this to ensure IDs are set
+                        renderSelectedNovelsBadges();
+                        updateHiddenRelatedNovelIdsInput();
 
-                        // Fetch full details
                         fetch(`/api/Novels/detailsByIds?ids=${initialIds.join(',')}`)
                             .then(response => {
                                 if (!response.ok) {
@@ -427,39 +431,32 @@
                             })
                             .then(novelsFromServer => {
                                 if (novelsFromServer && Array.isArray(novelsFromServer)) {
-                                    // Update selectedNovelsData with titles and potentially cover URLs
                                     selectedNovelsData = selectedNovelsData.map(selNovel => {
                                         const foundNovel = novelsFromServer.find(srvNovel => srvNovel.id === selNovel.id);
                                         return foundNovel ? { id: foundNovel.id, title: foundNovel.title, coverUrl: foundNovel.firstCoverUrl } : selNovel;
                                     });
-                                    renderSelectedNovelsBadges(); // Re-render with actual titles
+                                    renderSelectedNovelsBadges();
                                 }
                             })
                             .catch(error => {
                                 console.error("Error fetching initial related novel details:", error);
-                                // Optionally, update badges to show "ID: X (ошибка загрузки)"
                                 selectedNovelsData = selectedNovelsData.map(novel => ({ ...novel, title: `ID: ${novel.id} (ошибка)` }));
                                 renderSelectedNovelsBadges();
                             });
                     }
                 }
             }
-            
-            function createNovelBadge(novel) { // novel is { id: number, title: string, coverUrl?: string }
+            function createNovelBadge(novel) {
                 const badge = document.createElement('span');
-                badge.className = 'badge bg-info me-2 mb-2 d-flex align-items-center p-1'; // Use d-flex for layout
-                
-                let badgeContent = ''; // Initialize badgeContent
-                // The 'if (novel.coverUrl)' block that added the image is removed.
-                badgeContent += novel.title; // Append title
-
-                badge.innerHTML = badgeContent; // Set innerHTML to include title
-
+                badge.className = 'badge bg-info me-2 mb-2 d-flex align-items-center p-1';
+                let badgeContent = '';
+                badgeContent += novel.title;
+                badge.innerHTML = badgeContent;
                 const removeBtn = document.createElement('span');
                 removeBtn.innerHTML = '&times;';
-                removeBtn.className = 'ms-2 fw-bold remove-related-novel-btn'; // Added class for specific targeting if needed
+                removeBtn.className = 'ms-2 fw-bold remove-related-novel-btn';
                 removeBtn.style.cursor = 'pointer';
-                removeBtn.style.marginLeft = 'auto'; // Push remove button to the right
+                removeBtn.style.marginLeft = 'auto';
                 removeBtn.onclick = function () {
                     selectedNovelsData = selectedNovelsData.filter(n => n.id !== novel.id);
                     renderSelectedNovelsBadges();
@@ -468,7 +465,6 @@
                 badge.appendChild(removeBtn);
                 return badge;
             }
-
             function renderSelectedNovelsBadges() {
                 if (!selectedRelatedNovelsContainer) return;
                 selectedRelatedNovelsContainer.innerHTML = '';
@@ -477,63 +473,117 @@
                     selectedRelatedNovelsContainer.appendChild(badge);
                 });
             }
-            
             function updateHiddenRelatedNovelIdsInput() {
                 if (hiddenRelatedNovelIdsInput) {
                     hiddenRelatedNovelIdsInput.value = selectedNovelsData.map(n => n.id).join(',');
                 }
             }
-            
-            // Call the function to load initial related novels
             fetchAndRenderInitialRelatedNovels();
 
             // --- Cover Image Management ---
-            const currentCoversContainer = document.getElementById('currentCoversContainer');
-            if (currentCoversContainer) {
-                currentCoversContainer.addEventListener('click', function(event) {
-                    if (event.target.classList.contains('remove-cover-btn')) {
-                        const coverItemDiv = event.target.closest('.current-cover-item');
-                        if (coverItemDiv) {
-                            // Remove the hidden input associated with this cover
-                            const hiddenInput = coverItemDiv.querySelector('.kept-cover-input');
-                            if (hiddenInput) {
-                                hiddenInput.remove(); // This effectively removes it from being submitted in the Covers list
-                            }
-                            coverItemDiv.remove(); // Remove the visual representation
+            const form = document.getElementById('novelEditForm');
+            console.log("DEBUG: GetElementById for 'novelEditForm' result:", form);
 
-                            // Optional: if no covers left, show a message
-                            if (!currentCoversContainer.querySelector('.current-cover-item')) {
-                                const noCoversMsg = document.createElement('p');
-                                noCoversMsg.textContent = 'Все обложки удалены. При сохранении, если не будут загружены новые, новелла останется без обложек.';
-                                currentCoversContainer.appendChild(noCoversMsg);
-                            }
-                        }
-                    }
-                });
-            }
-
-            // --- Live Preview for New Cover Images ---
             const newCoverFilesInput = document.getElementById('NewCoverFiles');
-            let newSelectedFiles = []; // Array to store File objects
+            console.log("DEBUG: GetElementById for 'NewCoverFiles' result:", newCoverFilesInput);
+
+            let newSelectedFiles = [];
             const newCoversPreviewContainer = document.createElement('div');
             newCoversPreviewContainer.id = 'newCoversPreviewContainer';
-            newCoversPreviewContainer.className = 'mt-2 d-flex flex-wrap'; // Similar styling to currentCoversContainer
-            // Insert the preview container after the file input's form-group.
-            const fileInputFormGroup = newCoverFilesInput.closest('.form-group');
-            if (fileInputFormGroup) {
-                // Insert after the form-group, not inside it or after the input itself.
-                fileInputFormGroup.parentNode.insertBefore(newCoversPreviewContainer, fileInputFormGroup.nextSibling);
+            newCoversPreviewContainer.className = 'mt-2 d-flex flex-wrap';
+
+            if (newCoverFilesInput) {
+                const fileInputFormGroup = newCoverFilesInput.closest('.form-group');
+                if (fileInputFormGroup && fileInputFormGroup.parentNode) {
+                    fileInputFormGroup.parentNode.insertBefore(newCoversPreviewContainer, fileInputFormGroup.nextSibling);
+                } else {
+                    console.error("DEBUG: Could not find parent for newCoversPreviewContainer insertion.");
+                }
+            } else {
+                console.error("DEBUG: newCoverFilesInput is null, cannot setup preview container relative to it.");
+            }
+
+            if (form) {
+                form.addEventListener('submit', function (event) {
+                    console.log("DEBUG: Submit event triggered");
+                    event.preventDefault();
+
+                    const currentCoversContainer = document.getElementById('currentCoversContainer');
+                    if (currentCoversContainer) {
+                        const keptCoverInputs = currentCoversContainer.querySelectorAll('input[type="hidden"].kept-cover-input');
+                        keptCoverInputs.forEach((input, index) => {
+                            // Ensure correct naming for model binding if this script path is still used
+                            // For KeptCovers to bind as List<string> KeptCovers, names should be KeptCovers[index]
+                            input.name = `KeptCovers[${index}]`;
+                        });
+                    }
+
+                    const originalFormData = new FormData(form);
+                    const finalFormData = new FormData();
+                    console.log("DEBUG: Initial FormData created from form.");
+
+                    for (const pair of originalFormData.entries()) {
+                        if (pair[0] !== 'NewCoverFiles') {
+                            finalFormData.append(pair[0], pair[1]);
+                        }
+                    }
+                    console.log("DEBUG: FormData populated without original NewCoverFiles.");
+
+                    if (newSelectedFiles && newSelectedFiles.length > 0) {
+                        console.log('DEBUG: Appending files to FormData. Count:', newSelectedFiles.length);
+                        newSelectedFiles.forEach(file => {
+                            finalFormData.append('NewCoverFiles', file, file.name);
+                            console.log('DEBUG: Appended file:', file.name, 'Type:', file.type, 'Size:', file.size);
+                        });
+                    } else {
+                        console.log('DEBUG: No new files selected to append.');
+                    }
+
+                    console.log('DEBUG: Final FormData entries before fetch:');
+                    for (const pair of finalFormData.entries()) {
+                        const value = pair[1] instanceof File ? `File: ${pair[1].name}, Size: ${pair[1].size}, Type: ${pair[1].type}` : pair[1];
+                        console.log(pair[0] + ':', value);
+                    }
+
+                    fetch(form.action, {
+                        method: form.method,
+                        body: finalFormData,
+                        headers: {}
+                    })
+                        .then(response => {
+                            if (response.ok) {
+                                if (response.redirected) {
+                                    window.location.href = response.url;
+                                } else {
+                                    window.location.reload();
+                                }
+                            } else {
+                                response.text().then(text => {
+                                    console.error('Form submission error:', text);
+                                    alert('An error occurred while saving. Details in the browser console (F12).');
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Network error or other issue:', error);
+                            alert('Network error or other problem submitting the form. Details in the browser console (F12).');
+                        });
+                });
+                console.log("DEBUG: Submit event listener attached to form.");
+            } else {
+                console.error("DEBUG: Form with ID 'novelEditForm' not found. Submit event listener NOT attached.");
             }
 
             if (newCoverFilesInput) {
-                newCoverFilesInput.addEventListener('change', function(event) {
-                    newCoversPreviewContainer.innerHTML = ''; // Clear previous previews
-                    newSelectedFiles = []; // Reset the array of selected files
+                newCoverFilesInput.addEventListener('change', function (event) {
+                    console.log("DEBUG: Change event triggered on NewCoverFiles input.");
+                    newCoversPreviewContainer.innerHTML = '';
+                    newSelectedFiles = [];
                     const files = event.target.files;
 
                     if (files && files.length > 0) {
                         const titleLabel = document.createElement('p');
-                        titleLabel.textContent = 'Предпросмотр новых обложек:';
+                        titleLabel.textContent = 'Preview of new covers:';
                         titleLabel.className = 'w-100 mb-1';
                         newCoversPreviewContainer.appendChild(titleLabel);
                     }
@@ -541,11 +591,9 @@
                     for (let i = 0; i < files.length; i++) {
                         const file = files[i];
                         if (file.type.startsWith('image/')) {
-                            newSelectedFiles.push(file); // Add file to our array
-                            // const fileIndex = newSelectedFiles.length - 1; // Get index for removal - not used with current removal logic
-
+                            newSelectedFiles.push(file);
                             const reader = new FileReader();
-                            reader.onload = function(e) {
+                            reader.onload = function (e) {
                                 const previewItem = document.createElement('div');
                                 previewItem.className = 'current-cover-item me-2 mb-2';
                                 previewItem.style.position = 'relative';
@@ -556,7 +604,7 @@
 
                                 const img = document.createElement('img');
                                 img.src = e.target.result;
-                                img.alt = 'Предпросмотр новой обложки';
+                                img.alt = 'Preview of new cover';
                                 img.style.width = '100px';
                                 img.style.height = '150px';
                                 img.style.display = 'block';
@@ -564,24 +612,24 @@
 
                                 const removeBtn = document.createElement('button');
                                 removeBtn.innerHTML = '&times;';
-                                removeBtn.type = 'button'; // Important: prevent form submission
+                                removeBtn.type = 'button';
                                 removeBtn.className = 'btn btn-danger btn-sm';
                                 removeBtn.style.position = 'absolute';
                                 removeBtn.style.top = '0px';
                                 removeBtn.style.right = '0px';
                                 removeBtn.style.padding = '1px 4px';
                                 removeBtn.style.lineHeight = '1';
-                                removeBtn.onclick = function() {
+                                removeBtn.onclick = function () {
                                     previewItem.remove();
-                                    const originalFileRef = file; // closure will capture the correct 'file'
-                                    newSelectedFiles = newSelectedFiles.filter(f => f !== originalFileRef);
-
+                                    newSelectedFiles = newSelectedFiles.filter(f => f !== file);
                                     if (newCoversPreviewContainer.querySelectorAll('.current-cover-item').length === 0) {
                                         const existingTitle = newCoversPreviewContainer.querySelector('p');
                                         if (existingTitle) existingTitle.remove();
                                     }
+                                    const dataTransfer = new DataTransfer();
+                                    newSelectedFiles.forEach(f => dataTransfer.items.add(f));
+                                    event.target.files = dataTransfer.files;
                                 };
-
                                 previewItem.appendChild(img);
                                 previewItem.appendChild(removeBtn);
                                 newCoversPreviewContainer.appendChild(previewItem);
@@ -589,64 +637,37 @@
                             reader.readAsDataURL(file);
                         }
                     }
-                    // Important: Clear the original file input so it doesn't submit if form is not sent via FormData
                     event.target.value = null;
                 });
+                console.log("DEBUG: Change event listener attached to NewCoverFiles input.");
+            } else {
+                console.error("DEBUG: NewCoverFiles input with ID 'NewCoverFiles' not found. Change event listener NOT attached.");
             }
 
-            
-            // Renumber kept cover inputs before form submission to ensure correct model binding for List<string> Covers
-            const form = document.querySelector('form[asp-action="Edit"]');
-            if (form) {
-                form.addEventListener('submit', function(event) {
-                    event.preventDefault(); // Prevent default submission
-
-                    // Renumber kept cover inputs (existing logic)
-                    if (currentCoversContainer) {
-                        const keptCoverInputs = currentCoversContainer.querySelectorAll('input[type="hidden"].kept-cover-input');
-                        keptCoverInputs.forEach((input, index) => {
-                            input.name = `Covers[${index}]`;
-                        });
-                    }
-
-                    const formData = new FormData(form); // Initialize FormData with existing form fields
-
-                    // Append files from our managed array
-                    if (newSelectedFiles && newSelectedFiles.length > 0) {
-                        newSelectedFiles.forEach(file => {
-                            formData.append('NewCoverFiles', file, file.name); // 'NewCoverFiles' must match parameter name in C#
-                        });
-                    }
-                    
-                    // Submit the FormData using fetch
-                    fetch(form.action, {
-                        method: form.method,
-                        body: formData,
-                        headers: {
-                            // AntiForgeryToken is included via FormData as it's a hidden input in the form
-                        }
-                    })
-                    .then(response => {
-                        if (response.ok) {
-                            if (response.redirected) {
-                                window.location.href = response.url;
-                            } else {
-                                 window.location.reload(); 
+            const currentCoversContainer = document.getElementById('currentCoversContainer');
+            if (currentCoversContainer) {
+                currentCoversContainer.addEventListener('click', function (event) {
+                    if (event.target.classList.contains('remove-cover-btn')) {
+                        console.log("DEBUG: Remove button clicked for existing cover.");
+                        const coverItemDiv = event.target.closest('.current-cover-item');
+                        if (coverItemDiv) {
+                            const hiddenInput = coverItemDiv.querySelector('.kept-cover-input');
+                            if (hiddenInput) { hiddenInput.remove(); }
+                            coverItemDiv.remove();
+                            if (!currentCoversContainer.querySelector('.current-cover-item')) {
+                                const noCoversMsg = document.createElement('p');
+                                noCoversMsg.textContent = 'All covers removed.';
+                                currentCoversContainer.appendChild(noCoversMsg);
                             }
-                        } else {
-                            response.text().then(text => {
-                                console.error('Form submission error:', text);
-                                alert('Произошла ошибка при сохранении. Подробности в консоли.');
-                            });
                         }
-                    })
-                    .catch(error => {
-                        console.error('Network error or other issue:', error);
-                        alert('Сетевая ошибка или другая проблема при отправке формы.');
-                    });
+                    }
                 });
+                console.log("DEBUG: Event listener for removing current covers attached.");
+            } else {
+                console.error("DEBUG: currentCoversContainer not found.");
             }
-       
+
+            // --- Debounce for Related Novels ---
             function debounce(func, delay) {
                 let timeout;
                 return function (...args) {
@@ -675,11 +696,11 @@
                                 suggestionDiv.style.cursor = 'pointer';
                                 const imageUrl = novel.firstCoverUrl ? novel.firstCoverUrl : '/Resource/default.jpg';
                                 suggestionDiv.innerHTML = `
-                                            <img src="${imageUrl}" class="author-suggestion-avatar related-novel-suggestion-cover" alt="Cover">
-                                            <span>${novel.title} (ID: ${novel.id})</span>`;
+                                        <img src="${imageUrl}" class="author-suggestion-avatar related-novel-suggestion-cover" alt="Cover">
+                                        <span>${novel.title} (ID: ${novel.id})</span>`;
                                 suggestionDiv.addEventListener('click', function () {
                                     if (!selectedNovelsData.some(selected => selected.id === novel.id)) {
-                                        selectedNovelsData.push({ id: novel.id, title: novel.title, coverUrl: novel.firstCoverUrl }); // Add coverUrl here too
+                                        selectedNovelsData.push({ id: novel.id, title: novel.title, coverUrl: novel.firstCoverUrl });
                                         renderSelectedNovelsBadges();
                                         updateHiddenRelatedNovelIdsInput();
                                     }
@@ -720,6 +741,5 @@
             }
         });
     </script>
-
 </body>
 </html>
