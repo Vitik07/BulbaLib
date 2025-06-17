@@ -25,7 +25,7 @@
                     <tr>
                         <td>@req.RequestId</td>
                         <td>
-                            <span class="badge bg-info">@req.RequestTypeDisplay</span>
+                            <span class="badge bg-info">@req.RequestTypeFriendlyName</span>
                         </td>
                         <td>
                             @if (!string.IsNullOrEmpty(req.NovelTitle))
@@ -73,6 +73,25 @@
     </table>
 </div>
 
+@{
+    int totalPages = ViewData["TotalPages"] != null ? (int)ViewData["TotalPages"] : 1;
+    int currentPage = ViewData["CurrentPage"] != null ? (int)ViewData["CurrentPage"] : 1;
+}
+
+@if (totalPages > 1)
+{
+    <nav aria-label="Page navigation" class="mt-3">
+        <ul class="pagination justify-content-center">
+            @for (int i = 1; i <= totalPages; i++)
+            {
+                <li class="page-item @(i == currentPage ? "active" : "")">
+                    <a class="page-link novel-request-page-link" href="#" data-page="@i">@i</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}
+
 @* Modal for Rejection Comment (Example) - This should ideally be in the main Index.cshtml or _Layout to avoid duplication if other tabs use similar modals *@
 <div class="modal fade" id="rejectNovelModal" tabindex="-1" aria-labelledby="rejectNovelModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -102,6 +121,14 @@
 
 <script>
     $(document).ready(function () {
+        // AJAX for pagination
+        $('#novel-requests-content-area').on('click', '.novel-request-page-link', function(e) {
+            e.preventDefault();
+            var page = $(this).data('page');
+            // Ensure the target area ID is correct and matches what's in Admin/Index.cshtml
+            $('#novel-requests-content-area').load('@Url.Action("NovelRequests", "Admin")?page=' + page);
+        });
+
         // AJAX for approving novel request
         $('.form-approve-novel-request').submit(function (e) {
             e.preventDefault();

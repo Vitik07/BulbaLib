@@ -71,7 +71,7 @@ namespace BulbaLib.Controllers
             }
 
             ViewData["NovelTitle"] = novel.Title;
-            return View("~/Views/ChapterView/Create.cshtml", new ChapterCreateModel { NovelId = novelId });
+            return View("~/Views/Chapter/Create.cshtml", new ChapterCreateModel { NovelId = novelId });
         }
 
         [Authorize(Roles = "Admin,Translator")]
@@ -87,7 +87,7 @@ namespace BulbaLib.Controllers
             {
                 ModelState.AddModelError("NovelId", "Указанная новелла не найдена.");
                 ViewData["NovelTitle"] = "Неизвестная новелла"; // Or fetch if possible, but novel is null
-                return View("~/Views/ChapterView/Create.cshtml", model);
+                return View("~/Views/Chapter/Create.cshtml", model);
             }
             ViewData["NovelTitle"] = novel.Title;
 
@@ -152,12 +152,12 @@ namespace BulbaLib.Controllers
                 {
                     // Should not happen if initial checks are correct
                     TempData["ErrorMessage"] = "У вас нет прав для выполнения этого действия.";
-                    return View("~/Views/ChapterView/Create.cshtml", model);
+                    return View("~/Views/Chapter/Create.cshtml", model);
                 }
                 return RedirectToAction("Details", "NovelView", new { id = model.NovelId });
             }
 
-            return View("~/Views/ChapterView/Create.cshtml", model);
+            return View("~/Views/Chapter/Create.cshtml", model);
         }
 
         [Authorize(Roles = "Admin,Translator")]
@@ -201,7 +201,7 @@ namespace BulbaLib.Controllers
                 Title = chapter.Title,
                 Content = chapter.Content
             };
-            return View("~/Views/ChapterView/Edit.cshtml", chapterEditModel);
+            return View("~/Views/Chapter/Edit.cshtml", chapterEditModel);
         }
 
         [Authorize(Roles = "Admin,Translator")]
@@ -276,12 +276,12 @@ namespace BulbaLib.Controllers
                 else
                 {
                     TempData["ErrorMessage"] = "У вас нет прав для выполнения этого действия.";
-                    return View("~/Views/ChapterView/Edit.cshtml", model);
+                    return View("~/Views/Chapter/Edit.cshtml", model);
                 }
                 return RedirectToAction("Details", "NovelView", new { id = novel.Id });
             }
 
-            return View("~/Views/ChapterView/Edit.cshtml", model);
+            return View("~/Views/Chapter/Edit.cshtml", model);
         }
 
         [Authorize(Roles = "Admin,Translator")]

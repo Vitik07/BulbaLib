@@ -28,7 +28,7 @@
                     @if (User.IsInRole("Admin") || User.IsInRole("Author"))
 
                     {
-                        <a href="@Url.Action("Create", "NovelView")" class="btn btn-primary" style="margin-left: 20px; text-decoration: none; padding: 10px 15px; background-color: #007bff; color: white; border-radius: 5px;">Добавить новеллу</a>
+                        <a href="@Url.Action("Create", "Novel")" class="btn btn-primary" style="margin-left: 20px; text-decoration: none; padding: 10px 15px; background-color: #007bff; color: white; border-radius: 5px;">Добавить новеллу</a>
                     }
                 </div>
                 <div class="catalog-filters">

@@ -7,6 +7,19 @@ namespace BulbaLib.Models
         public int RequestId { get; set; }
         public ModerationRequestType RequestType { get; set; }
         public string RequestTypeDisplay { get; set; } // e.g., "Добавление Главы"
+        public string RequestTypeFriendlyName
+        {
+            get
+            {
+                switch (RequestType)
+                {
+                    case ModerationRequestType.AddChapter: return "Добавление главы";
+                    case ModerationRequestType.EditChapter: return "Редактирование главы";
+                    case ModerationRequestType.DeleteChapter: return "Удаление главы";
+                    default: return RequestType.ToString();
+                }
+            }
+        }
         public int UserId { get; set; }
         public string RequesterLogin { get; set; }
         public DateTime CreatedAt { get; set; }

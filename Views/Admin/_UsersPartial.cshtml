@@ -89,7 +89,7 @@
                 if (response.success) {
                     alert(response.message); // Or use a more sophisticated notification
                     // Optionally, reload the users tab content to show changes
-                    // $('#users-content-area').load('@Url.Action("Users", "Admin")');
+                    $('#users-content-area').load('@Url.Action("Users", "Admin")');
                 } else {
                     alert('Ошибка: ' + response.message);
                 }

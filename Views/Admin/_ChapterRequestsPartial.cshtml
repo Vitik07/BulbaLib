@@ -25,7 +25,7 @@
                 {
                     <tr>
                         <td>@req.RequestId</td>
-                        <td><span class="badge bg-primary">@req.RequestTypeDisplay</span></td>
+                        <td><span class="badge bg-primary">@req.RequestTypeFriendlyName</span></td>
                         <td>@req.NovelTitle (ID: @req.NovelId)</td>
                         <td>
                             @if (!string.IsNullOrEmpty(req.ChapterNumber) || !string.IsNullOrEmpty(req.ChapterTitle))
@@ -72,6 +72,25 @@
     </table>
 </div>
 
+@{
+    int totalPages = ViewData["TotalPages"] != null ? (int)ViewData["TotalPages"] : 1;
+    int currentPage = ViewData["CurrentPage"] != null ? (int)ViewData["CurrentPage"] : 1;
+}
+
+@if (totalPages > 1)
+{
+    <nav aria-label="Page navigation" class="mt-3">
+        <ul class="pagination justify-content-center">
+            @for (int i = 1; i <= totalPages; i++)
+            {
+                <li class="page-item @(i == currentPage ? "active" : "")">
+                    <a class="page-link chapter-request-page-link" href="#" data-page="@i">@i</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}
+
 @* Modal for Rejection Comment (Example) - This should ideally be in the main Index.cshtml or _Layout to avoid duplication *@
 <div class="modal fade" id="rejectChapterModal" tabindex="-1" aria-labelledby="rejectChapterModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -100,6 +119,13 @@
 
 <script>
     $(document).ready(function () {
+        // AJAX for chapter requests pagination
+        $('#chapter-requests-content-area').on('click', '.chapter-request-page-link', function(e) {
+            e.preventDefault();
+            var page = $(this).data('page');
+            $('#chapter-requests-content-area').load('@Url.Action("ChapterRequests", "Admin")?page=' + page);
+        });
+
         // AJAX for approving chapter request
         $('.form-approve-chapter-request').submit(function (e) {
             e.preventDefault();
