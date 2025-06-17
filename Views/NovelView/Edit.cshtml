@@ -611,6 +611,9 @@
 
                     const formData = new FormData(form); // Initialize FormData with existing form fields
 
+                    // ADD THIS LINE: Remove any existing 'NewCoverFiles' entries
+                    formData.delete('NewCoverFiles'); 
+
                     // Append files from our managed array
                     if (newSelectedFiles && newSelectedFiles.length > 0) {
                         newSelectedFiles.forEach(file => {
