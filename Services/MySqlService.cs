@@ -417,20 +417,22 @@ namespace BulbaLib.Services
         ReleaseYear=@releaseYear,
         AuthorId=@authorId,
         TranslatorId=@translatorId,
-        AlternativeTitles=@altTitles
+        AlternativeTitles=@altTitles,
+        RelatedNovelIds=@relatedNovelIds 
         WHERE Id=@id";
             cmd.Parameters.AddWithValue("@title", novel.Title);
-            cmd.Parameters.AddWithValue("@desc", novel.Description ?? "");
+            cmd.Parameters.AddWithValue("@desc", novel.Description ?? (object)DBNull.Value); // Consistent with CreateNovel
             cmd.Parameters.AddWithValue("@covers", novel.Covers ?? "[]");
-            cmd.Parameters.AddWithValue("@genres", novel.Genres ?? "");
-            cmd.Parameters.AddWithValue("@tags", novel.Tags ?? "");
-            cmd.Parameters.AddWithValue("@type", novel.Type ?? "");
-            cmd.Parameters.AddWithValue("@format", novel.Format ?? "");
+            cmd.Parameters.AddWithValue("@genres", novel.Genres ?? (object)DBNull.Value);   // Consistent with CreateNovel
+            cmd.Parameters.AddWithValue("@tags", novel.Tags ?? (object)DBNull.Value);     // Consistent with CreateNovel
+            cmd.Parameters.AddWithValue("@type", novel.Type ?? (object)DBNull.Value);     // Consistent with CreateNovel
+            cmd.Parameters.AddWithValue("@format", novel.Format ?? (object)DBNull.Value);   // Consistent with CreateNovel
             cmd.Parameters.AddWithValue("@releaseYear", novel.ReleaseYear.HasValue ? novel.ReleaseYear.Value : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@id", novel.Id);
-            cmd.Parameters.AddWithValue("@altTitles", novel.AlternativeTitles ?? "");
+            cmd.Parameters.AddWithValue("@altTitles", novel.AlternativeTitles ?? (object)DBNull.Value); // Consistent with CreateNovel
             cmd.Parameters.AddWithValue("@authorId", novel.AuthorId.HasValue ? novel.AuthorId.Value : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@translatorId", string.IsNullOrEmpty(novel.TranslatorId) ? (object)DBNull.Value : novel.TranslatorId);
+            cmd.Parameters.AddWithValue("@relatedNovelIds", string.IsNullOrEmpty(novel.RelatedNovelIds) ? (object)DBNull.Value : novel.RelatedNovelIds);
             cmd.ExecuteNonQuery();
         }
 

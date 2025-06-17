@@ -190,43 +190,14 @@ namespace BulbaLib.Controllers
             bool hasCoverFileToProcess = model.CoverFile != null && model.CoverFile.Length > 0;
 
             _logger.LogInformation("[Create Novel POST] Preparing novelToCreate object.");
-            _logger.LogInformation($"  Incoming Model.Genres: {model.Genres}");
-            _logger.LogInformation($"  Incoming Model.Tags: {model.Tags}");
+            _logger.LogInformation($"  Incoming Model.Genres (should be JSON string): {model.Genres}");
+            _logger.LogInformation($"  Incoming Model.Tags (should be JSON string): {model.Tags}");
 
-            string ProcessJsonStringToList(string jsonInput, string fieldNameForLogging)
-            {
-                if (string.IsNullOrWhiteSpace(jsonInput) || jsonInput == "[]")
-                {
-                    _logger.LogInformation($"[ProcessJsonStringToList] Input for {fieldNameForLogging} is null, empty, whitespace, or '[]'. Returning null.");
-                    return null;
-                }
-                try
-                {
-                    var list = JsonSerializer.Deserialize<List<string>>(jsonInput);
-                    if (list != null && list.Any())
-                    {
-                        string result = string.Join(",", list);
-                        _logger.LogInformation($"[ProcessJsonStringToList] Successfully processed {fieldNameForLogging}. Input: '{jsonInput}', Output: '{result}'");
-                        return result;
-                    }
-                    else
-                    {
-                        _logger.LogInformation($"[ProcessJsonStringToList] Deserialized list for {fieldNameForLogging} is null or empty. Input: '{jsonInput}'. Returning null.");
-                        return null;
-                    }
-                }
-                catch (JsonException ex)
-                {
-                    _logger.LogError(ex, $"[ProcessJsonStringToList] Error deserializing {fieldNameForLogging} JSON: {jsonInput}. Returning null.");
-                    return null;
-                }
-            }
+            // The ProcessJsonStringToList function is removed as per requirement.
+            // Genres and Tags from the model are now used directly.
 
-            string processedGenres = ProcessJsonStringToList(model.Genres, "Genres");
-            string processedTags = ProcessJsonStringToList(model.Tags, "Tags");
-
-            _logger.LogInformation($"  Processed Genres for Novel object: {processedGenres}");
-            _logger.LogInformation($"  Processed Tags for Novel object: {processedTags}");
+            _logger.LogInformation($"  Using Model.Genres directly for Novel object: {model.Genres}");
+            _logger.LogInformation($"  Using Model.Tags directly for Novel object: {model.Tags}");
             _logger.LogInformation($"  Title: {model.Title}");
             _logger.LogInformation($"  Description: {model.Description}");
             _logger.LogInformation($"  Type: {model.Type}");
@@ -243,8 +214,8 @@ namespace BulbaLib.Controllers
             {
                 Title = model.Title,
                 Description = model.Description,
-                Genres = processedGenres,
-                Tags = processedTags,
+                Genres = model.Genres, // Directly use the JSON string from the model
+                Tags = model.Tags,     // Directly use the JSON string from the model
                 Type = model.Type,
                 Format = model.Format,
                 ReleaseYear = model.ReleaseYear,
@@ -506,47 +477,62 @@ namespace BulbaLib.Controllers
                     {
                         updatedCoverPaths.AddRange(model.Covers);
                     }
+                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Initial updatedCoverPaths (kept covers): {JsonSerializer.Serialize(updatedCoverPaths)}");
 
                     // Detailed logging for NewCoverFiles
+                    _logger.LogInformation("[Edit Novel POST - Admin Path] Before processing NewCoverFiles:");
                     if (model.NewCoverFiles == null)
                     {
-                        _logger.LogInformation("[Edit Novel POST] model.NewCoverFiles IS NULL.");
+                        _logger.LogInformation("[Edit Novel POST - Admin Path] model.NewCoverFiles IS NULL.");
                     }
                     else
                     {
-                        _logger.LogInformation($"[Edit Novel POST] model.NewCoverFiles is NOT NULL. Count: {model.NewCoverFiles.Count}");
-                        for (int i = 0; i < model.NewCoverFiles.Count; i++)
+                        _logger.LogInformation($"[Edit Novel POST - Admin Path] model.NewCoverFiles is NOT NULL. Count: {model.NewCoverFiles.Count}");
+                        if (model.NewCoverFiles.Any())
                         {
-                            if (model.NewCoverFiles[i] == null)
+                            for (int i = 0; i < model.NewCoverFiles.Count; i++)
                             {
-                                _logger.LogInformation($"[Edit Novel POST] model.NewCoverFiles[{i}] IS NULL.");
+                                if (model.NewCoverFiles[i] == null)
+                                {
+                                    _logger.LogInformation($"[Edit Novel POST - Admin Path] model.NewCoverFiles[{i}] IS NULL.");
+                                }
+                                else
+                                {
+                                    _logger.LogInformation($"[Edit Novel POST - Admin Path] model.NewCoverFiles[{i}] FileName: {model.NewCoverFiles[i].FileName}, Length: {model.NewCoverFiles[i].Length}, ContentType: {model.NewCoverFiles[i].ContentType}");
+                                }
                             }
-                            else
-                            {
-                                _logger.LogInformation($"[Edit Novel POST] model.NewCoverFiles[{i}] FileName: {model.NewCoverFiles[i].FileName}, Length: {model.NewCoverFiles[i].Length}");
-                            }
+                        }
+                        else
+                        {
+                            _logger.LogInformation("[Edit Novel POST - Admin Path] model.NewCoverFiles is empty (no files selected or all were null).");
                         }
                     }
 
                     // Process newly uploaded files and add their paths to the list
-                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0)) // This check is already safe
+                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0))
                     {
-                        foreach (var file in model.NewCoverFiles) // model.NewCoverFiles cannot be null here due to the .Any() check above
+                        _logger.LogInformation("[Edit Novel POST - Admin Path] Entering loop to process NewCoverFiles.");
+                        foreach (var file in model.NewCoverFiles.Where(f => f != null && f.Length > 0))
                         {
-                            if (file != null && file.Length > 0)
+                            _logger.LogInformation($"[Edit Novel POST - Admin Path] Processing file: {file.FileName}, Length: {file.Length}");
+                            string newPath = await _fileService.SaveNovelCoverAsync(file, originalNovel.Id);
+                            _logger.LogInformation($"[Edit Novel POST - Admin Path] SaveNovelCoverAsync result for {file.FileName}: '{newPath}'");
+                            if (!string.IsNullOrEmpty(newPath))
                             {
-                                string newPath = await _fileService.SaveNovelCoverAsync(file, originalNovel.Id);
-                                if (!string.IsNullOrEmpty(newPath))
-                                {
-                                    updatedCoverPaths.Add(newPath);
-                                }
+                                updatedCoverPaths.Add(newPath);
                             }
                         }
+                        _logger.LogInformation($"[Edit Novel POST - Admin Path] After processing NewCoverFiles, updatedCoverPaths: {JsonSerializer.Serialize(updatedCoverPaths)}");
+                    }
+                    else
+                    {
+                        _logger.LogInformation("[Edit Novel POST - Admin Path] No new valid files to process in NewCoverFiles.");
                     }
 
                     // Assign the consolidated list of unique cover paths to the novel object being prepared for update.
-                    // Using .Distinct() to avoid duplicate paths if any somehow occur.
-                    novelWithChanges.Covers = JsonSerializer.Serialize(updatedCoverPaths.Distinct().ToList());
+                    var distinctCoverPaths = updatedCoverPaths.Distinct().ToList();
+                    novelWithChanges.Covers = JsonSerializer.Serialize(distinctCoverPaths);
+                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Final novelWithChanges.Covers (JSON serialized): {novelWithChanges.Covers}");
 
                     // Ensure originalNovel fields are updated before calling UpdateNovel
                     originalNovel.Title = novelWithChanges.Title;
@@ -561,11 +547,11 @@ namespace BulbaLib.Controllers
                     originalNovel.RelatedNovelIds = novelWithChanges.RelatedNovelIds;
                     originalNovel.AuthorId = novelWithChanges.AuthorId; // Ensure AuthorId is updated from novelWithChanges
 
-                    _logger.LogInformation("[Edit Novel POST - Admin Path] Logging final novel data before UpdateNovel:");
+                    _logger.LogInformation("[Edit Novel POST - Admin Path] Logging final originalNovel data (which includes novelWithChanges updates) before UpdateNovel:");
                     _logger.LogInformation($"  ID: {originalNovel.Id}");
                     _logger.LogInformation($"  Title: {originalNovel.Title}");
                     _logger.LogInformation($"  Description: {originalNovel.Description}");
-                    _logger.LogInformation($"  Covers (JSON): {originalNovel.Covers}");
+                    _logger.LogInformation($"  Covers (JSON): {originalNovel.Covers}"); // This will be the same as novelWithChanges.Covers logged above
                     _logger.LogInformation($"  Genres: {originalNovel.Genres}");
                     _logger.LogInformation($"  Tags: {originalNovel.Tags}");
                     _logger.LogInformation($"  Type: {originalNovel.Type}");
@@ -583,15 +569,18 @@ namespace BulbaLib.Controllers
                 else if (currentUser.Role == UserRole.Author && originalNovel.AuthorId == currentUser.Id)
                 {
                     // Initialize a list for updated cover paths
-                    List<string> updatedCoverPaths = new List<string>();
+                    List<string> updatedCoverPaths = new List<string>(); // Renamed to avoid conflict with the admin block's variable
 
                     // Add existing covers that were kept by the user
                     if (model.Covers != null)
                     {
                         updatedCoverPaths.AddRange(model.Covers);
                     }
+                    _logger.LogInformation($"[Edit Novel POST - Author Path] Initial updatedCoverPaths (kept covers): {JsonSerializer.Serialize(updatedCoverPaths)}");
+
 
                     // Detailed logging for NewCoverFiles (repeated for the author branch)
+                    _logger.LogInformation("[Edit Novel POST - Author Path] Before processing NewCoverFiles:");
                     if (model.NewCoverFiles == null)
                     {
                         _logger.LogInformation("[Edit Novel POST - Author Path] model.NewCoverFiles IS NULL.");
@@ -599,37 +588,51 @@ namespace BulbaLib.Controllers
                     else
                     {
                         _logger.LogInformation($"[Edit Novel POST - Author Path] model.NewCoverFiles is NOT NULL. Count: {model.NewCoverFiles.Count}");
-                        for (int i = 0; i < model.NewCoverFiles.Count; i++)
+                        if (model.NewCoverFiles.Any())
                         {
-                            if (model.NewCoverFiles[i] == null)
+                            for (int i = 0; i < model.NewCoverFiles.Count; i++)
                             {
-                                _logger.LogInformation($"[Edit Novel POST - Author Path] model.NewCoverFiles[{i}] IS NULL.");
+                                if (model.NewCoverFiles[i] == null)
+                                {
+                                    _logger.LogInformation($"[Edit Novel POST - Author Path] model.NewCoverFiles[{i}] IS NULL.");
+                                }
+                                else
+                                {
+                                    _logger.LogInformation($"[Edit Novel POST - Author Path] model.NewCoverFiles[{i}] FileName: {model.NewCoverFiles[i].FileName}, Length: {model.NewCoverFiles[i].Length}, ContentType: {model.NewCoverFiles[i].ContentType}");
+                                }
                             }
-                            else
-                            {
-                                _logger.LogInformation($"[Edit Novel POST - Author Path] model.NewCoverFiles[{i}] FileName: {model.NewCoverFiles[i].FileName}, Length: {model.NewCoverFiles[i].Length}");
-                            }
+                        }
+                        else
+                        {
+                            _logger.LogInformation("[Edit Novel POST - Author Path] model.NewCoverFiles is empty (no files selected or all were null).");
                         }
                     }
 
                     // Process newly uploaded files
-                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0)) // This check is already safe
+                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0))
                     {
-                        foreach (var file in model.NewCoverFiles) // model.NewCoverFiles cannot be null here due to the .Any() check above
+                        _logger.LogInformation("[Edit Novel POST - Author Path] Entering loop to process NewCoverFiles.");
+                        foreach (var file in model.NewCoverFiles.Where(f => f != null && f.Length > 0))
                         {
-                            if (file != null && file.Length > 0)
+                            _logger.LogInformation($"[Edit Novel POST - Author Path] Processing file: {file.FileName}, Length: {file.Length}");
+                            string newPath = await _fileService.SaveNovelCoverAsync(file, originalNovel.Id);
+                            _logger.LogInformation($"[Edit Novel POST - Author Path] SaveNovelCoverAsync result for {file.FileName}: '{newPath}'");
+                            if (!string.IsNullOrEmpty(newPath))
                             {
-                                string newPath = await _fileService.SaveNovelCoverAsync(file, originalNovel.Id);
-                                if (!string.IsNullOrEmpty(newPath))
-                                {
-                                    updatedCoverPaths.Add(newPath);
-                                }
+                                updatedCoverPaths.Add(newPath);
                             }
                         }
+                        _logger.LogInformation($"[Edit Novel POST - Author Path] After processing NewCoverFiles, updatedCoverPaths: {JsonSerializer.Serialize(updatedCoverPaths)}");
+                    }
+                    else
+                    {
+                        _logger.LogInformation("[Edit Novel POST - Author Path] No new valid files to process in NewCoverFiles.");
                     }
 
                     // Update novelWithChanges.Covers with the new list
-                    novelWithChanges.Covers = JsonSerializer.Serialize(updatedCoverPaths.Distinct().ToList());
+                    var distinctCoverPaths_Author = updatedCoverPaths.Distinct().ToList(); // Renamed to avoid conflict
+                    novelWithChanges.Covers = JsonSerializer.Serialize(distinctCoverPaths_Author);
+                    _logger.LogInformation($"[Edit Novel POST - Author Path] Final novelWithChanges.Covers (JSON serialized) for ModerationRequest: {novelWithChanges.Covers}");
 
                     var moderationRequest = new ModerationRequest
                     {

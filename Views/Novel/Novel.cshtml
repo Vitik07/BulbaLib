@@ -334,17 +334,46 @@
 
             // Жанры
             const genresBlock = document.querySelector('.novel-genres');
-            genresBlock.innerHTML = (novelFromApi.genres || '')
-                .split(',')
-                .filter(Boolean)
-                .map(g => `<span class="novel-tag genre">${g.trim()}</span>`)
+            let genresList = [];
+            if (novelFromApi.genres) {
+                try {
+                    // Пытаемся распарсить как JSON массив
+                    genresList = JSON.parse(novelFromApi.genres);
+                    // Убедимся, что это действительно массив
+                    if (!Array.isArray(genresList)) {
+                        // Если не массив (например, просто строка "Action" без []), то оборачиваем в массив
+                        // или если это было что-то типа {"0": "Action"}, что не является массивом
+                        // Для простоты, если это не массив после парсинга, считаем это ошибкой парсинга JSON-массива
+                        // и переходим к fallback логике. Либо можно попытаться обработать это как одиночный элемент.
+                        // Но для консистентности с тем, что ожидает .map(), лучше пустой массив или fallback.
+                        genresList = []; // Очищаем, чтобы уйти в fallback если JSON.parse вернул не массив
+                        throw new Error("Parsed result is not an array."); // Провоцируем catch для fallback
+                    }
+                } catch (e) {
+                    // Fallback: если не JSON или JSON невалидный/не массив, пробуем как строку через запятую
+                    genresList = (novelFromApi.genres || '').split(',').filter(Boolean).map(g => g.trim());
+                }
+            }
+            genresBlock.innerHTML = genresList
+                .map(g => `<span class="novel-tag genre">${g}</span>`) // g уже будет trim() из split или из JSON
                 .join('');
+
             // Теги
             const tagsBlock = document.querySelector('.novel-tags');
-            tagsBlock.innerHTML = (novelFromApi.tags || '')
-                .split(',')
-                .filter(Boolean)
-                .map(t => `<span class="novel-tag tag">#${t.trim()}</span>`)
+            let tagsList = [];
+            if (novelFromApi.tags) {
+                try {
+                    tagsList = JSON.parse(novelFromApi.tags);
+                    if (!Array.isArray(tagsList)) {
+                        tagsList = []; // Очищаем для fallback
+                        throw new Error("Parsed result is not an array.");
+                    }
+                } catch (e) {
+                    tagsList = (novelFromApi.tags || '').split(',').filter(Boolean).map(t => t.trim());
+                }
+            }
+            tagsBlock.innerHTML = tagsList
+                .map(t => `<span class="novel-tag tag">#${t}</span>`) // t уже будет trim() из split или из JSON
                 .join('');
 
             // --- вкладка главы с отметкой закладки ---
