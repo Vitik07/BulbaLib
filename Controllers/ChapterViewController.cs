@@ -52,7 +52,7 @@ namespace BulbaLib.Controllers
         }
 
         [Authorize(Roles = "Admin,Translator")]
-        [HttpGet]
+        [HttpGet("Create")]
         public IActionResult Create(int novelId)
         {
             var currentUser = _currentUserService.GetCurrentUser();
@@ -162,7 +162,7 @@ namespace BulbaLib.Controllers
         }
 
         [Authorize(Roles = "Admin,Translator")]
-        [HttpGet]
+        [HttpGet("Edit/{id}")]
         public IActionResult Edit(int id) // Chapter Id
         {
             var currentUser = _currentUserService.GetCurrentUser();
