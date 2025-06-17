@@ -415,7 +415,7 @@ namespace BulbaLib.Controllers
             _logger.LogInformation($"  Model AlternativeTitles: {model.AlternativeTitles}");
             _logger.LogInformation($"  Model RelatedNovelIds: {model.RelatedNovelIds}");
             _logger.LogInformation($"  Model Covers (existing, kept by user): {(model.Covers == null ? "null" : string.Join(", ", model.Covers))}");
-            _logger.LogInformation($"  Model NewCoverFiles count: {(model.NewCoverFiles == null ? 0 : model.NewCoverFiles.Count(f => f != null && f.Length > 0))}");
+            _logger.LogInformation($"  Model NewCoverFiles count: {(model.NewCoverFiles?.Count(f => f != null && f.Length > 0) ?? 0)}");
             // TODO: Log other relevant properties from NovelEditModel if any are added later e.g. AuthorLogin if it were part of POST
 
             var currentUser = _currentUserService.GetCurrentUser();
@@ -493,7 +493,7 @@ namespace BulbaLib.Controllers
                                         null :
                                         JsonSerializer.Serialize(model.AlternativeTitles.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList()),
                     RelatedNovelIds = model.RelatedNovelIds,
-                    AuthorId = originalNovel.AuthorId,
+                    AuthorId = model.AuthorId, // Changed from originalNovel.AuthorId
                     Date = originalNovel.Date,
                     TranslatorId = originalNovel.TranslatorId
                 };
@@ -507,10 +507,31 @@ namespace BulbaLib.Controllers
                         updatedCoverPaths.AddRange(model.Covers);
                     }
 
-                    // Process newly uploaded files and add their paths to the list
-                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0))
+                    // Detailed logging for NewCoverFiles
+                    if (model.NewCoverFiles == null)
                     {
-                        foreach (var file in model.NewCoverFiles)
+                        _logger.LogInformation("[Edit Novel POST] model.NewCoverFiles IS NULL.");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"[Edit Novel POST] model.NewCoverFiles is NOT NULL. Count: {model.NewCoverFiles.Count}");
+                        for (int i = 0; i < model.NewCoverFiles.Count; i++)
+                        {
+                            if (model.NewCoverFiles[i] == null)
+                            {
+                                _logger.LogInformation($"[Edit Novel POST] model.NewCoverFiles[{i}] IS NULL.");
+                            }
+                            else
+                            {
+                                _logger.LogInformation($"[Edit Novel POST] model.NewCoverFiles[{i}] FileName: {model.NewCoverFiles[i].FileName}, Length: {model.NewCoverFiles[i].Length}");
+                            }
+                        }
+                    }
+
+                    // Process newly uploaded files and add their paths to the list
+                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0)) // This check is already safe
+                    {
+                        foreach (var file in model.NewCoverFiles) // model.NewCoverFiles cannot be null here due to the .Any() check above
                         {
                             if (file != null && file.Length > 0)
                             {
@@ -538,6 +559,7 @@ namespace BulbaLib.Controllers
                     originalNovel.ReleaseYear = novelWithChanges.ReleaseYear;
                     originalNovel.AlternativeTitles = novelWithChanges.AlternativeTitles;
                     originalNovel.RelatedNovelIds = novelWithChanges.RelatedNovelIds;
+                    originalNovel.AuthorId = novelWithChanges.AuthorId; // Ensure AuthorId is updated from novelWithChanges
 
                     _logger.LogInformation("[Edit Novel POST - Admin Path] Logging final novel data before UpdateNovel:");
                     _logger.LogInformation($"  ID: {originalNovel.Id}");
@@ -569,10 +591,31 @@ namespace BulbaLib.Controllers
                         updatedCoverPaths.AddRange(model.Covers);
                     }
 
-                    // Process newly uploaded files
-                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0))
+                    // Detailed logging for NewCoverFiles (repeated for the author branch)
+                    if (model.NewCoverFiles == null)
                     {
-                        foreach (var file in model.NewCoverFiles)
+                        _logger.LogInformation("[Edit Novel POST - Author Path] model.NewCoverFiles IS NULL.");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"[Edit Novel POST - Author Path] model.NewCoverFiles is NOT NULL. Count: {model.NewCoverFiles.Count}");
+                        for (int i = 0; i < model.NewCoverFiles.Count; i++)
+                        {
+                            if (model.NewCoverFiles[i] == null)
+                            {
+                                _logger.LogInformation($"[Edit Novel POST - Author Path] model.NewCoverFiles[{i}] IS NULL.");
+                            }
+                            else
+                            {
+                                _logger.LogInformation($"[Edit Novel POST - Author Path] model.NewCoverFiles[{i}] FileName: {model.NewCoverFiles[i].FileName}, Length: {model.NewCoverFiles[i].Length}");
+                            }
+                        }
+                    }
+
+                    // Process newly uploaded files
+                    if (model.NewCoverFiles != null && model.NewCoverFiles.Any(f => f != null && f.Length > 0)) // This check is already safe
+                    {
+                        foreach (var file in model.NewCoverFiles) // model.NewCoverFiles cannot be null here due to the .Any() check above
                         {
                             if (file != null && file.Length > 0)
                             {

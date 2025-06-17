@@ -229,8 +229,8 @@
                              .filter(item => item)
                              .map(item => decodeHtmlEntities(item));
             }
-            selectedGenres = parseInitialItems("@Html.Raw(Model.Genres)");
-            selectedTags = parseInitialItems("@Html.Raw(Model.Tags)");
+            selectedGenres = parseInitialItems(@Html.Raw(Json.Serialize(Model.Genres)));
+            selectedTags = parseInitialItems(@Html.Raw(Json.Serialize(Model.Tags)));
             if (hiddenGenresInput) hiddenGenresInput.value = JSON.stringify(selectedGenres);
             if (hiddenTagsInput) hiddenTagsInput.value = JSON.stringify(selectedTags);
             function renderSelectedItemsAsBadges(containerId, selectedArray, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef) {
@@ -403,7 +403,7 @@
             let selectedNovelsData = []; // { id: number, title: string, coverUrl?: string }
 
             // Инициализация для Edit
-            const initialRelatedNovelIdsString = "@Html.Raw(Model.RelatedNovelIds)"; // Use Html.Raw
+            const initialRelatedNovelIdsString = @Html.Raw(Json.Serialize(Model.RelatedNovelIds)); // Use Html.Raw
 
             function fetchAndRenderInitialRelatedNovels() {
                 if (initialRelatedNovelIdsString && hiddenRelatedNovelIdsInput) {

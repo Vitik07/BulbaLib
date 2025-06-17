@@ -20,8 +20,9 @@ namespace BulbaLib.Models
 
         public List<string> Covers { get; set; } = new List<string>(); // JSON string array e.g., ["url1", "url2"]
 
+        [Microsoft.AspNetCore.Mvc.ModelBinding.Validation.ValidateNever]
         [Display(Name = "Загрузить новые обложки")]
-        public List<IFormFile> NewCoverFiles { get; set; } = new List<IFormFile>();
+        public List<IFormFile>? NewCoverFiles { get; set; }
 
         [Display(Name = "Жанры")]
         public string Genres { get; set; } // Comma-separated or JSON string
@@ -52,7 +53,7 @@ namespace BulbaLib.Models
         // To show who the original author is, not editable by Author role in this form.
         // Admin might be able to change it if UI/logic supports it.
         public int? AuthorId { get; set; }
-        public string AuthorLogin { get; set; } // For display purposes
+        public string? AuthorLogin { get; set; } // For display purposes
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
