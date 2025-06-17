@@ -588,6 +588,7 @@ body {
     box-shadow: 0 8px 40px var(--shadow), 0 2px 0 #363657;
     object-fit: cover;
 }
+
 .popup-content {
     background: var(--fg);
     border-radius: var(--radius);
@@ -785,6 +786,7 @@ body {
         max-width: 100%;
         padding: 12px 8px;
     }
+
     .novel-tabs-content, .chapter-card {
         padding: 7px 2px;
     }
@@ -798,4 +800,116 @@ body {
     .sidebar-info, .novel-main-container {
         padding: 0 12px;
     }
+}
+
+/* === КНОПКИ ДЛЯ РЕДАКТИРОВАНИЯ/УДАЛЕНИЯ ГЛАВ И НОВЕЛЛЫ === */
+.novel-actions-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 10px;
+    margin-bottom: 18px;
+    margin-top: 10px;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.novel-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-weight: 600;
+    font-size: 1rem;
+    border-radius: 10px;
+    outline: none;
+    border: none;
+    cursor: pointer;
+    padding: 9px 18px 9px 15px;
+    transition: background 0.16s, color 0.16s, box-shadow 0.18s;
+    box-shadow: 0 2px 12px #0002;
+    background: var(--accent-blue);
+    color: #fff;
+    text-decoration: none;
+    min-width: 0;
+    min-height: 0;
+}
+
+    .novel-action-btn i {
+        font-size: 1.13em;
+    }
+
+    .novel-action-btn:hover {
+        background: var(--accent-blue-light);
+        color: #fff;
+    }
+
+    .novel-action-btn.novel-add-chapter {
+        background: #2a9159;
+    }
+
+        .novel-action-btn.novel-add-chapter:hover {
+            background: #3cc674;
+        }
+
+    .novel-action-btn.novel-delete {
+        background: var(--accent-pink);
+    }
+
+        .novel-action-btn.novel-delete:hover {
+            background: #e04141;
+        }
+
+.novel-actions-under-status {
+    margin-top: 10px;
+}
+
+.chapter-action-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.13em;
+    padding: 6px;
+    margin-left: 4px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.16s;
+    outline: none;
+}
+
+    .chapter-action-icon-btn:hover {
+        background: var(--fg);
+        color: var(--accent-blue);
+    }
+
+    .chapter-action-icon-btn.delete {
+        color: var(--accent-pink);
+    }
+
+        .chapter-action-icon-btn.delete:hover {
+            background: #3c1a1a;
+            color: #fff;
+        }
+
+.chapter-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-left: 10px;
+}
+
+.novel-actions-under-status.novel-actions-panel {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.novel-actions-under-status .novel-action-btn {
+    width: 100%;
+    justify-content: flex-start;
+    min-width: 0;
+    box-sizing: border-box;
+    text-align: left;
+    padding-right: 0;
 }
