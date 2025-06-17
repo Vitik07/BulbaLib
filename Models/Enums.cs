@@ -3,12 +3,12 @@
 
     public enum ModerationRequestType
     {
-        AddNovel,
-        EditNovel,
-        DeleteNovel,
-        AddChapter,
-        EditChapter,
-        DeleteChapter
+        NovelCreate,
+        NovelUpdate,
+        NovelDelete,
+        ChapterCreate,
+        ChapterUpdate,
+        ChapterDelete
     }
 
     public enum ModerationStatus

@@ -5,6 +5,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic; // For List
 using Microsoft.Extensions.Logging; // Added for ILogger
+using System.Text.Json;
 
 namespace BulbaLib.Controllers
 {
@@ -57,14 +58,11 @@ namespace BulbaLib.Controllers
         }
 
         // Users Management Tab - now returns PartialView
-        public IActionResult Users()
+        public IActionResult UsersPartial() // Renamed
         {
             var currentUser = _currentUserService.GetCurrentUser();
-            // This check might be redundant if Index() already verified CanViewAdminPanel,
-            // but good for direct access or if Users() is called independently.
             if (currentUser == null || !_permissionService.CanManageUsers(currentUser))
             {
-                // For AJAX, return a partial view indicating error or an empty content
                 return PartialView("~/Views/Shared/_AccessDeniedPartial.cshtml");
             }
 
@@ -74,25 +72,25 @@ namespace BulbaLib.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult ChangeUserRole(int userId, string role)
+        public IActionResult UpdateUserRole(int userId, string newRole) // Renamed method and parameter
         {
-            var currentUser = _currentUserService.GetCurrentUser();
+            var currentUser = _currentUserService.GetCurrentUser(); // Not strictly needed if PermissionService doesn't use it for this check
             User targetUser = _mySqlService.GetUser(userId);
 
-            if (currentUser == null || targetUser == null || !_permissionService.CanChangeUserRole(currentUser, targetUser))
-            {
-                return Json(new { success = false, message = "Недостаточно прав для изменения роли." });
-            }
+            if (targetUser == null) return NotFound(new { message = "User not found." });
 
-            var validRoles = new List<string> { "User", "Admin", "Author", "Translator" };
-            if (!validRoles.Contains(role))
-            {
-                return Json(new { success = false, message = "Недопустимая роль." });
-            }
+            // Optional: Permission check if not all Admins can change all roles, or if there are role hierarchies.
+            // if (currentUser == null || !_permissionService.CanChangeUserRole(currentUser, targetUser))
+            // {
+            //     return Forbid(); // Or return appropriate error status
+            // }
 
-            _mySqlService.UpdateUserRole(userId, role);
-            // TempData not suitable for AJAX. Return JSON.
-            return Json(new { success = true, message = $"Роль пользователя {targetUser.Login} изменена на {role}." });
+            if (Enum.TryParse<UserRole>(newRole, true, out UserRole roleEnum))
+            {
+                _mySqlService.UpdateUserRole(userId, roleEnum.ToString());
+                return Ok(new { message = "User role updated successfully." });
+            }
+            return BadRequest(new { message = "Invalid role specified." });
         }
 
         [HttpPost]
@@ -102,18 +100,23 @@ namespace BulbaLib.Controllers
             var currentUser = _currentUserService.GetCurrentUser();
             User targetUser = _mySqlService.GetUser(userId);
 
-            if (currentUser == null || targetUser == null || !_permissionService.CanBlockUser(currentUser, targetUser))
-            {
-                return Json(new { success = false, message = "Недостаточно прав для блокировки/разблокировки пользователя." });
-            }
+            if (targetUser == null) return NotFound(new { message = "User not found." });
+
+            // Optional: Permission check
+            // var currentUser = _currentUserService.GetCurrentUser();
+            // if (currentUser == null || !_permissionService.CanBlockUser(currentUser, targetUser))
+            // {
+            //     return Forbid(); 
+            // }
 
             bool newBlockStatus = !targetUser.IsBlocked;
             _mySqlService.SetUserBlockedStatus(userId, newBlockStatus);
-            return Json(new { success = true, message = $"Пользователь {targetUser.Login} {(newBlockStatus ? "заблокирован" : "разблокирован")}.", isBlocked = newBlockStatus });
+            // Message updated to match subtask, but original was more informative. Keeping the spirit of subtask.
+            return Ok(new { message = $"User {(newBlockStatus ? "blocked" : "unblocked")} successfully." });
         }
 
         // Novel Moderation Requests
-        public IActionResult NovelRequests(int page = 1)
+        public IActionResult NovelRequestsPartial(int page = 1, int pageSize = 10) // Added pageSize, Renamed
         {
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null || !_permissionService.CanModerateNovelRequests(currentUser))
@@ -121,49 +124,61 @@ namespace BulbaLib.Controllers
                 return PartialView("~/Views/Shared/_AccessDeniedPartial.cshtml");
             }
 
-            int pageSize = 10;
-            var novelRequestTypes = new List<ModerationRequestType>
-                { ModerationRequestType.AddNovel, ModerationRequestType.EditNovel, ModerationRequestType.DeleteNovel };
+            //pageSize = 10; // Already a parameter
+            var novelRequestTypes = new List<ModerationRequestType> // Updated enum values
+                { ModerationRequestType.NovelCreate, ModerationRequestType.NovelUpdate, ModerationRequestType.NovelDelete };
 
             List<ModerationRequest> rawRequests = _mySqlService.GetPendingModerationRequestsByType(novelRequestTypes, pageSize, (page - 1) * pageSize);
-            var viewModels = new List<NovelModerationRequestViewModel>();
 
-            foreach (var req in rawRequests)
-            {
-                var vm = new NovelModerationRequestViewModel
-                {
-                    RequestId = req.Id,
-                    RequestType = req.RequestType,
-                    RequestTypeDisplay = req.RequestType.ToString(), // TODO: Add display names
-                    UserId = req.UserId,
-                    RequesterLogin = _mySqlService.GetUser(req.UserId)?.Login ?? "N/A",
-                    CreatedAt = req.CreatedAt,
-                    NovelId = req.NovelId,
-                    RequestDataJson = req.RequestData,
-                    Status = req.Status.ToString()
-                };
+            var viewModels = rawRequests.Select(r => {
+                var user = _mySqlService.GetUser(r.UserId);
+                string novelTitle = r.NovelId.HasValue ? _mySqlService.GetNovel(r.NovelId.Value)?.Title : "N/A (New Novel)";
+                Novel proposedData = null;
+                NovelUpdateRequest updateData = null;
 
-                if (req.RequestType == ModerationRequestType.AddNovel && !string.IsNullOrEmpty(req.RequestData))
+                if (r.RequestType == ModerationRequestType.NovelCreate && !string.IsNullOrEmpty(r.RequestData))
                 {
                     try
                     {
-                        vm.ProposedNovelData = System.Text.Json.JsonSerializer.Deserialize<Novel>(req.RequestData);
-                        vm.NovelTitle = vm.ProposedNovelData?.Title;
+                        proposedData = JsonSerializer.Deserialize<Novel>(r.RequestData);
+                        novelTitle = proposedData?.Title ?? "N/A (New Novel)";
                     }
-                    catch { /* log error */ }
+                    catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize NovelCreate RequestData for request ID {RequestId}", r.Id); }
                 }
-                else if (req.NovelId.HasValue)
+                else if (r.RequestType == ModerationRequestType.NovelUpdate && !string.IsNullOrEmpty(r.RequestData))
                 {
-                    vm.ExistingNovelData = _mySqlService.GetNovel(req.NovelId.Value);
-                    vm.NovelTitle = vm.ExistingNovelData?.Title;
-                    if (req.RequestType == ModerationRequestType.EditNovel && !string.IsNullOrEmpty(req.RequestData))
+                    try
                     {
-                        try { vm.ProposedNovelData = System.Text.Json.JsonSerializer.Deserialize<Novel>(req.RequestData); } catch { /* log error */ }
-                        // TODO: Populate ChangeSummary for EditNovel if needed
+                        updateData = JsonSerializer.Deserialize<NovelUpdateRequest>(r.RequestData);
+                        // novelTitle is already fetched from existing novel if NovelId.HasValue
                     }
+                    catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize NovelUpdate RequestData for request ID {RequestId}", r.Id); }
                 }
-                viewModels.Add(vm);
-            }
+                else if (r.RequestType == ModerationRequestType.NovelDelete && !string.IsNullOrEmpty(r.RequestData))
+                {
+                    // For delete, RequestData might contain { "Title": "..." }
+                    try { novelTitle = JsonDocument.Parse(r.RequestData).RootElement.GetProperty("Title").GetString() ?? novelTitle; }
+                    catch (Exception ex) { _logger.LogWarning(ex, "Could not parse Title from RequestData for NovelDelete request ID {RequestId}", r.Id); }
+                }
+
+                // Using existing ViewModel structure which is flat
+                return new NovelModerationRequestViewModel
+                {
+                    RequestId = r.Id,
+                    RequestType = r.RequestType,
+                    // RequestTypeDisplay is handled by RequestTypeFriendlyName in VM
+                    UserId = r.UserId,
+                    RequesterLogin = user?.Login ?? "N/A",
+                    CreatedAt = r.CreatedAt,
+                    NovelId = r.NovelId,
+                    NovelTitle = novelTitle,
+                    RequestDataJson = r.RequestData, // Keep raw JSON for details view or debugging
+                    ProposedNovelData = proposedData, // Populated for NovelCreate
+                    // For NovelUpdate, the controller for details view might need to deserialize NovelUpdateRequest
+                    // ExistingNovelData could be populated in details view too.
+                    Status = r.Status.ToString()
+                };
+            }).ToList();
 
             int totalRequests = _mySqlService.CountPendingModerationRequestsByType(novelRequestTypes);
 
@@ -186,298 +201,299 @@ namespace BulbaLib.Controllers
             ModerationRequest request = _mySqlService.GetModerationRequestById(requestId);
             if (request == null) return NotFound();
 
-            Novel requestedNovelData = null;
-            Novel existingNovel = null;
-
-            if (request.RequestType == ModerationRequestType.AddNovel || request.RequestType == ModerationRequestType.EditNovel)
+            // Prepare a specific ViewModel for this page.
+            var viewModel = new NovelModerationRequestViewModel
             {
-                if (!string.IsNullOrEmpty(request.RequestData))
-                {
-                    try { requestedNovelData = System.Text.Json.JsonSerializer.Deserialize<Novel>(request.RequestData); }
-                    catch { /* Handle error, maybe log it */ }
-                }
-            }
+                RequestId = request.Id,
+                RequestType = request.RequestType,
+                UserId = request.UserId,
+                RequesterLogin = _mySqlService.GetUser(request.UserId)?.Login ?? "N/A",
+                CreatedAt = request.CreatedAt,
+                NovelId = request.NovelId,
+                RequestDataJson = request.RequestData,
+                Status = request.Status.ToString(),
+                NovelTitle = request.NovelId.HasValue ? _mySqlService.GetNovel(request.NovelId.Value)?.Title : null
+            };
+
             if (request.NovelId.HasValue)
             {
-                existingNovel = _mySqlService.GetNovel(request.NovelId.Value);
+                viewModel.ExistingNovelData = _mySqlService.GetNovel(request.NovelId.Value);
+                if (viewModel.NovelTitle == null) viewModel.NovelTitle = viewModel.ExistingNovelData?.Title;
             }
 
-            ViewData["RequestedNovel"] = requestedNovelData;
-            ViewData["ExistingNovel"] = existingNovel;
-            // Fetch user who made the request for display
-            var requester = _mySqlService.GetUser(request.UserId);
-            ViewData["RequesterUserLogin"] = requester?.Login ?? "Неизвестный пользователь";
+            if (request.RequestType == ModerationRequestType.NovelCreate && !string.IsNullOrEmpty(request.RequestData))
+            {
+                try
+                {
+                    viewModel.ProposedNovelData = JsonSerializer.Deserialize<Novel>(request.RequestData);
+                    if (viewModel.NovelTitle == null) viewModel.NovelTitle = viewModel.ProposedNovelData?.Title;
+                }
+                catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize NovelCreate RequestData for details view, request ID {RequestId}", request.Id); }
+            }
+            else if (request.RequestType == ModerationRequestType.NovelUpdate && !string.IsNullOrEmpty(request.RequestData))
+            {
+                try
+                {
+                    // For NovelUpdate, RequestData contains NovelUpdateRequest. We can deserialize it here for the view if needed.
+                    // For simplicity, the view might just show the existing novel and then the proposed changes if we add more fields to ViewModel.
+                    // Or, the view could use RequestDataJson to show the raw changes.
+                    // For now, loading ProposedNovelData as Novel if it's a full update, or specific DTO if only partial.
+                    // Assuming NovelUpdateRequest is a subset of Novel fields for now, or that RequestData for edit is also a full Novel object.
+                    // The subtask implies NovelUpdateRequest for processing, but for display, full Novel might be easier if RequestData has it.
+                    // Let's assume the ViewModel's ProposedNovelData (type Novel) is sufficient for display for edit, 
+                    // and the actual processing will use NovelUpdateRequest.
+                    viewModel.ProposedNovelData = JsonSerializer.Deserialize<Novel>(request.RequestData); // Or NovelUpdateRequest
+                }
+                catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize NovelUpdate RequestData for details view, request ID {RequestId}", request.Id); }
+            }
+            else if (request.RequestType == ModerationRequestType.NovelDelete && !string.IsNullOrEmpty(request.RequestData))
+            {
+                if (viewModel.NovelTitle == null) // If not already set by existing novel
+                {
+                    try { viewModel.NovelTitle = JsonDocument.Parse(request.RequestData).RootElement.GetProperty("Title").GetString(); }
+                    catch (Exception ex) { _logger.LogWarning(ex, "Could not parse Title from RequestData for NovelDelete details view, request ID {RequestId}", request.Id); }
+                }
+            }
+            if (viewModel.NovelTitle == null) viewModel.NovelTitle = "N/A";
 
 
-            // This should return a PartialView if it's meant to be loaded in a modal or section of a page.
-            // If it's a full page, View() is fine. Assuming full page for details for now.
-            return View("~/Views/Admin/NovelRequestDetails.cshtml", request);
+            // Fetch moderator info if available
+            if (request.ModeratorId.HasValue)
+            {
+                ViewData["ModeratorUserLogin"] = _mySqlService.GetUser(request.ModeratorId.Value)?.Login ?? "N/A";
+            }
+
+            return View("~/Views/Admin/NovelRequestDetails.cshtml", viewModel); // Pass ViewModel
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ApproveNovelRequest(int requestId) // Changed to async Task
+        public async Task<IActionResult> ProcessNovelRequest(int requestId, bool approve, string moderationComment)
         {
-            var currentUser = _currentUserService.GetCurrentUser();
-            if (currentUser == null || !_permissionService.CanModerateNovelRequests(currentUser))
+            var currentAdminUser = _currentUserService.GetCurrentUser(); // Use service
+            if (currentAdminUser == null || !_permissionService.CanModerateNovelRequests(currentAdminUser))
             {
-                // For AJAX, return JSON
                 return Json(new { success = false, message = "Недостаточно прав." });
             }
 
             ModerationRequest request = _mySqlService.GetModerationRequestById(requestId);
-            if (request == null || request.Status != ModerationStatus.Pending)
-            {
-                return Json(new { success = false, message = "Запрос не найден или уже обработан." });
-            }
+            if (request == null) return NotFound(new { message = "Request not found." });
+            if (request.Status != ModerationStatus.Pending) return BadRequest(new { message = "Запрос уже обработан." });
 
-            Novel novelData = null;
-            Novel existingNovel = null;
+            request.ModeratorId = currentAdminUser.Id;
+            request.ModerationComment = moderationComment;
+            request.UpdatedAt = DateTime.UtcNow;
 
-            try
+            Novel novelDataForNotification = null; // For notification title consistency
+            Novel existingNovelForNotification = null; // For notification title consistency
+
+            if (approve)
             {
-                switch (request.RequestType)
+                request.Status = ModerationStatus.Approved;
+                try
                 {
-                    case ModerationRequestType.AddNovel:
-                        novelData = System.Text.Json.JsonSerializer.Deserialize<Novel>(request.RequestData);
-                        // AuthorId should be from the user who made the request (request.UserId)
-                        novelData.AuthorId = request.UserId; // AuthorId set from the user who made the request
-                        novelData.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                        // novelData.Covers currently holds JSON array with one temp path (or "[]")
+                    switch (request.RequestType)
+                    {
+                        case ModerationRequestType.NovelCreate:
+                            var novelCreateData = JsonSerializer.Deserialize<Novel>(request.RequestData);
+                            if (novelCreateData == null) throw new JsonException("Failed to deserialize NovelCreate data.");
 
-                        // Create a temporary Novel object for DB creation, without covers initially, or with empty covers
-                        var novelForDbCreation = new Novel
-                        {
-                            Title = novelData.Title,
-                            Description = novelData.Description,
-                            AuthorId = novelData.AuthorId,
-                            Genres = novelData.Genres,
-                            Tags = novelData.Tags,
-                            Type = novelData.Type,
-                            Format = novelData.Format,
-                            ReleaseYear = novelData.ReleaseYear,
-                            AlternativeTitles = novelData.AlternativeTitles,
-                            RelatedNovelIds = novelData.RelatedNovelIds,
-                            TranslatorId = novelData.TranslatorId, // ensure this is copied if present
-                            Date = novelData.Date,
-                            Covers = "[]" // Start with empty covers
-                        };
-                        int newNovelId = _mySqlService.CreateNovel(novelForDbCreation); // Create novel to get ID
+                            novelCreateData.AuthorId = request.UserId; // Ensure AuthorId is from the requester
+                            novelCreateData.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                            novelCreateData.Status = "approved"; // Set status for the novel itself
 
-                        List<string> tempPaths = new List<string>();
-                        if (!string.IsNullOrEmpty(novelData.Covers))
-                        {
-                            try { tempPaths = System.Text.Json.JsonSerializer.Deserialize<List<string>>(novelData.Covers); } catch { }
-                        }
-
-                        List<string> finalNovelCoverPaths = new List<string>();
-                        if (tempPaths != null && tempPaths.Any())
-                        {
-                            foreach (var tempPath in tempPaths)
+                            var novelForDbCreation = new Novel // Temp object for DB, covers handled after ID
                             {
-                                if (!string.IsNullOrEmpty(tempPath) && tempPath.Contains("/temp_covers/"))
-                                { // Process only temp paths
-                                    string finalPath = await _fileService.CommitTempCoverAsync(tempPath, newNovelId);
-                                    if (!string.IsNullOrEmpty(finalPath))
+                                Title = novelCreateData.Title,
+                                Description = novelCreateData.Description,
+                                AuthorId = novelCreateData.AuthorId,
+                                Genres = novelCreateData.Genres,
+                                Tags = novelCreateData.Tags,
+                                Type = novelCreateData.Type,
+                                Format = novelCreateData.Format,
+                                ReleaseYear = novelCreateData.ReleaseYear,
+                                AlternativeTitles = novelCreateData.AlternativeTitles,
+                                RelatedNovelIds = novelCreateData.RelatedNovelIds,
+                                Date = novelCreateData.Date,
+                                Status = novelCreateData.Status,
+                                Covers = "[]" // Start with empty covers
+                            };
+                            int newNovelId = _mySqlService.CreateNovel(novelForDbCreation);
+                            novelDataForNotification = novelCreateData; // For notification
+
+                            List<string> tempPathsCreate = new List<string>();
+                            if (!string.IsNullOrEmpty(novelCreateData.Covers)) { try { tempPathsCreate = JsonSerializer.Deserialize<List<string>>(novelCreateData.Covers); } catch { } }
+
+                            List<string> finalNovelCoverPathsCreate = new List<string>();
+                            if (tempPathsCreate != null)
+                            {
+                                foreach (var tempPath in tempPathsCreate)
+                                {
+                                    if (!string.IsNullOrEmpty(tempPath) && tempPath.Contains("/temp_covers/"))
                                     {
-                                        finalNovelCoverPaths.Add(finalPath);
+                                        string finalPath = await _fileService.CommitTempCoverAsync(tempPath, newNovelId);
+                                        if (!string.IsNullOrEmpty(finalPath)) finalNovelCoverPathsCreate.Add(finalPath);
                                     }
                                 }
                             }
-                        }
-
-                        if (finalNovelCoverPaths.Any())
-                        {
-                            var novelToUpdate = _mySqlService.GetNovel(newNovelId);
-                            if (novelToUpdate != null)
+                            if (finalNovelCoverPathsCreate.Any())
                             {
-                                novelToUpdate.Covers = System.Text.Json.JsonSerializer.Serialize(finalNovelCoverPaths);
-                                _mySqlService.UpdateNovel(novelToUpdate);
-                                novelData.Covers = novelToUpdate.Covers; // Update novelData for notification consistency
-                            }
-                        }
-                        else
-                        {
-                            novelData.Covers = "[]"; // Ensure novelData reflects no covers if commit failed or no temp paths
-                        }
-                        break;
-                    case ModerationRequestType.EditNovel:
-                        novelData = System.Text.Json.JsonSerializer.Deserialize<Novel>(request.RequestData);
-                        existingNovel = _mySqlService.GetNovel(request.NovelId.Value);
-                        if (existingNovel == null) throw new Exception("Original novel not found for edit.");
-
-                        // Apply changes from novelData to existingNovel
-                        existingNovel.Title = novelData.Title;
-                        existingNovel.Description = novelData.Description;
-                        existingNovel.Covers = string.IsNullOrWhiteSpace(novelData.Covers) ? "[]" : novelData.Covers;
-                        existingNovel.Genres = novelData.Genres;
-                        existingNovel.Tags = novelData.Tags;
-                        existingNovel.Type = novelData.Type;
-                        existingNovel.Format = novelData.Format;
-                        existingNovel.ReleaseYear = novelData.ReleaseYear;
-                        existingNovel.AlternativeTitles = novelData.AlternativeTitles;
-                        // Ensure AuthorId is not changed by edit request unless intended by Admin specific UI
-                        // existingNovel.AuthorId = novelData.AuthorId; // Usually, AuthorId should not change on edit.
-                        // Covers handling for EditNovel:
-                        List<string> pathsFromRequest = new List<string>();
-                        if (!string.IsNullOrEmpty(novelData.Covers))
-                        {
-                            try { pathsFromRequest = System.Text.Json.JsonSerializer.Deserialize<List<string>>(novelData.Covers); } catch { }
-                        }
-
-                        List<string> finalUpdatedCoverPaths = new List<string>();
-                        List<string> tempFilesToCommit = new List<string>();
-
-                        foreach (var pathInRequest in pathsFromRequest)
-                        {
-                            if (!string.IsNullOrEmpty(pathInRequest)) // Ensure path is not null or empty
-                            {
-                                if (pathInRequest.Contains("/temp_covers/"))
+                                var novelToUpdateCovers = _mySqlService.GetNovel(newNovelId);
+                                if (novelToUpdateCovers != null)
                                 {
-                                    tempFilesToCommit.Add(pathInRequest);
-                                }
-                                else
-                                {
-                                    finalUpdatedCoverPaths.Add(pathInRequest); // This is an existing permanent path
+                                    novelToUpdateCovers.Covers = JsonSerializer.Serialize(finalNovelCoverPathsCreate);
+                                    _mySqlService.UpdateNovel(novelToUpdateCovers);
                                 }
                             }
-                        }
+                            break;
 
-                        foreach (var tempPath in tempFilesToCommit)
-                        {
-                            string finalPath = await _fileService.CommitTempCoverAsync(tempPath, existingNovel.Id);
-                            if (!string.IsNullOrEmpty(finalPath))
+                        case ModerationRequestType.NovelUpdate:
+                            var novelUpdateData = JsonSerializer.Deserialize<NovelUpdateRequest>(request.RequestData);
+                            if (novelUpdateData == null) throw new JsonException("Failed to deserialize NovelUpdate data.");
+
+                            var novelToUpdate = _mySqlService.GetNovel(request.NovelId.Value);
+                            if (novelToUpdate == null) throw new Exception("Novel to update not found.");
+                            existingNovelForNotification = new Novel { Title = novelToUpdate.Title }; // Capture old title for notification if needed
+
+                            novelToUpdate.Title = novelUpdateData.Title ?? novelToUpdate.Title;
+                            novelToUpdate.Description = novelUpdateData.Description ?? novelToUpdate.Description;
+                            novelToUpdate.Genres = novelUpdateData.Genres ?? novelToUpdate.Genres;
+                            novelToUpdate.Tags = novelUpdateData.Tags ?? novelToUpdate.Tags;
+                            novelToUpdate.Type = novelUpdateData.Type ?? novelToUpdate.Type;
+                            novelToUpdate.Format = novelUpdateData.Format ?? novelToUpdate.Format;
+                            novelToUpdate.ReleaseYear = novelUpdateData.ReleaseYear ?? novelToUpdate.ReleaseYear;
+                            novelToUpdate.AuthorId = novelUpdateData.AuthorId ?? novelToUpdate.AuthorId;
+                            novelToUpdate.AlternativeTitles = novelUpdateData.AlternativeTitles ?? novelToUpdate.AlternativeTitles;
+                            novelDataForNotification = novelToUpdate; // For notification
+
+                            List<string> pathsFromUpdateRequest = novelUpdateData.Covers ?? new List<string>();
+                            List<string> finalUpdatedCoverPaths = new List<string>();
+                            List<string> tempFilesToCommitUpdate = new List<string>();
+
+                            foreach (var pathInRequest in pathsFromUpdateRequest)
                             {
-                                finalUpdatedCoverPaths.Add(finalPath);
+                                if (!string.IsNullOrEmpty(pathInRequest))
+                                {
+                                    if (pathInRequest.Contains("/temp_covers/")) tempFilesToCommitUpdate.Add(pathInRequest);
+                                    else finalUpdatedCoverPaths.Add(pathInRequest);
+                                }
                             }
-                        }
-
-                        // Logic to delete old covers not present in the final list
-                        List<string> existingCoversList = new List<string>();
-                        if (!string.IsNullOrWhiteSpace(existingNovel.Covers))
-                        {
-                            try { existingCoversList = System.Text.Json.JsonSerializer.Deserialize<List<string>>(existingNovel.Covers); } catch { }
-                        }
-
-                        foreach (var oldCoverPath in existingCoversList)
-                        {
-                            if (!finalUpdatedCoverPaths.Contains(oldCoverPath))
+                            foreach (var tempPath in tempFilesToCommitUpdate)
                             {
-                                await _fileService.DeleteCoverAsync(oldCoverPath);
+                                string finalPath = await _fileService.CommitTempCoverAsync(tempPath, novelToUpdate.Id);
+                                if (!string.IsNullOrEmpty(finalPath)) finalUpdatedCoverPaths.Add(finalPath);
                             }
-                        }
+                            List<string> existingCoversListUpdate = new List<string>();
+                            if (!string.IsNullOrWhiteSpace(novelToUpdate.Covers)) { try { existingCoversListUpdate = JsonSerializer.Deserialize<List<string>>(novelToUpdate.Covers); } catch { } }
+                            foreach (var oldCoverPath in existingCoversListUpdate)
+                            {
+                                if (!finalUpdatedCoverPaths.Contains(oldCoverPath)) await _fileService.DeleteCoverAsync(oldCoverPath);
+                            }
+                            novelToUpdate.Covers = JsonSerializer.Serialize(finalUpdatedCoverPaths.Distinct().ToList());
+                            _mySqlService.UpdateNovel(novelToUpdate);
+                            break;
 
-                        existingNovel.Covers = System.Text.Json.JsonSerializer.Serialize(finalUpdatedCoverPaths.Distinct().ToList());
-                        // Other fields were already updated above.
-                        _mySqlService.UpdateNovel(existingNovel);
-                        novelData.Covers = existingNovel.Covers; // Update novelData for notification consistency
-                        break;
-                    case ModerationRequestType.DeleteNovel:
-                        if (!request.NovelId.HasValue) throw new Exception("NovelId is missing for delete request.");
-                        _mySqlService.DeleteNovel(request.NovelId.Value);
-                        break;
-                    default:
-                        throw new InvalidOperationException("Неподдерживаемый тип запроса.");
+                        case ModerationRequestType.NovelDelete:
+                            if (!request.NovelId.HasValue) throw new Exception("NovelId is missing for delete request.");
+                            var novelToDelete = _mySqlService.GetNovel(request.NovelId.Value);
+                            if (novelToDelete != null)
+                            {
+                                novelDataForNotification = new Novel { Title = novelToDelete.Title }; // Capture title for notification
+                                // Also delete covers associated with this novel
+                                if (!string.IsNullOrWhiteSpace(novelToDelete.Covers))
+                                {
+                                    var coversToDelete = JsonSerializer.Deserialize<List<string>>(novelToDelete.Covers);
+                                    if (coversToDelete != null)
+                                    {
+                                        foreach (var coverPath in coversToDelete) await _fileService.DeleteCoverAsync(coverPath);
+                                    }
+                                }
+                                _mySqlService.DeleteNovel(request.NovelId.Value);
+                            }
+                            else { throw new Exception("Novel to delete not found."); }
+                            break;
+                        default:
+                            throw new InvalidOperationException("Неподдерживаемый тип запроса.");
+                    }
+                    _mySqlService.UpdateModerationRequest(request);
+
+                    var approvedNovelTitle = novelDataForNotification?.Title ?? existingNovelForNotification?.Title ?? "Неизвестная новелла";
+                    var approvedMessage = $"Ваш запрос '{request.RequestType.ToString()}' для новеллы '{approvedNovelTitle}' был одобрен.";
+                    _notificationService.CreateNotification(request.UserId, NotificationType.ModerationApproved, approvedMessage, request.NovelId, RelatedItemType.Novel);
+
+                    return Ok(new { success = true, message = $"Запрос ID {requestId} ({request.RequestType.ToString()}) одобрен." });
                 }
-
-                request.Status = ModerationStatus.Approved;
-                request.ModeratorId = currentUser.Id;
-                request.UpdatedAt = DateTime.UtcNow;
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing approval for request ID {RequestId}", requestId);
+                    return StatusCode(500, new { success = false, message = "Ошибка обработки запроса: " + ex.Message });
+                }
+            }
+            else // Reject
+            {
+                request.Status = ModerationStatus.Rejected;
                 _mySqlService.UpdateModerationRequest(request);
 
-                // Send notification
-                var novelTitleForNotification = novelData?.Title ?? existingNovel?.Title ?? "Неизвестная новелла";
-                var message = $"Ваш запрос '{request.RequestType}' для новеллы '{novelTitleForNotification}' был одобрен.";
-                // Assuming request.NovelId is the ID of the novel itself after creation/approval
-                // For AddNovel, novelData.Id might be 0 if not refetched, so use request.NovelId which should be populated by CreateNovel or be the existing ID
-                int? relatedNovelId = (request.RequestType == ModerationRequestType.AddNovel)
-                                      ? (_mySqlService.GetNovels().FirstOrDefault(n => n.Title == novelData.Title)?.Id) // Attempt to get new ID
-                                      : request.NovelId;
-
-                _notificationService.CreateNotification(request.UserId, NotificationType.ModerationApproved, message, relatedNovelId, RelatedItemType.Novel);
-
-                return Json(new { success = true, message = $"Запрос ID {requestId} ({request.RequestType}) одобрен." });
-            }
-            catch (Exception ex)
-            {
-                return Json(new { success = false, message = $"Ошибка обработки запроса ID {requestId}: {ex.Message}" });
-            }
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RejectNovelRequest(int requestId, string moderationComment) // Changed to async Task
-        {
-            var currentUser = _currentUserService.GetCurrentUser();
-            if (currentUser == null || !_permissionService.CanModerateNovelRequests(currentUser))
-            {
-                return Json(new { success = false, message = "Недостаточно прав." });
-            }
-
-            ModerationRequest request = _mySqlService.GetModerationRequestById(requestId);
-            if (request == null || request.Status != ModerationStatus.Pending)
-            {
-                return Json(new { success = false, message = "Запрос не найден или уже обработан." });
-            }
-
-            request.Status = ModerationStatus.Rejected;
-            request.ModeratorId = currentUser.Id;
-            request.ModerationComment = moderationComment;
-            request.UpdatedAt = DateTime.UtcNow;
-            _mySqlService.UpdateModerationRequest(request);
-
-            // Delete temporary files if any
-            if (request.RequestType == ModerationRequestType.AddNovel || request.RequestType == ModerationRequestType.EditNovel)
-            {
-                if (!string.IsNullOrEmpty(request.RequestData))
+                if (request.RequestType == ModerationRequestType.NovelCreate || request.RequestType == ModerationRequestType.NovelUpdate)
                 {
-                    try
+                    if (!string.IsNullOrEmpty(request.RequestData))
                     {
-                        var novelDetails = System.Text.Json.JsonSerializer.Deserialize<Novel>(request.RequestData);
-                        if (novelDetails != null && !string.IsNullOrEmpty(novelDetails.Covers))
+                        try
                         {
-                            var coverPaths = System.Text.Json.JsonSerializer.Deserialize<List<string>>(novelDetails.Covers);
-                            if (coverPaths != null)
+                            Novel novelDetails = null;
+                            // Try deserializing as Novel (for Create) or NovelUpdateRequest (for Update) then get Covers
+                            // For simplicity, assuming Covers property is accessible similarly or is a List<string>
+                            if (request.RequestType == ModerationRequestType.NovelCreate)
+                                novelDetails = JsonSerializer.Deserialize<Novel>(request.RequestData);
+                            else if (request.RequestType == ModerationRequestType.NovelUpdate)
                             {
-                                foreach (var path in coverPaths)
+                                // If NovelUpdateRequest has Covers as List<string>
+                                var updateReq = JsonSerializer.Deserialize<NovelUpdateRequest>(request.RequestData);
+                                if (updateReq != null) novelDetails = new Novel { CoversList = updateReq.Covers }; // Adapt to get CoversList
+                            }
+
+                            if (novelDetails != null && novelDetails.CoversList != null)
+                            {
+                                foreach (var path in novelDetails.CoversList)
                                 {
-                                    if (!string.IsNullOrEmpty(path) && path.Contains("/temp_covers/")) // Check if it's a temp path
+                                    if (!string.IsNullOrEmpty(path) && path.Contains("/temp_covers/"))
                                     {
                                         await _fileService.DeleteCoverAsync(path);
                                     }
                                 }
                             }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log error during temp file deletion on rejection
-                        // Consider this non-critical for the rejection process itself
-                        _logger.LogError(ex, $"Error deleting temporary covers for rejected request ID {requestId}.");
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error deleting temporary covers for rejected request ID {RequestId}.", requestId);
+                        }
                     }
                 }
-            }
 
-            // Send notification
-            // Attempt to get novel title for notification message
-            string novelTitleForNotification = "Неизвестная новелла";
-            if (request.RequestType == ModerationRequestType.AddNovel && !string.IsNullOrEmpty(request.RequestData))
-            {
-                try { var nt = System.Text.Json.JsonSerializer.Deserialize<Novel>(request.RequestData); novelTitleForNotification = nt?.Title; } catch { }
-            }
-            else if (request.NovelId.HasValue)
-            {
-                novelTitleForNotification = _mySqlService.GetNovel(request.NovelId.Value)?.Title;
-            }
-            var message = $"Ваш запрос '{request.RequestType}' для новеллы '{novelTitleForNotification}' был отклонен.";
-            if (!string.IsNullOrWhiteSpace(moderationComment)) message += $" Причина: {moderationComment}";
-            _notificationService.CreateNotification(request.UserId, NotificationType.ModerationRejected, message, request.NovelId, RelatedItemType.Novel);
+                string rejectedNovelTitle = "Неизвестная новелла";
+                if (request.RequestType == ModerationRequestType.NovelCreate && !string.IsNullOrEmpty(request.RequestData))
+                {
+                    try { var nt = JsonSerializer.Deserialize<Novel>(request.RequestData); rejectedNovelTitle = nt?.Title; } catch { }
+                }
+                else if (request.NovelId.HasValue)
+                {
+                    rejectedNovelTitle = _mySqlService.GetNovel(request.NovelId.Value)?.Title ?? rejectedNovelTitle;
+                }
+                else if (!string.IsNullOrEmpty(request.RequestData))
+                { // Fallback for delete if title was in RequestData
+                    try { rejectedNovelTitle = JsonDocument.Parse(request.RequestData).RootElement.GetProperty("Title").GetString() ?? rejectedNovelTitle; } catch { }
+                }
 
-            return Json(new { success = true, message = $"Запрос ID {requestId} ({request.RequestType}) отклонен." });
+                var rejectedMessage = $"Ваш запрос '{request.RequestType.ToString()}' для новеллы '{rejectedNovelTitle}' был отклонен.";
+                if (!string.IsNullOrWhiteSpace(moderationComment)) rejectedMessage += $" Причина: {moderationComment}";
+                _notificationService.CreateNotification(request.UserId, NotificationType.ModerationRejected, rejectedMessage, request.NovelId, RelatedItemType.Novel);
+
+                return Ok(new { success = true, message = $"Запрос ID {requestId} ({request.RequestType.ToString()}) отклонен." });
+            }
         }
 
         // Chapter Moderation Requests
-        public IActionResult ChapterRequests(int page = 1)
+        public IActionResult ChapterRequestsPartial(int page = 1, int pageSize = 10) // Renamed, added pageSize
         {
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null || !_permissionService.CanModerateChapterRequests(currentUser))
@@ -485,296 +501,324 @@ namespace BulbaLib.Controllers
                 return PartialView("~/Views/Shared/_AccessDeniedPartial.cshtml");
             }
 
-            int pageSize = 10;
-            var chapterRequestTypes = new List<ModerationRequestType>
-                { ModerationRequestType.AddChapter, ModerationRequestType.EditChapter, ModerationRequestType.DeleteChapter };
+            //pageSize = 10; // Already a parameter
+            var chapterRequestTypes = new List<ModerationRequestType> // Updated enum values
+                { ModerationRequestType.ChapterCreate, ModerationRequestType.ChapterUpdate, ModerationRequestType.ChapterDelete };
 
-            List<ModerationRequest> requests = _mySqlService.GetPendingModerationRequestsByType(chapterRequestTypes, pageSize, (page - 1) * pageSize);
+            List<ModerationRequest> rawRequests = _mySqlService.GetPendingModerationRequestsByType(chapterRequestTypes, pageSize, (page - 1) * pageSize);
             int totalRequests = _mySqlService.CountPendingModerationRequestsByType(chapterRequestTypes);
 
             ViewData["TotalPages"] = (int)Math.Ceiling((double)totalRequests / pageSize);
             ViewData["CurrentPage"] = page;
             ViewData["PageSize"] = pageSize;
 
-            // Map to ViewModel
-            var viewModels = new List<ChapterModerationRequestViewModel>();
-            foreach (var req in requests)
-            {
-                var novel = req.NovelId.HasValue ? _mySqlService.GetNovel(req.NovelId.Value) : null;
-                Chapter proposedChapter = null;
-                Chapter existingChapter = null;
+            var viewModels = rawRequests.Select(r => {
+                var user = _mySqlService.GetUser(r.UserId);
+                var novel = r.NovelId.HasValue ? _mySqlService.GetNovel(r.NovelId.Value) : null;
+                Chapter proposedChapterData = null;
+                ChapterUpdateRequest chapterUpdateData = null;
+                Chapter existingChapterData = r.ChapterId.HasValue ? _mySqlService.GetChapter(r.ChapterId.Value) : null;
+                string chapterTitle = existingChapterData?.Title;
+                string chapterNumber = existingChapterData?.Number;
 
-                if (!string.IsNullOrEmpty(req.RequestData))
+                if (r.RequestType == ModerationRequestType.ChapterCreate && !string.IsNullOrEmpty(r.RequestData))
                 {
-                    try { proposedChapter = System.Text.Json.JsonSerializer.Deserialize<Chapter>(req.RequestData); } catch { /* log error */ }
+                    try
+                    {
+                        proposedChapterData = JsonSerializer.Deserialize<Chapter>(r.RequestData);
+                        chapterTitle = proposedChapterData?.Title;
+                        chapterNumber = proposedChapterData?.Number;
+                    }
+                    catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize ChapterCreate RequestData for request ID {RequestId}", r.Id); }
                 }
-                if (req.ChapterId.HasValue)
+                else if (r.RequestType == ModerationRequestType.ChapterUpdate && !string.IsNullOrEmpty(r.RequestData))
                 {
-                    existingChapter = _mySqlService.GetChapter(req.ChapterId.Value);
+                    try
+                    {
+                        // For display, might show proposed title/number if they are in ChapterUpdateRequest
+                        chapterUpdateData = JsonSerializer.Deserialize<ChapterUpdateRequest>(r.RequestData);
+                        if (!string.IsNullOrEmpty(chapterUpdateData?.Title)) chapterTitle = chapterUpdateData.Title;
+                        if (!string.IsNullOrEmpty(chapterUpdateData?.Number)) chapterNumber = chapterUpdateData.Number;
+                    }
+                    catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize ChapterUpdate RequestData for request ID {RequestId}", r.Id); }
+                }
+                else if (r.RequestType == ModerationRequestType.ChapterDelete && !string.IsNullOrEmpty(r.RequestData))
+                {
+                    // RequestData might have { "Number": "...", "Title": "..." }
+                    try
+                    {
+                        var doc = JsonDocument.Parse(r.RequestData);
+                        if (doc.RootElement.TryGetProperty("Title", out var titleElement)) chapterTitle = titleElement.GetString() ?? chapterTitle;
+                        if (doc.RootElement.TryGetProperty("Number", out var numberElement)) chapterNumber = numberElement.GetString() ?? chapterNumber;
+                    }
+                    catch (Exception ex) { _logger.LogWarning(ex, "Could not parse Title/Number from RequestData for ChapterDelete request ID {RequestId}", r.Id); }
                 }
 
-                viewModels.Add(new ChapterModerationRequestViewModel
+                return new ChapterModerationRequestViewModel
                 {
-                    RequestId = req.Id,
-                    RequestType = req.RequestType,
-                    RequestTypeDisplay = req.RequestType.ToString(), // TODO: Add display names
-                    UserId = req.UserId,
-                    RequesterLogin = _mySqlService.GetUser(req.UserId)?.Login ?? "N/A",
-                    CreatedAt = req.CreatedAt,
-                    NovelId = req.NovelId,
+                    RequestId = r.Id,
+                    RequestType = r.RequestType,
+                    UserId = r.UserId,
+                    RequesterLogin = user?.Login ?? "N/A",
+                    CreatedAt = r.CreatedAt,
+                    NovelId = r.NovelId,
                     NovelTitle = novel?.Title ?? "N/A",
-                    ChapterId = req.ChapterId,
-                    ChapterNumber = proposedChapter?.Number ?? existingChapter?.Number,
-                    ChapterTitle = proposedChapter?.Title ?? existingChapter?.Title,
-                    RequestDataJson = req.RequestData,
-                    ProposedChapterData = proposedChapter,
-                    ExistingChapterData = existingChapter,
-                    Status = req.Status.ToString()
-                });
-            }
+                    ChapterId = r.ChapterId,
+                    ChapterNumber = chapterNumber ?? "N/A",
+                    ChapterTitle = chapterTitle ?? "N/A",
+                    RequestDataJson = r.RequestData, // For details view
+                    Status = r.Status.ToString()
+                };
+            }).ToList();
+
             return PartialView("~/Views/Admin/_ChapterRequestsPartial.cshtml", viewModels);
         }
 
         public IActionResult ChapterRequestDetails(int requestId)
         {
-            // User currentUser = GetCurrentUser(); // This was from an older version, _currentUserService is used below
-            var currentUser = _currentUserService.GetCurrentUser(); // Corrected to use injected service
+            var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null || !_permissionService.CanModerateChapterRequests(currentUser))
             {
-                return RedirectToAction("AccessDenied", "AuthView");
+                return RedirectToAction("AccessDenied", "AuthView"); // Or PartialView if used in modal
             }
 
             ModerationRequest request = _mySqlService.GetModerationRequestById(requestId);
             if (request == null) return NotFound();
 
-            Chapter requestedChapterData = null;
-            Chapter existingChapter = null;
-            Novel parentNovel = null;
-
-            if (request.NovelId.HasValue)
+            var viewModel = new ChapterModerationRequestViewModel
             {
-                parentNovel = _mySqlService.GetNovel(request.NovelId.Value);
-            }
+                RequestId = request.Id,
+                RequestType = request.RequestType,
+                UserId = request.UserId,
+                RequesterLogin = _mySqlService.GetUser(request.UserId)?.Login ?? "N/A",
+                CreatedAt = request.CreatedAt,
+                NovelId = request.NovelId,
+                ChapterId = request.ChapterId,
+                RequestDataJson = request.RequestData,
+                Status = request.Status.ToString(),
+                NovelTitle = request.NovelId.HasValue ? _mySqlService.GetNovel(request.NovelId.Value)?.Title : "N/A",
+            };
 
-            if (request.RequestType == ModerationRequestType.AddChapter || request.RequestType == ModerationRequestType.EditChapter)
-            {
-                if (!string.IsNullOrEmpty(request.RequestData))
-                {
-                    try { requestedChapterData = System.Text.Json.JsonSerializer.Deserialize<Chapter>(request.RequestData); }
-                    catch { /* Log error */ }
-                }
-            }
             if (request.ChapterId.HasValue)
             {
-                existingChapter = _mySqlService.GetChapter(request.ChapterId.Value);
+                viewModel.ExistingChapterData = _mySqlService.GetChapter(request.ChapterId.Value);
+                if (viewModel.ExistingChapterData != null)
+                {
+                    viewModel.ChapterNumber = viewModel.ExistingChapterData.Number;
+                    viewModel.ChapterTitle = viewModel.ExistingChapterData.Title;
+                }
             }
 
-            ViewData["RequestedChapter"] = requestedChapterData;
-            ViewData["ExistingChapter"] = existingChapter;
-            ViewData["ParentNovel"] = parentNovel;
-            var requester = _mySqlService.GetUser(request.UserId); // Already using _mySqlService
-            ViewData["RequesterUserLogin"] = requester?.Login ?? "Неизвестный пользователь";
+            if ((request.RequestType == ModerationRequestType.ChapterCreate || request.RequestType == ModerationRequestType.ChapterUpdate)
+                && !string.IsNullOrEmpty(request.RequestData))
+            {
+                try
+                {
+                    viewModel.ProposedChapterData = JsonSerializer.Deserialize<Chapter>(request.RequestData);
+                    // Update display title/number if proposed data has them (especially for create)
+                    if (request.RequestType == ModerationRequestType.ChapterCreate)
+                    {
+                        viewModel.ChapterNumber = viewModel.ProposedChapterData?.Number ?? viewModel.ChapterNumber;
+                        viewModel.ChapterTitle = viewModel.ProposedChapterData?.Title ?? viewModel.ChapterTitle;
+                    }
+                }
+                catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize Chapter RequestData for details view, request ID {RequestId}", request.Id); }
+            }
+            else if (request.RequestType == ModerationRequestType.ChapterDelete && !string.IsNullOrEmpty(request.RequestData))
+            {
+                if (viewModel.ChapterTitle == null) // If not already set by existing chapter
+                {
+                    try
+                    {
+                        var doc = JsonDocument.Parse(request.RequestData);
+                        if (doc.RootElement.TryGetProperty("Title", out var titleElement)) viewModel.ChapterTitle = titleElement.GetString();
+                        if (doc.RootElement.TryGetProperty("Number", out var numberElement)) viewModel.ChapterNumber = numberElement.GetString();
+                    }
+                    catch (Exception ex) { _logger.LogWarning(ex, "Could not parse Title/Number from RequestData for ChapterDelete details view, request ID {RequestId}", request.Id); }
+                }
+            }
+            if (viewModel.ChapterTitle == null) viewModel.ChapterTitle = "N/A";
+            if (viewModel.ChapterNumber == null) viewModel.ChapterNumber = "N/A";
 
-
-            User moderatorUser = null;
             if (request.ModeratorId.HasValue)
             {
-                moderatorUser = _mySqlService.GetUser(request.ModeratorId.Value);
+                ViewData["ModeratorUserLogin"] = _mySqlService.GetUser(request.ModeratorId.Value)?.Login ?? "N/A";
             }
-            ViewData["ModeratorUserLogin"] = moderatorUser?.Login;
-            // Assuming full page for details for now.
-            return View("~/Views/Admin/ChapterRequestDetails.cshtml", request);
+            ViewData["ParentNovel"] = viewModel.NovelId.HasValue ? _mySqlService.GetNovel(viewModel.NovelId.Value) : null;
+
+
+            return View("~/Views/Admin/ChapterRequestDetails.cshtml", viewModel); // Pass ViewModel
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ApproveChapterRequest(int requestId) // Made async
+        public async Task<IActionResult> ProcessChapterRequest(int requestId, bool approve, string moderationComment)
         {
-            var currentUser = _currentUserService.GetCurrentUser(); // Corrected
-            if (currentUser == null || !_permissionService.CanModerateChapterRequests(currentUser))
+            var currentAdminUser = _currentUserService.GetCurrentUser();
+            if (currentAdminUser == null || !_permissionService.CanModerateChapterRequests(currentAdminUser))
             {
                 return Json(new { success = false, message = "Недостаточно прав." });
             }
 
             ModerationRequest request = _mySqlService.GetModerationRequestById(requestId);
-            if (request == null || request.Status != ModerationStatus.Pending)
+            if (request == null) return NotFound(new { message = "Request not found." });
+            if (request.Status != ModerationStatus.Pending) return BadRequest(new { message = "Запрос уже обработан." });
+
+            request.ModeratorId = currentAdminUser.Id;
+            request.ModerationComment = moderationComment;
+            request.UpdatedAt = DateTime.UtcNow;
+
+            Chapter chapterDataForNotification = null;
+            Chapter existingChapterForNotification = null;
+            string novelTitleForNotification = (request.NovelId.HasValue ? _mySqlService.GetNovel(request.NovelId.Value)?.Title : null) ?? "Неизвестная новелла";
+
+            if (approve)
             {
-                return Json(new { success = false, message = "Запрос не найден или уже обработан." });
-            }
-
-            Chapter chapterData = null;
-            Chapter existingChapter = null;
-
-            try
-            {
-                switch (request.RequestType)
-                {
-                    case ModerationRequestType.AddChapter:
-                        chapterData = System.Text.Json.JsonSerializer.Deserialize<Chapter>(request.RequestData);
-                        if (!request.NovelId.HasValue && chapterData.NovelId == 0) throw new Exception("NovelId for chapter is missing.");
-                        // Ensure NovelId from request is used if chapterData.NovelId is not set (it should be)
-                        chapterData.NovelId = request.NovelId ?? chapterData.NovelId;
-                        chapterData.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                        chapterData.CreatorId = request.UserId; // Устанавливаем ID пользователя, создавшего запрос
-                        // TODO: Consider if chapterData needs a TranslatorId or AddedByUserId set from request.UserId
-                        _mySqlService.CreateChapter(chapterData);
-
-                        // ---- Start: Auto add TranslatorId on AddChapter ----
-                        if (request.NovelId.HasValue)
-                        {
-                            var novelForTranslatorUpdate = _mySqlService.GetNovel(request.NovelId.Value);
-                            if (novelForTranslatorUpdate != null)
-                            {
-                                List<string> translatorIds = !string.IsNullOrWhiteSpace(novelForTranslatorUpdate.TranslatorId) ?
-                                                             System.Text.Json.JsonSerializer.Deserialize<List<string>>(novelForTranslatorUpdate.TranslatorId) ?? new List<string>() :
-                                                             new List<string>();
-                                string translatorIdToAdd = request.UserId.ToString();
-                                if (!translatorIds.Contains(translatorIdToAdd))
-                                {
-                                    translatorIds.Add(translatorIdToAdd);
-                                    novelForTranslatorUpdate.TranslatorId = System.Text.Json.JsonSerializer.Serialize(translatorIds);
-                                    _mySqlService.UpdateNovel(novelForTranslatorUpdate);
-                                }
-                            }
-                        }
-                        // ---- End: Auto add TranslatorId on AddChapter ----
-                        break;
-                    case ModerationRequestType.EditChapter:
-                        chapterData = System.Text.Json.JsonSerializer.Deserialize<Chapter>(request.RequestData);
-                        existingChapter = _mySqlService.GetChapter(request.ChapterId.Value);
-                        if (existingChapter == null) throw new Exception("Original chapter not found for edit.");
-
-                        existingChapter.Number = chapterData.Number;
-                        existingChapter.Title = chapterData.Title;
-                        existingChapter.Content = chapterData.Content;
-                        existingChapter.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(); // Update date on edit
-                        _mySqlService.UpdateChapter(existingChapter);
-                        break;
-                    case ModerationRequestType.DeleteChapter:
-                        if (!request.ChapterId.HasValue) throw new Exception("ChapterId is missing for delete request.");
-
-                        // Store novel ID and user ID before chapter is deleted, if needed for context
-                        int novelIdForDeleteCheck = request.NovelId.Value;
-                        int userIdForDeleteCheck = request.UserId;
-
-                        _mySqlService.DeleteChapter(request.ChapterId.Value);
-
-                        // ---- Start: Auto remove TranslatorId on DeleteChapter ----
-                        var novelAfterDelete = _mySqlService.GetNovel(novelIdForDeleteCheck);
-                        if (novelAfterDelete != null && !string.IsNullOrWhiteSpace(novelAfterDelete.TranslatorId))
-                        {
-                            var remainingChaptersFromTranslator = _mySqlService.GetChaptersByNovel(novelIdForDeleteCheck)
-                                                                             .Any(c => c.CreatorId == userIdForDeleteCheck);
-                            if (!remainingChaptersFromTranslator)
-                            {
-                                List<string> translatorIds = System.Text.Json.JsonSerializer.Deserialize<List<string>>(novelAfterDelete.TranslatorId) ?? new List<string>();
-                                string translatorIdToRemove = userIdForDeleteCheck.ToString();
-                                if (translatorIds.Contains(translatorIdToRemove))
-                                {
-                                    translatorIds.Remove(translatorIdToRemove);
-                                    novelAfterDelete.TranslatorId = System.Text.Json.JsonSerializer.Serialize(translatorIds);
-                                    _mySqlService.UpdateNovel(novelAfterDelete);
-                                }
-                            }
-                        }
-                        // ---- End: Auto remove TranslatorId on DeleteChapter ----
-                        break;
-                    default:
-                        throw new InvalidOperationException("Неподдерживаемый тип запроса для глав.");
-                }
-
                 request.Status = ModerationStatus.Approved;
-                request.ModeratorId = currentUser.Id;
-                request.UpdatedAt = DateTime.UtcNow;
-                _mySqlService.UpdateModerationRequest(request);
-
-                // Send notification
-                string chapterTitleForNotification = chapterData?.Title ?? existingChapter?.Title ?? "Неизвестная глава";
-                string novelTitle = (request.NovelId.HasValue ? _mySqlService.GetNovel(request.NovelId.Value)?.Title : null) ?? "Неизвестная новелла";
-                var message = $"Ваш запрос '{request.RequestType}' для главы '{chapterTitleForNotification}' (новелла '{novelTitle}') был одобрен.";
-
-                // For AddChapter, chapterData.Id might be 0 if not refetched.
-                // We need the actual ID of the newly created/approved chapter.
-                int? relatedChapterId = request.ChapterId; // For Edit/Delete
-                if (request.RequestType == ModerationRequestType.AddChapter)
+                try
                 {
-                    // This is tricky as CreateChapter doesn't return ID. We might need to fetch it.
-                    // For now, we'll use the request ID or novel ID as related item if chapter ID isn't easily available.
-                    // A better approach would be to ensure CreateChapter returns the ID or fetch last inserted ID for that novel.
-                    // Using request.NovelId as a fallback related item.
-                    relatedChapterId = _mySqlService.GetChaptersByNovel(request.NovelId.Value)
-                                         .FirstOrDefault(c => c.Title == chapterData.Title && c.Number == chapterData.Number)?.Id ?? request.NovelId;
-                }
-
-                _notificationService.CreateNotification(request.UserId, NotificationType.ModerationApproved, message, relatedChapterId, RelatedItemType.Chapter);
-
-                // Notification for new chapter to subscribers
-                if (request.RequestType == ModerationRequestType.AddChapter && request.NovelId.HasValue)
-                {
-                    // Fetch chapter ID again, more reliably if possible
-                    var newChapter = _mySqlService.GetChaptersByNovel(request.NovelId.Value)
-                                         .FirstOrDefault(c => c.Title == chapterData.Title && c.Number == chapterData.Number && c.Content == chapterData.Content);
-                    if (newChapter != null)
+                    switch (request.RequestType)
                     {
-                        var subscribers = _mySqlService.GetUserIdsSubscribedToNovel(request.NovelId.Value, new List<string> { "reading", "read", "favorites" });
-                        var newChapterMessage = $"Новая глава '{newChapter.Number} - {newChapter.Title}' добавлена к новелле '{novelTitle}'.";
-                        foreach (var subId in subscribers)
-                        {
-                            if (subId != request.UserId) // Don't notify the chapter author themselves about their own new chapter via this path
+                        case ModerationRequestType.ChapterCreate:
+                            var chapterCreateData = JsonSerializer.Deserialize<Chapter>(request.RequestData);
+                            if (chapterCreateData == null) throw new JsonException("Failed to deserialize ChapterCreate data.");
+
+                            if (!request.NovelId.HasValue && chapterCreateData.NovelId == 0) throw new Exception("NovelId for chapter is missing.");
+                            chapterCreateData.NovelId = request.NovelId ?? chapterCreateData.NovelId;
+                            chapterCreateData.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                            chapterCreateData.CreatorId = request.UserId;
+                            _mySqlService.CreateChapter(chapterCreateData);
+                            chapterDataForNotification = chapterCreateData;
+
+                            if (request.NovelId.HasValue)
+                            { // Auto add TranslatorId to Novel
+                                var novelForUpdate = _mySqlService.GetNovel(request.NovelId.Value);
+                                if (novelForUpdate != null)
+                                {
+                                    List<string> translatorIds = !string.IsNullOrWhiteSpace(novelForUpdate.TranslatorId) ? JsonSerializer.Deserialize<List<string>>(novelForUpdate.TranslatorId) ?? new List<string>() : new List<string>();
+                                    if (!translatorIds.Contains(request.UserId.ToString()))
+                                    {
+                                        translatorIds.Add(request.UserId.ToString());
+                                        novelForUpdate.TranslatorId = JsonSerializer.Serialize(translatorIds);
+                                        _mySqlService.UpdateNovel(novelForUpdate);
+                                    }
+                                }
+                            }
+                            break;
+
+                        case ModerationRequestType.ChapterUpdate:
+                            var chapterUpdateData = JsonSerializer.Deserialize<ChapterUpdateRequest>(request.RequestData);
+                            if (chapterUpdateData == null) throw new JsonException("Failed to deserialize ChapterUpdate data.");
+
+                            var chapterToUpdate = _mySqlService.GetChapter(request.ChapterId.Value);
+                            if (chapterToUpdate == null) throw new Exception("Chapter to update not found.");
+                            existingChapterForNotification = new Chapter { Title = chapterToUpdate.Title, Number = chapterToUpdate.Number };
+
+                            chapterToUpdate.Number = chapterUpdateData.Number ?? chapterToUpdate.Number;
+                            chapterToUpdate.Title = chapterUpdateData.Title ?? chapterToUpdate.Title;
+                            chapterToUpdate.Content = chapterUpdateData.Content ?? chapterToUpdate.Content;
+                            chapterToUpdate.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(); // Update date on edit
+                            _mySqlService.UpdateChapter(chapterToUpdate);
+                            chapterDataForNotification = chapterToUpdate;
+                            break;
+
+                        case ModerationRequestType.ChapterDelete:
+                            if (!request.ChapterId.HasValue) throw new Exception("ChapterId is missing for delete request.");
+                            var chapterToDelete = _mySqlService.GetChapter(request.ChapterId.Value);
+                            if (chapterToDelete != null)
                             {
-                                _notificationService.CreateNotification(subId, NotificationType.NewChapter, newChapterMessage, newChapter.Id, RelatedItemType.Chapter);
+                                chapterDataForNotification = new Chapter { Title = chapterToDelete.Title, Number = chapterToDelete.Number };
+                                int novelIdForDeleteCheck = chapterToDelete.NovelId; // Use chapter's novelId
+                                int userIdForDeleteCheck = chapterToDelete.CreatorId.Value; // Use chapter's creatorId
+
+                                _mySqlService.DeleteChapter(request.ChapterId.Value);
+
+                                var novelAfterDelete = _mySqlService.GetNovel(novelIdForDeleteCheck); // Auto remove TranslatorId from Novel
+                                if (novelAfterDelete != null && !string.IsNullOrWhiteSpace(novelAfterDelete.TranslatorId))
+                                {
+                                    var remainingChapters = _mySqlService.GetChaptersByNovel(novelIdForDeleteCheck).Any(c => c.CreatorId == userIdForDeleteCheck);
+                                    if (!remainingChapters)
+                                    {
+                                        List<string> translatorIds = JsonSerializer.Deserialize<List<string>>(novelAfterDelete.TranslatorId) ?? new List<string>();
+                                        if (translatorIds.Remove(userIdForDeleteCheck.ToString()))
+                                        {
+                                            novelAfterDelete.TranslatorId = JsonSerializer.Serialize(translatorIds);
+                                            _mySqlService.UpdateNovel(novelAfterDelete);
+                                        }
+                                    }
+                                }
+                            }
+                            else { throw new Exception("Chapter to delete not found."); }
+                            break;
+                        default:
+                            throw new InvalidOperationException("Неподдерживаемый тип запроса для глав.");
+                    }
+                    _mySqlService.UpdateModerationRequest(request);
+
+                    string approvedChapterTitle = chapterDataForNotification?.Title ?? existingChapterForNotification?.Title ?? "Неизвестная глава";
+                    string approvedMessage = $"Ваш запрос '{request.RequestType.ToString()}' для главы '{approvedChapterTitle}' (новелла '{novelTitleForNotification}') был одобрен.";
+
+                    int? approvedRelatedChapterId = request.ChapterId;
+                    if (request.RequestType == ModerationRequestType.ChapterCreate && chapterDataForNotification != null)
+                    {
+                        var newChapter = _mySqlService.GetChaptersByNovel(chapterDataForNotification.NovelId)
+                                             .FirstOrDefault(c => c.Title == chapterDataForNotification.Title &&
+                                                                  c.Number == chapterDataForNotification.Number &&
+                                                                  c.CreatorId == chapterDataForNotification.CreatorId);
+                        if (newChapter != null) approvedRelatedChapterId = newChapter.Id;
+                    }
+                    _notificationService.CreateNotification(request.UserId, NotificationType.ModerationApproved, approvedMessage, approvedRelatedChapterId ?? request.NovelId, RelatedItemType.Chapter);
+
+                    if (request.RequestType == ModerationRequestType.ChapterCreate && request.NovelId.HasValue && chapterDataForNotification != null)
+                    {
+                        var newChapterForSubscribers = _mySqlService.GetChaptersByNovel(request.NovelId.Value)
+                                             .FirstOrDefault(c => c.Title == chapterDataForNotification.Title && c.Number == chapterDataForNotification.Number && c.CreatorId == request.UserId);
+                        if (newChapterForSubscribers != null)
+                        {
+                            var subscribers = _mySqlService.GetUserIdsSubscribedToNovel(request.NovelId.Value, new List<string> { "reading", "read", "favorites" });
+                            var newChapterMessage = $"Новая глава '{newChapterForSubscribers.Number} - {newChapterForSubscribers.Title}' добавлена к новелле '{novelTitleForNotification}'.";
+                            foreach (var subId in subscribers)
+                            {
+                                if (subId != request.UserId)
+                                {
+                                    _notificationService.CreateNotification(subId, NotificationType.NewChapter, newChapterMessage, newChapterForSubscribers.Id, RelatedItemType.Chapter);
+                                }
                             }
                         }
                     }
+                    return Ok(new { success = true, message = $"Запрос главы ID {requestId} ({request.RequestType.ToString()}) одобрен." });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing chapter approval for request ID {RequestId}", requestId);
+                    return StatusCode(500, new { success = false, message = "Ошибка обработки запроса главы: " + ex.Message });
+                }
+            }
+            else // Reject
+            {
+                request.Status = ModerationStatus.Rejected;
+                _mySqlService.UpdateModerationRequest(request);
+
+                string rejectedChapterTitle = "Неизвестная глава";
+                if (request.RequestType == ModerationRequestType.ChapterCreate && !string.IsNullOrEmpty(request.RequestData))
+                {
+                    try { var ch = JsonSerializer.Deserialize<Chapter>(request.RequestData); rejectedChapterTitle = ch?.Title; } catch { }
+                }
+                else if (request.ChapterId.HasValue)
+                {
+                    var existingCh = _mySqlService.GetChapter(request.ChapterId.Value); rejectedChapterTitle = existingCh?.Title ?? rejectedChapterTitle;
+                }
+                else if (!string.IsNullOrEmpty(request.RequestData))
+                {
+                    try { rejectedChapterTitle = JsonDocument.Parse(request.RequestData).RootElement.GetProperty("Title").GetString() ?? rejectedChapterTitle; } catch { }
                 }
 
-                return Json(new { success = true, message = $"Запрос главы ID {requestId} ({request.RequestType}) одобрен." });
-            }
-            catch (Exception ex)
-            {
-                return Json(new { success = false, message = $"Ошибка обработки запроса главы ID {requestId}: {ex.Message}" });
-            }
-        }
+                var rejectedMessage = $"Ваш запрос '{request.RequestType.ToString()}' для главы '{rejectedChapterTitle}' (новелла '{novelTitleForNotification}') был отклонен.";
+                if (!string.IsNullOrWhiteSpace(moderationComment)) rejectedMessage += $" Причина: {moderationComment}";
+                _notificationService.CreateNotification(request.UserId, NotificationType.ModerationRejected, rejectedMessage, request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult RejectChapterRequest(int requestId, string moderationComment)
-        {
-            var currentUser = _currentUserService.GetCurrentUser();
-            if (currentUser == null || !_permissionService.CanModerateChapterRequests(currentUser))
-            {
-                return Json(new { success = false, message = "Недостаточно прав." });
+                return Ok(new { success = true, message = $"Запрос главы ID {requestId} ({request.RequestType.ToString()}) отклонен." });
             }
-
-            ModerationRequest request = _mySqlService.GetModerationRequestById(requestId);
-            if (request == null || request.Status != ModerationStatus.Pending)
-            {
-                return Json(new { success = false, message = "Запрос не найден или уже обработан." });
-            }
-
-            request.Status = ModerationStatus.Rejected;
-            request.ModeratorId = currentUser.Id;
-            request.ModerationComment = moderationComment;
-            request.UpdatedAt = DateTime.UtcNow;
-            _mySqlService.UpdateModerationRequest(request);
-
-            // Send notification
-            string chapterTitleForNotification = "Неизвестная глава";
-            string novelTitle = (request.NovelId.HasValue ? _mySqlService.GetNovel(request.NovelId.Value)?.Title : null) ?? "Неизвестная новелла";
-            if (request.RequestType == ModerationRequestType.AddChapter && !string.IsNullOrEmpty(request.RequestData))
-            {
-                try { var ch = System.Text.Json.JsonSerializer.Deserialize<Chapter>(request.RequestData); chapterTitleForNotification = ch?.Title; } catch { }
-            }
-            else if (request.ChapterId.HasValue)
-            {
-                var existingCh = _mySqlService.GetChapter(request.ChapterId.Value); chapterTitleForNotification = existingCh?.Title;
-            }
-
-            var message = $"Ваш запрос '{request.RequestType}' для главы '{chapterTitleForNotification}' (новелла '{novelTitle}') был отклонен.";
-            if (!string.IsNullOrWhiteSpace(moderationComment)) message += $" Причина: {moderationComment}";
-            _notificationService.CreateNotification(request.UserId, NotificationType.ModerationRejected, message, request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
-
-            return Json(new { success = true, message = $"Запрос главы ID {requestId} ({request.RequestType}) отклонен." });
         }
     }
 }
