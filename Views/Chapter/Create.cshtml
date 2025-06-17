@@ -1,10 +1,12 @@
 ﻿@model BulbaLib.Models.ChapterCreateModel
 @{
     ViewData["Title"] = "Добавить главу";
-    // Layout = "~/Views/Shared/_Layout.cshtml"; // Assuming a layout
+
+    Layout = null;
 }
 
 <h1>@ViewData["Title"]</h1>
+<link rel="stylesheet" href="~/css/novel_form.css" asp-append-version="true" />
 @if (ViewData["NovelTitle"] != null)
 {
     <h4>Для новеллы: @ViewData["NovelTitle"]</h4>

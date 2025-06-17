@@ -52,6 +52,10 @@ builder.Services.AddScoped<PermissionService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "RequestVerificationToken";
+});
 var app = builder.Build();
 
 app.UseStaticFiles();
