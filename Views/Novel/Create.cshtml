@@ -482,6 +482,86 @@
                 }
             }
 
+            // --- Form Submission ---
+            const form = document.querySelector('form[asp-action="Create"]');
+            form.addEventListener('submit', async function (event) {
+                event.preventDefault();
+
+                const formData = new FormData(form);
+                const antiForgeryToken = formData.get('__RequestVerificationToken');
+
+                // Ensure Genres and Tags are strings (JSON strings representing arrays)
+                // The existing JS already stringifies them into the hidden inputs
+                let genresValue = document.getElementById('Genres').value;
+                try {
+                    JSON.parse(genresValue); // Validate if it's a valid JSON string
+                } catch (e) {
+                    console.error("Genres field does not contain a valid JSON string. Defaulting to empty array string.", e);
+                    genresValue = "[]";
+                }
+
+                let tagsValue = document.getElementById('Tags').value;
+                try {
+                    JSON.parse(tagsValue); // Validate if it's a valid JSON string
+                } catch (e) {
+                    console.error("Tags field does not contain a valid JSON string. Defaulting to empty array string.", e);
+                    tagsValue = "[]";
+                }
+                
+                // AlternativeTitles: textarea value, lines separated by \n. API expects string.
+                const alternativeTitlesValue = document.getElementById('AlternativeTitles').value;
+
+                // RelatedNovelIds: comma-separated string from hidden input.
+                const relatedNovelIdsValue = document.getElementById('RelatedNovelIds').value;
+
+
+                const novelCreateRequest = {
+                    title: formData.get('Title'),
+                    description: formData.get('Description'),
+                    authorId: document.getElementById('AuthorId').value, // Ensure this is the correct ID for the hidden input for Author
+                    genres: genresValue, // Send as JSON string as per DTO: string
+                    tags: tagsValue,     // Send as JSON string as per DTO: string
+                    type: formData.get('Type'),
+                    format: formData.get('Format'),
+                    releaseYear: parseInt(formData.get('ReleaseYear'), 10),
+                    relatedNovelIds: relatedNovelIdsValue, // Send as comma-separated string; API needs to handle this.
+                    alternativeTitles: alternativeTitlesValue, // Send as newline-separated string as per DTO: string
+                    covers: [], // CoverFile handling is deferred
+                    // TranslatorId is omitted as it's optional and not in the form
+                };
+
+                console.log('Submitting NovelCreateRequest:', novelCreateRequest);
+
+                try {
+                    const response = await fetch('/api/Novels', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': antiForgeryToken
+                        },
+                        body: JSON.stringify(novelCreateRequest)
+                    });
+
+                    if (response.ok) { // status 200-299
+                        const result = await response.json(); // Assuming API returns the created novel or some ID
+                        console.log('Novel created successfully:', result);
+                        // Redirect to novel details page or catalog
+                        // Assuming result.id contains the new novel's ID
+                        if (result && result.id) {
+                             window.location.href = `/Novel/Novel/${result.id}`;
+                        } else {
+                             window.location.href = '/CatalogView/Index'; // Fallback redirect
+                        }
+                    } else {
+                        const errorData = await response.json();
+                        console.error('Error creating novel:', response.status, errorData);
+                        alert(`Error creating novel: ${response.status}\n${JSON.stringify(errorData.errors || errorData, null, 2)}`);
+                    }
+                } catch (error) {
+                    console.error('Network error or other issue:', error);
+                    alert('An error occurred while submitting the form. Please check the console for details.');
+                }
+            });
         });
     </script>
 </body>

@@ -34,10 +34,10 @@
     </div>
 
     <div class="form-group mb-3">
-        <label asp-for="ChapterTextFile" class="control-label">Загрузить новый текстовый файл главы</label>
-        <input type="file" asp-for="ChapterTextFile" class="form-control" />
+        <label asp-for="ChapterTextFile" class="control-label">Загрузить новый текстовый файл главы (.txt)</label>
+        <input type="file" asp-for="ChapterTextFile" class="form-control" accept=".txt" />
         <span asp-validation-for="ChapterTextFile" class="text-danger"></span>
-        <small class="form-text text-muted">Если выбран новый файл, его содержимое заменит текущий текст главы в поле "Содержимое".</small>
+        <small id="fileLoadStatus" class="form-text text-muted">Если выбран новый файл, его содержимое заменит текущий текст главы в поле "Содержимое".</small>
     </div>
 
     <div class="form-group mb-3">
@@ -57,4 +57,115 @@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const chapterTextFileInput = document.querySelector('input[type="file"][asp-for="ChapterTextFile"]');
+            const contentTextArea = document.querySelector('textarea[asp-for="Content"]');
+            const form = document.querySelector('form[asp-action="Edit"]');
+            const chapterId = '@Model.Id'; 
+            const novelIdForRedirect = '@Model.NovelId';
+
+            if (chapterTextFileInput && contentTextArea) {
+                chapterTextFileInput.addEventListener('change', function (event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function (e) {
+                            contentTextArea.value = e.target.result;
+                            const fileLoadStatus = document.getElementById('fileLoadStatus');
+                            if (fileLoadStatus) {
+                                fileLoadStatus.textContent = 'Содержимое файла загружено в текстовое поле.';
+                                fileLoadStatus.style.color = 'green';
+                                setTimeout(() => {
+                                    fileLoadStatus.textContent = 'Если выбран новый файл, его содержимое заменит текущий текст главы в поле "Содержимое".';
+                                    fileLoadStatus.style.color = ''; 
+                                }, 3000);
+                            }
+                            // Optionally clear the file input
+                            // chapterTextFileInput.value = '';
+                        };
+                        reader.onerror = function (e) {
+                            console.error("File reading error", e);
+                            const fileLoadStatus = document.getElementById('fileLoadStatus');
+                            if (fileLoadStatus) {
+                                fileLoadStatus.textContent = 'Ошибка при чтении файла. Убедитесь, что это текстовый файл.';
+                                fileLoadStatus.style.color = 'red';
+                            } else {
+                                alert("Ошибка при чтении файла. Убедитесь, что это текстовый файл.");
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                });
+            }
+
+            if (form) {
+                form.addEventListener('submit', async function (event) {
+                    event.preventDefault();
+
+                    const formData = new FormData(form);
+                    const antiForgeryToken = formData.get('__RequestVerificationToken');
+                    
+                    const id = formData.get('Id'); // This is @Model.Id
+                    const novelId = formData.get('NovelId'); // This is @Model.NovelId
+                    const number = formData.get('Number');
+                    const title = formData.get('Title');
+                    const content = contentTextArea.value;
+
+                    if (!content) {
+                        alert("Содержимое главы не может быть пустым.");
+                        return;
+                    }
+                    if (!id || id === '00000000-0000-0000-0000-000000000000') {
+                        alert("Chapter ID не найден. Невозможно обновить главу.");
+                        return;
+                    }
+                     if (!novelId) {
+                        alert("NovelId не найден. Невозможно обновить главу.");
+                        return;
+                    }
+
+
+                    const chapterUpdateRequest = {
+                        id: id,
+                        novelId: novelId,
+                        number: number,
+                        title: title,
+                        content: content
+                    };
+
+                    console.log('Submitting ChapterUpdateRequest:', chapterUpdateRequest);
+
+                    try {
+                        const response = await fetch(`/api/Chapters/${chapterId}`, { // Use chapterId from @Model.Id
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': antiForgeryToken
+                            },
+                            body: JSON.stringify(chapterUpdateRequest)
+                        });
+
+                        if (response.ok) {
+                            console.log('Chapter updated successfully.');
+                            // Redirect to novel details page
+                             if (novelIdForRedirect && novelIdForRedirect !== '00000000-0000-0000-0000-000000000000' && novelIdForRedirect !== '') {
+                                window.location.href = `/Novel/Novel/${novelIdForRedirect}`;
+                            } else {
+                                console.warn("NovelId for redirect not available from model. Redirecting to homepage or catalog as fallback.");
+                                window.location.href = '/'; 
+                            }
+                        } else {
+                            const errorData = await response.json();
+                            console.error('Error updating chapter:', response.status, errorData);
+                            alert(`Error updating chapter: ${response.status}\n${JSON.stringify(errorData.errors || errorData, null, 2)}`);
+                        }
+                    } catch (error) {
+                        console.error('Network error or other issue:', error);
+                        alert('An error occurred while submitting the form. Please check the console for details.');
+                    }
+                });
+            }
+        });
+    </script>
 }

@@ -480,101 +480,106 @@
             }
             fetchAndRenderInitialRelatedNovels();
 
-            // --- Cover Image Management ---
+            // --- Cover Image Management & Form Submission ---
             const form = document.getElementById('novelEditForm');
-            console.log("DEBUG: GetElementById for 'novelEditForm' result:", form);
-
             const newCoverFilesInput = document.getElementById('NewCoverFiles');
-            console.log("DEBUG: GetElementById for 'NewCoverFiles' result:", newCoverFilesInput);
+            let newSelectedFiles = []; // To keep track of files selected in the NewCoverFiles input
 
-            let newSelectedFiles = [];
+            // Preview logic for NewCoverFiles (largely kept for UI, but won't be submitted with JSON)
             const newCoversPreviewContainer = document.createElement('div');
             newCoversPreviewContainer.id = 'newCoversPreviewContainer';
             newCoversPreviewContainer.className = 'mt-2 d-flex flex-wrap';
-
             if (newCoverFilesInput) {
                 const fileInputFormGroup = newCoverFilesInput.closest('.form-group');
                 if (fileInputFormGroup && fileInputFormGroup.parentNode) {
                     fileInputFormGroup.parentNode.insertBefore(newCoversPreviewContainer, fileInputFormGroup.nextSibling);
-                } else {
-                    console.error("DEBUG: Could not find parent for newCoversPreviewContainer insertion.");
                 }
-            } else {
-                console.error("DEBUG: newCoverFilesInput is null, cannot setup preview container relative to it.");
             }
-
+            
             if (form) {
-                form.addEventListener('submit', function (event) {
-                    console.log("DEBUG: Submit event triggered");
+                form.addEventListener('submit', async function (event) {
                     event.preventDefault();
+                    console.log("Edit form submission intercepted.");
 
-                    const currentCoversContainer = document.getElementById('currentCoversContainer');
-                    if (currentCoversContainer) {
-                        const keptCoverInputs = currentCoversContainer.querySelectorAll('input[type="hidden"].kept-cover-input');
-                        keptCoverInputs.forEach((input, index) => {
-                            // Ensure correct naming for model binding if this script path is still used
-                            // For KeptCovers to bind as List<string> KeptCovers, names should be KeptCovers[index]
-                            input.name = `KeptCovers[${index}]`; 
-                        });
+                    // Check if new files were selected in the NewCoverFiles input
+                    if (newCoverFilesInput && newCoverFilesInput.files && newCoverFilesInput.files.length > 0) {
+                        alert("Обратите внимание: Вы выбрали новые файлы обложек. " + 
+                              "Текущая версия формы не загружает новые файлы напрямую. " +
+                              "Пожалуйста, сохраните изменения метаданных, а затем используйте отдельный инструмент для загрузки/изменения обложек, если он доступен, " +
+                              "или дождитесь обновления функционала.\n\n" +
+                              "Изменения текстовых данных и списка существующих обложек будут сохранены.");
+                        // Optionally, clear the newCoverFilesInput to prevent confusion
+                        // newCoverFilesInput.value = ""; // This might be too aggressive, user might want to retry later
                     }
 
-                    const originalFormData = new FormData(form);
-                    const finalFormData = new FormData();
-                    console.log("DEBUG: Initial FormData created from form.");
+                    const formData = new FormData(form); // Still useful for easily getting some values
+                    const antiForgeryToken = formData.get('__RequestVerificationToken');
+                    const novelId = formData.get('Id');
 
-                    for (const pair of originalFormData.entries()) {
-                        if (pair[0] !== 'NewCoverFiles') {
-                            finalFormData.append(pair[0], pair[1]);
+                    let keptCovers = [];
+                    const keptCoverInputs = document.querySelectorAll('#currentCoversContainer .kept-cover-input');
+                    keptCoverInputs.forEach(input => {
+                        keptCovers.push(input.value);
+                    });
+
+                    let genresValue = document.getElementById('Genres').value;
+                    try { JSON.parse(genresValue); } catch (e) { genresValue = "[]"; }
+
+                    let tagsValue = document.getElementById('Tags').value;
+                    try { JSON.parse(tagsValue); } catch (e) { tagsValue = "[]"; }
+                
+                    const alternativeTitlesValue = document.getElementById('AlternativeTitles').value;
+                    const relatedNovelIdsValue = document.getElementById('RelatedNovelIds').value;
+
+                    const novelUpdateRequest = {
+                        title: formData.get('Title'),
+                        description: formData.get('Description'),
+                        authorId: document.getElementById('AuthorId').value,
+                        genres: genresValue, // Expects JSON string
+                        tags: tagsValue,     // Expects JSON string
+                        type: formData.get('Type'),
+                        format: formData.get('Format'),
+                        releaseYear: parseInt(formData.get('ReleaseYear'), 10),
+                        relatedNovelIds: relatedNovelIdsValue, // Comma-separated string
+                        alternativeTitles: alternativeTitlesValue, // Newline-separated string
+                        covers: keptCovers, // List of strings (URLs of kept covers)
+                        // TranslatorId is not in this form/model for edit
+                    };
+
+                    console.log('Submitting NovelUpdateRequest:', novelUpdateRequest);
+
+                    try {
+                        const response = await fetch(`/api/Novels/${novelId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': antiForgeryToken
+                            },
+                            body: JSON.stringify(novelUpdateRequest)
+                        });
+
+                        if (response.ok) {
+                            console.log('Novel updated successfully.');
+                             // Redirect to novel details page
+                            window.location.href = `/Novel/Novel/${novelId}`;
+                        } else {
+                            const errorData = await response.json();
+                            console.error('Error updating novel:', response.status, errorData);
+                            alert(`Error updating novel: ${response.status}\n${JSON.stringify(errorData.errors || errorData, null, 2)}`);
                         }
+                    } catch (error) {
+                        console.error('Network error or other issue:', error);
+                        alert('An error occurred while submitting the form. Please check the console for details.');
                     }
-                    console.log("DEBUG: FormData populated without original NewCoverFiles.");
-
-                    if (newSelectedFiles && newSelectedFiles.length > 0) {
-                        console.log('DEBUG: Appending files to FormData. Count:', newSelectedFiles.length);
-                        newSelectedFiles.forEach(file => {
-                            finalFormData.append('NewCoverFiles', file, file.name);
-                            console.log('DEBUG: Appended file:', file.name, 'Type:', file.type, 'Size:', file.size);
-                        });
-                    } else {
-                        console.log('DEBUG: No new files selected to append.');
-                    }
-
-                    console.log('DEBUG: Final FormData entries before fetch:');
-                    for (const pair of finalFormData.entries()) {
-                        const value = pair[1] instanceof File ? `File: ${pair[1].name}, Size: ${pair[1].size}, Type: ${pair[1].type}` : pair[1];
-                        console.log(pair[0] + ':', value);
-                    }
-
-                    fetch(form.action, {
-                        method: form.method,
-                        body: finalFormData,
-                        headers: {}
-                    })
-                        .then(response => {
-                            if (response.ok) {
-                                if (response.redirected) {
-                                    window.location.href = response.url;
-                                } else {
-                                    window.location.reload();
-                                }
-                            } else {
-                                response.text().then(text => {
-                                    console.error('Form submission error:', text);
-                                    alert('An error occurred while saving. Details in the browser console (F12).');
-                                });
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Network error or other issue:', error);
-                            alert('Network error or other problem submitting the form. Details in the browser console (F12).');
-                        });
                 });
-                console.log("DEBUG: Submit event listener attached to form.");
             } else {
-                console.error("DEBUG: Form with ID 'novelEditForm' not found. Submit event listener NOT attached.");
+                console.error("Form with ID 'novelEditForm' not found.");
             }
 
-            if (newCoverFilesInput) {
+            // Keep the existing preview and removal logic for NewCoverFiles for UI consistency,
+            // even if files are not submitted via this specific JSON PUT.
+            // The user will be alerted about the new file upload process.
+            if (newCoverFilesInput) { 
                 newCoverFilesInput.addEventListener('change', function (event) {
                     console.log("DEBUG: Change event triggered on NewCoverFiles input.");
                     newCoversPreviewContainer.innerHTML = '';
