@@ -8,6 +8,7 @@ using System.Text.Json; // For JsonSerializer
 
 namespace BulbaLib.Controllers
 {
+    [Route("Chapter")]
     public class ChapterViewController : Controller
     {
         private readonly MySqlService _mySqlService;

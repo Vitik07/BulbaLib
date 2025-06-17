@@ -11,6 +11,7 @@ using System.Linq; // Added for LINQ operations
 
 namespace BulbaLib.Controllers
 {
+    [Route("Novel")]
     public class NovelViewController : Controller
     {
         private static readonly List<string> AllGenres = new List<string>

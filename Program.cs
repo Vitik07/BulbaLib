@@ -50,6 +50,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 var app = builder.Build();
 
