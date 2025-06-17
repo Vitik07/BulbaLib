@@ -96,7 +96,7 @@ namespace BulbaLib.Controllers
         }
 
         [Authorize(Roles = "Admin,Author")]
-        [HttpGet]
+        [HttpGet("Create")]
         public IActionResult Create()
         {
             var currentUser = _currentUserService.GetCurrentUser();
@@ -312,7 +312,7 @@ namespace BulbaLib.Controllers
         }
 
         [Authorize(Roles = "Admin,Author")]
-        [HttpGet]
+        [HttpGet("Edit/{id}")]
         public IActionResult Edit(int id)
         {
             var currentUser = _currentUserService.GetCurrentUser();

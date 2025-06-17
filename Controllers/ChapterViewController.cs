@@ -5,6 +5,7 @@ using System.Security.Claims; // Added
 using Microsoft.AspNetCore.Authorization; // Added
 using System; // For DateTimeOffset, DateTime
 using System.Text.Json; // For JsonSerializer
+using System.IO; // Added
 
 namespace BulbaLib.Controllers
 {
@@ -15,17 +16,20 @@ namespace BulbaLib.Controllers
         private readonly PermissionService _permissionService;
         private readonly ICurrentUserService _currentUserService;
         private readonly INotificationService _notificationService; // Added
+        private readonly FileService _fileService; // Added
 
         public ChapterViewController(
             MySqlService mySqlService,
             PermissionService permissionService,
             ICurrentUserService currentUserService,
-            INotificationService notificationService) // Added
+            INotificationService notificationService, // Added
+            FileService fileService) // Added
         {
             _mySqlService = mySqlService;
             _permissionService = permissionService;
             _currentUserService = currentUserService;
             _notificationService = notificationService; // Added
+            _fileService = fileService; // Added
         }
 
         // private User GetCurrentUser() // Replaced by ICurrentUserService
@@ -52,7 +56,7 @@ namespace BulbaLib.Controllers
         }
 
         [Authorize(Roles = "Admin,Translator")]
-        [HttpGet]
+        [HttpGet("Create")]
         public IActionResult Create(int novelId)
         {
             var currentUser = _currentUserService.GetCurrentUser();
@@ -78,7 +82,7 @@ namespace BulbaLib.Controllers
         [Authorize(Roles = "Admin,Translator")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Create(ChapterCreateModel model) // Changed to ChapterCreateModel
+        public async Task<IActionResult> Create(ChapterCreateModel model) // Changed to ChapterCreateModel and async
         {
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null) return Unauthorized();
@@ -103,12 +107,29 @@ namespace BulbaLib.Controllers
 
             if (ModelState.IsValid)
             {
+                string effectiveContent = model.Content;
+                if (model.ChapterTextFile != null && model.ChapterTextFile.Length > 0)
+                {
+                    using (var reader = new StreamReader(model.ChapterTextFile.OpenReadStream()))
+                    {
+                        effectiveContent = await reader.ReadToEndAsync();
+                    }
+                }
+
+                string filePath = await _fileService.SaveChapterContentAsync(novel.Id, model.Number, model.Title, effectiveContent);
+                if (string.IsNullOrEmpty(filePath))
+                {
+                    ModelState.AddModelError(string.Empty, "Ошибка сохранения файла содержимого главы.");
+                    ViewData["NovelTitle"] = novel.Title; // Ensure NovelTitle is available for the view
+                    return View("~/Views/Chapter/Create.cshtml", model);
+                }
+
                 var chapterToSave = new Chapter // This is the entity to be saved or put in request
                 {
                     NovelId = model.NovelId,
                     Number = model.Number,
                     Title = model.Title,
-                    Content = model.Content,
+                    Content = filePath, // Use file path here
                     Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 };
 
@@ -119,20 +140,20 @@ namespace BulbaLib.Controllers
                     TempData["SuccessMessage"] = "Глава успешно добавлена.";
 
                     // Notify subscribers if Admin adds directly
+                    // Note: Content comparison for finding the chapter might need adjustment if it now stores a path.
+                    // For simplicity, assuming Title and Number are sufficient for this example.
                     var newChapterAdmin = _mySqlService.GetChaptersByNovel(novel.Id)
-                                             .FirstOrDefault(c => c.Title == chapterToSave.Title && c.Number == chapterToSave.Number && c.Content == chapterToSave.Content);
+                                             .FirstOrDefault(c => c.Title == chapterToSave.Title && c.Number == chapterToSave.Number);
                     if (newChapterAdmin != null)
                     {
                         var subscribers = _mySqlService.GetUserIdsSubscribedToNovel(novel.Id, new List<string> { "reading", "read", "favorites" });
                         var newChapterMessage = $"Новая глава '{newChapterAdmin.Number} - {newChapterAdmin.Title}' добавлена к новелле '{novel.Title}'.";
                         foreach (var subId in subscribers)
                         {
-                            // No need to check if subId is current admin, as admin is not typically "subscribing" for own direct actions.
                             _notificationService.CreateNotification(subId, NotificationType.NewChapter, newChapterMessage, newChapterAdmin.Id, RelatedItemType.Chapter);
                         }
                     }
                 }
-                // Check for Translator role specifically for moderation submission logic
                 else if (currentUser.Role == UserRole.Translator && _permissionService.CanSubmitChapterForModeration(currentUser, novel))
                 {
                     chapterToSave.CreatorId = currentUser.Id; // Set CreatorId before serialization
@@ -151,18 +172,17 @@ namespace BulbaLib.Controllers
                 }
                 else
                 {
-                    // Should not happen if initial checks are correct
                     TempData["ErrorMessage"] = "У вас нет прав для выполнения этого действия.";
                     return View("~/Views/Chapter/Create.cshtml", model);
                 }
                 return RedirectToAction("Details", "NovelView", new { id = model.NovelId });
             }
-
+            ViewData["NovelTitle"] = novel.Title; // Ensure NovelTitle is available if ModelState is invalid
             return View("~/Views/Chapter/Create.cshtml", model);
         }
 
         [Authorize(Roles = "Admin,Translator")]
-        [HttpGet]
+        [HttpGet("Edit/{id}")]
         public IActionResult Edit(int id) // Chapter Id
         {
             var currentUser = _currentUserService.GetCurrentUser();
@@ -208,7 +228,7 @@ namespace BulbaLib.Controllers
         [Authorize(Roles = "Admin,Translator")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(int id, ChapterEditModel model) // Changed to ChapterEditModel
+        public async Task<IActionResult> Edit(int id, ChapterEditModel model) // Changed to ChapterEditModel and async
         {
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null) return Unauthorized();
@@ -239,34 +259,54 @@ namespace BulbaLib.Controllers
 
             if (ModelState.IsValid)
             {
-                var chapterWithChanges = new Chapter
+                string effectiveContent = model.Content;
+                if (model.ChapterTextFile != null && model.ChapterTextFile.Length > 0)
                 {
-                    Id = originalChapter.Id,
-                    NovelId = originalChapter.NovelId, // Keep original NovelId
-                    Number = model.Number,
-                    Title = model.Title,
-                    Content = model.Content,
-                    Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds() // Update date
-                };
+                    using (var reader = new StreamReader(model.ChapterTextFile.OpenReadStream()))
+                    {
+                        effectiveContent = await reader.ReadToEndAsync();
+                    }
+                }
+
+                // It's good practice to delete the old file if content is changing and it was a file path.
+                // However, current logic assumes originalChapter.Content might be actual text or a path.
+                // For simplicity in this step, we're not deleting the old file. This could be a future enhancement.
+
+                string newFilePath = await _fileService.SaveChapterContentAsync(novel.Id, model.Number, model.Title, effectiveContent);
+                if (string.IsNullOrEmpty(newFilePath))
+                {
+                    ModelState.AddModelError(string.Empty, "Ошибка сохранения файла содержимого главы.");
+                    ViewData["NovelTitle"] = novel.Title; // Ensure NovelTitle for view
+                    return View("~/Views/Chapter/Edit.cshtml", model);
+                }
 
                 if (currentUser.Role == UserRole.Admin && _permissionService.CanAddChapterDirectly(currentUser))
                 {
-                    originalChapter.Number = chapterWithChanges.Number;
-                    originalChapter.Title = chapterWithChanges.Title;
-                    originalChapter.Content = chapterWithChanges.Content;
-                    originalChapter.Date = chapterWithChanges.Date;
+                    originalChapter.Number = model.Number;
+                    originalChapter.Title = model.Title;
+                    originalChapter.Content = newFilePath; // Use new file path
+                    originalChapter.Date = originalChapter.Date; // Preserve original date
                     _mySqlService.UpdateChapter(originalChapter);
                     TempData["SuccessMessage"] = "Глава успешно обновлена.";
                 }
                 else if (currentUser.Role == UserRole.Translator && _permissionService.CanEditChapter(currentUser, originalChapter, novel))
                 {
+                    var chapterWithChangesForModeration = new Chapter
+                    {
+                        Id = originalChapter.Id,
+                        NovelId = originalChapter.NovelId,
+                        Number = model.Number,
+                        Title = model.Title,
+                        Content = newFilePath, // Use new file path
+                        Date = originalChapter.Date // Preserve original date
+                    };
                     var moderationRequest = new ModerationRequest
                     {
                         RequestType = ModerationRequestType.EditChapter,
                         UserId = currentUser.Id,
                         NovelId = novel.Id,
                         ChapterId = originalChapter.Id,
-                        RequestData = JsonSerializer.Serialize(chapterWithChanges),
+                        RequestData = JsonSerializer.Serialize(chapterWithChangesForModeration),
                         Status = ModerationStatus.Pending,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
@@ -277,11 +317,12 @@ namespace BulbaLib.Controllers
                 else
                 {
                     TempData["ErrorMessage"] = "У вас нет прав для выполнения этого действия.";
+                    ViewData["NovelTitle"] = novel.Title; // Ensure NovelTitle for view
                     return View("~/Views/Chapter/Edit.cshtml", model);
                 }
                 return RedirectToAction("Details", "NovelView", new { id = novel.Id });
             }
-
+            ViewData["NovelTitle"] = novel.Title; // Ensure NovelTitle if ModelState is invalid
             return View("~/Views/Chapter/Edit.cshtml", model);
         }
 

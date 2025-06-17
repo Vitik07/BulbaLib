@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.AspNetCore.Http;
+using System.ComponentModel.DataAnnotations;
 
 namespace BulbaLib.Models
 {
@@ -21,5 +22,7 @@ namespace BulbaLib.Models
         [Required(ErrorMessage = "Пожалуйста, введите содержимое главы.")]
         [DataType(DataType.MultilineText)]
         public string Content { get; set; }
+
+        public IFormFile ChapterTextFile { get; set; }
     }
 }

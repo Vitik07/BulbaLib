@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions; // Added
 using System.Threading.Tasks;
 
 namespace BulbaLib.Services
@@ -252,6 +253,48 @@ namespace BulbaLib.Services
                     Console.WriteLine($"Error deleting file {fullPath}: {ex.Message}");
                 }
             }
+        }
+
+        public async Task<string> SaveChapterContentAsync(int novelId, string chapterNumber, string chapterTitle, string textContent)
+        {
+            // Get base path for wwwroot/uploads/content
+            var contentUploadsDir = Path.Combine(_webHostEnvironment.WebRootPath, _uploadsBaseFolder, "content");
+            var novelContentDir = Path.Combine(contentUploadsDir, novelId.ToString());
+
+            // Create directory for the novel's content if it doesn't exist
+            if (!Directory.Exists(novelContentDir))
+            {
+                Directory.CreateDirectory(novelContentDir);
+            }
+
+            // Sanitize chapterNumber and chapterTitle for filename
+            // Remove invalid file name characters. Replace sequences of invalid chars with a single underscore.
+            string invalidCharsRegex = string.Format(@"([{0}]*\.+$)|([{0}]+)", Regex.Escape(new string(Path.GetInvalidFileNameChars())));
+            string sanitizedNumber = string.IsNullOrWhiteSpace(chapterNumber) ? "Chapter" : Regex.Replace(chapterNumber, invalidCharsRegex, "_");
+            string sanitizedTitle = string.IsNullOrWhiteSpace(chapterTitle) ? "Untitled" : Regex.Replace(chapterTitle, invalidCharsRegex, "_");
+
+            // Truncate parts if too long to avoid overly long filenames
+            const int maxPartLength = 50; // Max length for number part and title part
+            sanitizedNumber = sanitizedNumber.Length > maxPartLength ? sanitizedNumber.Substring(0, maxPartLength) : sanitizedNumber;
+            sanitizedTitle = sanitizedTitle.Length > maxPartLength ? sanitizedTitle.Substring(0, maxPartLength) : sanitizedTitle;
+
+            string fileName = $"{sanitizedNumber} - {sanitizedTitle}.txt";
+            string filePath = Path.Combine(novelContentDir, fileName);
+
+            // Save the textContent to the file
+            try
+            {
+                await File.WriteAllTextAsync(filePath, textContent);
+                _logger.LogInformation($"Chapter content saved to: {filePath}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error saving chapter content to file: {filePath}");
+                return null; // Or throw, depending on desired error handling
+            }
+
+            // Return the relative web path
+            return $"/{_uploadsBaseFolder}/content/{novelId}/{fileName}";
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.AspNetCore.Http;
+using System.ComponentModel.DataAnnotations;
 
 namespace BulbaLib.Models
 {
@@ -20,5 +21,7 @@ namespace BulbaLib.Models
         public string Content { get; set; }
 
         // TranslatorId will be set in the controller from the current user if they are a Translator
+
+        public IFormFile ChapterTextFile { get; set; }
     }
 }

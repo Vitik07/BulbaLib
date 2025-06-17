@@ -10,7 +10,7 @@
     <h4>Для новеллы: @ViewData["NovelTitle"]</h4>
 }
 
-<form asp-action="Create" method="post">
+<form asp-action="Create" method="post" enctype="multipart/form-data">
     @Html.AntiForgeryToken()
     <input type="hidden" asp-for="NovelId" />
 
@@ -29,10 +29,17 @@
     </div>
 
     <div class="form-group mb-3">
+        <label asp-for="ChapterTextFile" class="control-label">Загрузить текстовый файл главы</label>
+        <input type="file" asp-for="ChapterTextFile" class="form-control" />
+        <span asp-validation-for="ChapterTextFile" class="text-danger"></span>
+        <small class="form-text text-muted">Если выбран файл, его содержимое заменит текст в поле "Содержимое".</small>
+    </div>
+
+    <div class="form-group mb-3">
         <label asp-for="Content" class="control-label"></label>
         <textarea asp-for="Content" class="form-control" rows="15"></textarea>
         <span asp-validation-for="Content" class="text-danger"></span>
-        <small class="form-text text-muted">Поддерживается HTML разметка для форматирования текста главы.</small>
+        <small class="form-text text-muted">Поддерживается HTML разметка для форматирования текста главы. Будет перезаписано содержимым файла, если файл выбран.</small>
     </div>
 
     <div class="form-group mt-4">

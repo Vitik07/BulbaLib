@@ -464,7 +464,7 @@
                                 <span class="chapter-number">${chapter.number ? chapter.number : ''}</span>
                                 <span class="chapter-title">
                                     <a href="/chapter/${chapter.Id}" style="color:inherit;text-decoration:none;">
-                                        ${chapter.title || 'Без названия'}
+                                        ${chapter.Title || chapter.title || 'Без названия'}
                                     </a>
                                     ${isBookmarked ? '<i class="fa fa-bookmark" style="color:#fa6565;margin-left:6px;" title="Ваша закладка"></i>' : ''}
                                 </span>
