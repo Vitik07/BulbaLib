@@ -4,6 +4,7 @@ using BulbaLib.Models;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic; // For List
+using Microsoft.Extensions.Logging; // Added for ILogger
 
 namespace BulbaLib.Controllers
 {
@@ -13,19 +14,25 @@ namespace BulbaLib.Controllers
         private readonly MySqlService _mySqlService;
         private readonly PermissionService _permissionService;
         private readonly ICurrentUserService _currentUserService;
-        private readonly INotificationService _notificationService; // Added
+        private readonly INotificationService _notificationService;
+        private readonly FileService _fileService; // Added
+        private readonly ILogger<AdminController> _logger; // Added
 
 
         public AdminController(
             MySqlService mySqlService,
             PermissionService permissionService,
             ICurrentUserService currentUserService,
-            INotificationService notificationService) // Added
+            INotificationService notificationService,
+            FileService fileService, // Added
+            ILogger<AdminController> logger) // Added
         {
             _mySqlService = mySqlService;
             _permissionService = permissionService;
             _currentUserService = currentUserService;
-            _notificationService = notificationService; // Added
+            _notificationService = notificationService;
+            _fileService = fileService; // Added
+            _logger = logger; // Added
         }
 
         // private User GetCurrentUser() // Replaced by _currentUserService

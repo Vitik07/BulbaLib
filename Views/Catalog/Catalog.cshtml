@@ -1,5 +1,7 @@
-﻿@{
+﻿﻿@{
     ViewData["Title"] = "Каталог новелл";
+
+
 
     Layout = null;
 }
@@ -27,8 +29,10 @@
                     <h1 class="catalog-title">Каталог новелл</h1>
                     @if (User.IsInRole("Admin") || User.IsInRole("Author"))
 
+
+
                     {
-                        <a href="@Url.Action("Create", "NovelView")" class="btn btn-primary" style="margin-left: 20px; text-decoration: none; padding: 10px 15px; background-color: #007bff; color: white; border-radius: 5px;">Добавить новеллу</a>
+                        <a href="@Url.Action("Create", "Novel")" class="btn btn-primary" style="margin-left: 20px; text-decoration: none; padding: 10px 15px; background-color: #007bff; color: white; border-radius: 5px;">Добавить новеллу</a>
                     }
                 </div>
                 <div class="catalog-filters">
@@ -200,18 +204,18 @@
                 card.className = 'novel-card';
                 card.onclick = () => window.location.href = `/novel/${novel.id}`; // Убедитесь, что novel.id доступен и корректен
                 card.innerHTML = `
-                                            <div class="novel-cover-wrap">
-                                                <img class="novel-cover" src="${getLastCover(novel)}" alt="${novel.title}">
-                                            </div>
-                                            <div class="novel-info">
-                                                <div class="novel-title" title="${novel.title}">${novel.title}</div>
-                                                <div class="novel-meta">
-                                                    ${(novel.releaseYear ? `<span class="novel-meta-item"><i class="fa-solid fa-calendar"></i> ${novel.releaseYear}</span>` : '')}
-                                                    ${(novel.type ? `<span class="novel-meta-item"><i class="fa-solid fa-book"></i> ${novel.type}</span>` : '')}
-                                                    ${(novel.format ? `<span class="novel-meta-item"><i class="fa-solid fa-file-lines"></i> ${novel.format}</span>` : '')}
-                                                </div>
-                                            </div>
-                                        `;
+                                                    <div class="novel-cover-wrap">
+                                                        <img class="novel-cover" src="${getLastCover(novel)}" alt="${novel.title}">
+                                                    </div>
+                                                    <div class="novel-info">
+                                                        <div class="novel-title" title="${novel.title}">${novel.title}</div>
+                                                        <div class="novel-meta">
+                                                            ${(novel.releaseYear ? `<span class="novel-meta-item"><i class="fa-solid fa-calendar"></i> ${novel.releaseYear}</span>` : '')}
+                                                            ${(novel.type ? `<span class="novel-meta-item"><i class="fa-solid fa-book"></i> ${novel.type}</span>` : '')}
+                                                            ${(novel.format ? `<span class="novel-meta-item"><i class="fa-solid fa-file-lines"></i> ${novel.format}</span>` : '')}
+                                                        </div>
+                                                    </div>
+                                                `;
                 list.appendChild(card);
             });
         }

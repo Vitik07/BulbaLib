@@ -1,11 +1,11 @@
-﻿    @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
-    @{
+﻿@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+@{
         ViewData["Title"] = "Новелла";
 
         Layout = null;
     }
-    <!DOCTYPE html>
-    <html lang="ru">
+<!DOCTYPE html>
+<html lang="ru">
     <head>
         <meta charset="utf-8" />
         <title>@ViewData["Title"] — BulbaLib</title>
@@ -136,14 +136,14 @@
                         @if (ViewData["CanEditNovel"] != null && (bool)ViewData["CanEditNovel"])
 
                         {
-                            <a asp-controller="NovelView" asp-action="Edit" asp-route-id="@Model.Id" class="novel-action-btn">
+                            <a asp-controller="Novel" asp-action="Edit" asp-route-id="@Model.Id" class="novel-action-btn">
                                 <i class="fa-solid fa-pen"></i> Редактировать
                             </a>
                         }
                         @if (ViewData["CanDeleteNovel"] != null && (bool)ViewData["CanDeleteNovel"])
 
                         {
-                            <form asp-controller="NovelView" asp-action="Delete" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить эту новеллу? Это действие необратимо.');" style="display:inline;">
+                            <form asp-controller="Novel" asp-action="Delete" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить эту новеллу? Это действие необратимо.');" style="display:inline;">
                                 @Html.AntiForgeryToken()
                                 <button type="submit" class="novel-action-btn novel-delete">
                                     <i class="fa-solid fa-trash"></i> Удалить
@@ -153,7 +153,7 @@
                         @if (ViewData["CanAddChapter"] != null && (bool)ViewData["CanAddChapter"])
 
                         {
-                            <a asp-controller="ChapterView" asp-action="Create" asp-route-novelId="@ViewData["NovelId"]" class="novel-action-btn novel-add-chapter">
+                            <a asp-controller="Chapter" asp-action="Create" asp-route-novelId="@ViewData["NovelId"]" class="novel-action-btn novel-add-chapter">
                                 <i class="fa-solid fa-plus"></i> Добавить главу
                             </a>
                         }
@@ -442,11 +442,11 @@
 
                     let actionsHtml = '';
                     if (cvm.CanEdit) {
-                        actionsHtml += `<a href="/ChapterView/Edit/${chapter.Id}" class="chapter-action-icon-btn" data-tippy-content="Редактировать главу"><i class="fa-solid fa-pen"></i></a>`;
+                        actionsHtml += `<a href="/Chapter/Edit/${chapter.Id}" class="chapter-action-icon-btn" data-tippy-content="Редактировать главу"><i class="fa-solid fa-pen"></i></a>`;
                     }
                     if (cvm.CanDelete) {
                         const requestVerificationToken = document.getElementById('RequestVerificationToken').value;
-                        actionsHtml += `<form action="/ChapterView/Delete/${chapter.Id}" method="post" style="display:inline;" onsubmit="return confirm('Вы уверены, что хотите удалить эту главу?');">
+                        actionsHtml += `<form action="/Chapter/Delete/${chapter.Id}" method="post" style="display:inline;" onsubmit="return confirm('Вы уверены, что хотите удалить эту главу?');">
                                     <input type="hidden" name="__RequestVerificationToken" value="${requestVerificationToken}" />
                                     <button type="submit" class="chapter-action-icon-btn delete" data-tippy-content="Удалить главу"><i class="fa-solid fa-trash"></i></button>
                                 </form>`;
