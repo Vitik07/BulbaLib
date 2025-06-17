@@ -14,6 +14,7 @@ namespace BulbaLib.Services
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly string _uploadsBaseFolder = "uploads";
         private readonly string _coversFolder = "covers";
+        private readonly string _tempCoversFolder = "temp_covers"; // Added
         private readonly ILogger<FileService> _logger;
 
         public FileService(IWebHostEnvironment webHostEnvironment, ILogger<FileService> logger)
@@ -85,6 +86,153 @@ namespace BulbaLib.Services
             var relativePathToSave = $"/{_uploadsBaseFolder}/{_coversFolder}/{novelId}/{uniqueFileName}";
             _logger.LogInformation("[SaveNovelCoverAsync] Successfully saved cover. Returning relative path: {RelativePath}", relativePathToSave);
             return relativePathToSave;
+        }
+
+        public async Task<string> SaveTempNovelCoverAsync(IFormFile file, string subFolder = "temp_covers")
+        {
+            if (file == null || file.Length == 0)
+            {
+                _logger.LogWarning("[SaveTempNovelCoverAsync] File is null or empty. Subfolder: {Subfolder}", subFolder);
+                return null;
+            }
+
+            _logger.LogInformation("[SaveTempNovelCoverAsync] Attempting to save temp cover. FileName: {FileName}, Length: {Length}, Subfolder: {Subfolder}", file.FileName, file.Length, subFolder);
+
+            var tempDirectory = Path.Combine(_webHostEnvironment.WebRootPath, _uploadsBaseFolder, subFolder);
+            _logger.LogInformation("[SaveTempNovelCoverAsync] Target directory for temp cover: {DirectoryPath}", tempDirectory);
+
+            try
+            {
+                if (!Directory.Exists(tempDirectory))
+                {
+                    _logger.LogInformation("[SaveTempNovelCoverAsync] Directory does not exist, attempting to create: {DirectoryPath}", tempDirectory);
+                    Directory.CreateDirectory(tempDirectory);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SaveTempNovelCoverAsync] Exception during directory creation for {DirectoryPath}.", tempDirectory);
+                return null;
+            }
+
+            var fileExtension = Path.GetExtension(file.FileName);
+            var uniqueFileName = $"temp_{Guid.NewGuid()}{fileExtension}"; // Ensure more uniqueness for temp files
+            var filePath = Path.Combine(tempDirectory, uniqueFileName);
+            _logger.LogInformation("[SaveTempNovelCoverAsync] Full file path for saving: {FilePath}", filePath);
+
+            try
+            {
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+                _logger.LogInformation("[SaveTempNovelCoverAsync] Temp file successfully saved: {FilePath}", filePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SaveTempNovelCoverAsync] Exception during CopyToAsync for file {FilePath}. FileName: {FileName}", filePath, file.FileName);
+                return null;
+            }
+
+            var relativePathToSave = $"/{_uploadsBaseFolder}/{subFolder}/{uniqueFileName}";
+            _logger.LogInformation("[SaveTempNovelCoverAsync] Successfully saved temp cover. Returning relative path: {RelativePath}", relativePathToSave);
+            return relativePathToSave;
+        }
+
+        public async Task<string> CommitTempCoverAsync(string tempRelativePath, int novelId, string coverFileName = null)
+        {
+            if (string.IsNullOrEmpty(tempRelativePath))
+            {
+                _logger.LogWarning("[CommitTempCoverAsync] tempRelativePath is null or empty. NovelId: {NovelId}", novelId);
+                return null;
+            }
+
+            _logger.LogInformation("[CommitTempCoverAsync] Attempting to commit temp cover. TempPath: {TempPath}, NovelId: {NovelId}, FileName: {CoverFileName}", tempRelativePath, novelId, coverFileName);
+
+            string webRootPath = _webHostEnvironment.WebRootPath;
+            string fullTempPath = Path.Combine(webRootPath, tempRelativePath.TrimStart('/'));
+
+            if (!File.Exists(fullTempPath))
+            {
+                _logger.LogWarning("[CommitTempCoverAsync] Temp file does not exist at {FullTempPath}. NovelId: {NovelId}", fullTempPath, novelId);
+                return null;
+            }
+
+            var novelCoverDirectory = Path.Combine(webRootPath, _uploadsBaseFolder, _coversFolder, novelId.ToString());
+            _logger.LogInformation("[CommitTempCoverAsync] Target directory for final cover: {DirectoryPath}", novelCoverDirectory);
+
+            try
+            {
+                if (!Directory.Exists(novelCoverDirectory))
+                {
+                    _logger.LogInformation("[CommitTempCoverAsync] Directory does not exist, attempting to create: {DirectoryPath}", novelCoverDirectory);
+                    Directory.CreateDirectory(novelCoverDirectory);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[CommitTempCoverAsync] Exception during final directory creation for {DirectoryPath}. NovelId: {NovelId}", novelCoverDirectory, novelId);
+                return null;
+            }
+
+            var finalFileName = string.IsNullOrEmpty(coverFileName) ? Path.GetFileName(fullTempPath) : coverFileName;
+            // Ensure unique name in final destination as well, or decide on a strategy (e.g., if coverFileName is specific)
+            if (string.IsNullOrEmpty(coverFileName)) // If no specific name, ensure uniqueness
+            {
+                finalFileName = $"cover_{DateTime.UtcNow.Ticks}{Path.GetExtension(fullTempPath)}";
+            }
+            var finalFilePath = Path.Combine(novelCoverDirectory, finalFileName);
+            _logger.LogInformation("[CommitTempCoverAsync] Full file path for final cover: {FilePath}", finalFilePath);
+
+            try
+            {
+                File.Move(fullTempPath, finalFilePath); // Move the file
+                _logger.LogInformation("[CommitTempCoverAsync] File successfully moved from {FullTempPath} to {FinalFilePath}", fullTempPath, finalFilePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[CommitTempCoverAsync] Exception during File.Move from {FullTempPath} to {FinalFilePath}. NovelId: {NovelId}", fullTempPath, finalFilePath, novelId);
+                // Attempt to delete temp file if move fails and it still exists? Or leave it for manual cleanup?
+                // For now, just return null.
+                return null;
+            }
+
+            var relativePathToSave = $"/{_uploadsBaseFolder}/{_coversFolder}/{novelId}/{finalFileName}";
+            _logger.LogInformation("[CommitTempCoverAsync] Successfully committed cover. Returning relative path: {RelativePath}", relativePathToSave);
+            return relativePathToSave;
+        }
+
+        public async Task DeleteCoverAsync(string relativePath)
+        {
+            _logger.LogInformation("[DeleteCoverAsync] Attempting to delete cover at relative path: {RelativePath}", relativePath);
+            if (string.IsNullOrEmpty(relativePath))
+            {
+                _logger.LogWarning("[DeleteCoverAsync] Relative path is null or empty. No action taken.");
+                return;
+            }
+
+            var fullPath = Path.Combine(_webHostEnvironment.WebRootPath, relativePath.TrimStart('/'));
+            if (File.Exists(fullPath))
+            {
+                try
+                {
+                    File.Delete(fullPath);
+                    _logger.LogInformation("[DeleteCoverAsync] File successfully deleted: {FullPath}", fullPath);
+                }
+                catch (IOException ex)
+                {
+                    _logger.LogError(ex, "[DeleteCoverAsync] IOException occurred while deleting file {FullPath}.", fullPath);
+                    // Optionally, rethrow or handle specific scenarios like file in use
+                }
+            }
+            else
+            {
+                _logger.LogWarning("[DeleteCoverAsync] File not found at {FullPath}. No action taken.", fullPath);
+            }
+            // Added await Task.CompletedTask for methods not having any await call, to satisfy async
+            // but File.Delete is synchronous, so this is effectively a synchronous method marked async.
+            // If true async file operations were available and needed, they would be used.
+            await Task.CompletedTask;
         }
 
         public void DeleteFile(string relativePath)

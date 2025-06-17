@@ -60,19 +60,19 @@
                 <div class="form-group mb-3">
                     <label class="control-label">Текущие обложки</label>
                     <div id="currentCoversContainer" class="mt-2 d-flex flex-wrap" style="display: flex; flex-wrap: wrap; flex-direction: row;">
-                        @if (Model.Covers != null && Model.Covers.Any())
+                        @if (Model.KeptCovers != null && Model.KeptCovers.Any())
 
                         {
 
-                            for (int i = 0; i < Model.Covers.Count; i++)
+                            for (int i = 0; i < Model.KeptCovers.Count; i++)
 
                             {
 
-                                var coverPath = Model.Covers[i];
+                                var coverPath = Model.KeptCovers[i];
                                 <div class="current-cover-item me-2 mb-2" style="position: relative; border: 1px solid #ddd; padding: 5px; width: 112px; height: 162px;">
                                     <img src="@Url.Content(coverPath)" alt="Обложка" style="width: 100px; height: 150px; display: block; object-fit: cover;" />
                                     <button type="button" class="btn btn-danger btn-sm remove-cover-btn" data-cover-path="@coverPath" style="position: absolute; top: 0px; right: 0px; padding: 1px 4px; line-height: 1;">&times;</button>
-                                    <input type="hidden" name="Covers[@i]" value="@coverPath" class="kept-cover-input" />
+                                    <input type="hidden" name="KeptCovers[@i]" value="@coverPath" class="kept-cover-input" />
                                 </div>
                             }
 
@@ -84,7 +84,7 @@
                             <p>Нет загруженных обложек.</p>
                         }
                     </div>
-                    <span asp-validation-for="Covers" class="text-danger"></span>
+                    <span asp-validation-for="KeptCovers" class="text-danger"></span>
                 </div>
 
                 <div class="form-group mb-3">
@@ -133,6 +133,8 @@
                     <span asp-validation-for="ReleaseYear" class="text-danger"></span>
                     <small class="form-text text-muted">Укажите год релиза (4 цифры, например, 2023). Год должен быть не ранее 1900 и не позднее 2099.</small>
                 </div>
+
+                @* Блок для TranslatorId удален согласно задаче *@
 
                 <div class="form-group mb-3">
                     <label for="relatedNovelSearchInput" class="control-label">Связанные новеллы (поиск по названию)</label>
@@ -510,7 +512,9 @@
                     if (currentCoversContainer) {
                         const keptCoverInputs = currentCoversContainer.querySelectorAll('input[type="hidden"].kept-cover-input');
                         keptCoverInputs.forEach((input, index) => {
-                            input.name = `Covers[${index}]`;
+                            // Ensure correct naming for model binding if this script path is still used
+                            // For KeptCovers to bind as List<string> KeptCovers, names should be KeptCovers[index]
+                            input.name = `KeptCovers[${index}]`; 
                         });
                     }
 

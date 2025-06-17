@@ -76,6 +76,7 @@ namespace BulbaLib.Services
             // For simplicity, check if the current user's ID is part of the TranslatorId string.
             // This might need refinement based on how TranslatorId is actually stored and formatted.
             return currentUser.Role == UserRole.Translator &&
+                   chapter.CreatorId == currentUser.Id &&
                    IsTranslatorAssignedToNovel(currentUser, novel);
         }
 
