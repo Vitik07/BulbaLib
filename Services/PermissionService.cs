@@ -112,17 +112,11 @@ namespace BulbaLib.Services
 
         private bool IsTranslatorAssignedToNovel(User translator, Novel novel)
         {
-            if (translator == null || novel == null || string.IsNullOrWhiteSpace(novel.TranslatorId))
+            if (translator == null || novel == null || novel.TranslatorIds == null || !novel.TranslatorIds.Any())
             {
                 return false;
             }
-            // Предполагаем, что TranslatorId - это строка ID, разделенных запятыми, или один ID.
-            // Убираем возможные пробелы вокруг запятых и самих ID.
-            string[] assignedTranslatorIds = novel.TranslatorId.Split(',')
-                                              .Select(id => id.Trim())
-                                              .Where(id => !string.IsNullOrEmpty(id))
-                                              .ToArray();
-            return assignedTranslatorIds.Contains(translator.Id.ToString());
+            return novel.TranslatorIds.Contains(translator.Id);
         }
     }
 }

@@ -236,7 +236,7 @@ namespace BulbaLib.Controllers
                 {
                     return Forbid("Authors can only request updates for their own novels.");
                 }
-                if (!_permissionService.CanSubmitNovelForModeration(currentUser, novel)) // Assuming similar perm check for update
+                if (!_permissionService.CanSubmitNovelForModeration(currentUser))
                 {
                     return Forbid("Authors are not allowed to submit novel updates for moderation based on current permissions.");
                 }
@@ -303,7 +303,7 @@ namespace BulbaLib.Controllers
                 {
                     return Forbid("Authors can only request deletion for their own novels.");
                 }
-                if (!_permissionService.CanSubmitNovelForModeration(currentUser, novel)) // Assuming similar perm check for delete
+                if (!_permissionService.CanSubmitNovelForModeration(currentUser))
                 {
                     return Forbid("Authors are not allowed to submit novel deletions for moderation based on current permissions.");
                 }

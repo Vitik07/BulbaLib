@@ -55,9 +55,6 @@ namespace BulbaLib.Models
         public int? AuthorId { get; set; }
         public string? AuthorLogin { get; set; } // For display purposes
 
-        [Display(Name = "ID Переводчиков (через запятую)")]
-        public string TranslatorId { get; set; }
-
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             if (ReleaseYear.HasValue && ReleaseYear.Value > DateTime.UtcNow.Year)
