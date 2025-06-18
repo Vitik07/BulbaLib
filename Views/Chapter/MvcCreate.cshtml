@@ -1,0 +1,76 @@
+﻿@model BulbaLib.Controllers.ChapterCreateModel
+@{
+    ViewData["Title"] = $"Добавить главу к новелле: {Model.NovelTitle}";
+    // Layout = "_Layout"; // Assuming a layout file exists
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="NovelId" />
+    <input type="hidden" asp-for="NovelTitle" />
+
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Number" class="control-label">Номер главы</label>
+        <input asp-for="Number" class="form-control" placeholder="Например: Том 1 Глава 1, 1.1, Пролог" />
+        <span asp-validation-for="Number" class="text-danger"></span>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Title" class="control-label">Название главы</label>
+        <input asp-for="Title" class="form-control" />
+        <span asp-validation-for="Title" class="text-danger"></span>
+    </div>
+
+    <div class="form-group mb-3">
+        <label for="txtFileUploader" class="form-label">Загрузить главу из .txt файла (необязательно)</label>
+        <input type="file" id="txtFileUploader" class="form-control" accept=".txt" />
+        <small class="form-text text-muted">Содержимое файла будет вставлено в текстовое поле ниже.</small>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Content" class="control-label">Содержимое главы</label>
+        <textarea asp-for="Content" class="form-control" rows="20"></textarea>
+        <span asp-validation-for="Content" class="text-danger"></span>
+    </div>
+
+    <div class="form-group mt-4">
+        <button type="submit" class="btn btn-primary">Отправить</button>
+        <a asp-controller="NovelView" asp-action="Novel" asp-route-id="@Model.NovelId" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const fileUploader = document.getElementById('txtFileUploader');
+            const contentTextArea = document.getElementById('Content'); // Make sure ID matches asp-for
+
+            if (fileUploader && contentTextArea) {
+                fileUploader.addEventListener('change', function (event) {
+                    const file = event.target.files[0];
+                    if (file && file.type === "text/plain") {
+                        const reader = new FileReader();
+                        reader.onload = function (e) {
+                            contentTextArea.value = e.target.result;
+                        };
+                        reader.onerror = function (e) {
+                            console.error("Ошибка чтения файла", e);
+                            alert("Не удалось прочитать файл.");
+                        };
+                        reader.readAsText(file);
+                    } else if (file) {
+                        alert("Пожалуйста, выберите текстовый файл (.txt).");
+                        fileUploader.value = ''; // Clear the input
+                    }
+                });
+            }
+        });
+    </script>
+}

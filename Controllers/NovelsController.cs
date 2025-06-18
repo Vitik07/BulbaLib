@@ -6,47 +6,472 @@ using System.Linq;
 using BulbaLib.Models;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
-using System.Text.Json; // Added for moderation
-using System; // Added for DateTime
+using System.Text.Json;
+using System;
+using Microsoft.Extensions.Logging;
+using BulbaLib.Interfaces;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http; // Added for IFormFile
+using System.ComponentModel.DataAnnotations; // Added for DataAnnotations
 
 namespace BulbaLib.Controllers
 {
-    // [AllowAnonymous] // Removed: Authentication will be required by default or specified per action
-    [ApiController]
-    [Route("api/[controller]")]
-    public class NovelsController : ControllerBase
+    // [ApiController] // Removed to make it an MVC controller
+    // [Route("api/[controller]")] // Removed standard MVC routing will apply
+    public class NovelsController : Controller
     {
-        private readonly MySqlService _db;
-        private readonly IWebHostEnvironment _env;
+        private readonly MySqlService _mySqlService;
+        private readonly FileService _fileService;
         private readonly PermissionService _permissionService;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly INotificationService _notificationService;
+        private readonly ILogger<NovelsController> _logger;
+        private readonly IWebHostEnvironment _env;
 
-        public NovelsController(MySqlService db, IWebHostEnvironment env, PermissionService permissionService)
+        public NovelsController(
+            MySqlService mySqlService,
+            FileService fileService,
+            PermissionService permissionService,
+            ICurrentUserService currentUserService,
+            INotificationService notificationService,
+            ILogger<NovelsController> logger,
+            IWebHostEnvironment env)
         {
-            _db = db;
-            _env = env;
+            _mySqlService = mySqlService;
+            _fileService = fileService;
             _permissionService = permissionService;
+            _currentUserService = currentUserService;
+            _notificationService = notificationService;
+            _logger = logger;
+            _env = env;
         }
 
         private User GetCurrentUser()
         {
-            if (!User.Identity.IsAuthenticated)
-            {
-                return null;
-            }
-            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out int userId))
-            {
-                return null; // Or handle error appropriately
-            }
-            return _db.GetUser(userId);
+            return _currentUserService.GetCurrentUser();
         }
 
-        // GET /api/novels?search=...
+        // MVC Actions Start Here
+        [Authorize(Roles = "Author,Admin")]
         [HttpGet]
-        [AllowAnonymous] // Explicitly allow anonymous access
+        public IActionResult Create()
+        {
+            var currentUser = _currentUserService.GetCurrentUser();
+            if (currentUser == null || !_permissionService.CanCreateNovel(currentUser))
+            {
+                TempData["ErrorMessage"] = "У вас нет прав для создания новеллы.";
+                return RedirectToAction("Index", "Home");
+            }
+            return View("~/Views/Novel/Create.cshtml", new NovelCreateModel());
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Author,Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(NovelCreateModel model)
+        {
+            var currentUser = _currentUserService.GetCurrentUser();
+            if (currentUser == null || !_permissionService.CanCreateNovel(currentUser))
+            {
+                TempData["ErrorMessage"] = "У вас нет прав для создания новеллы.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return View("~/Views/Novel/Create.cshtml", model);
+            }
+
+            var novel = new Novel
+            {
+                Title = model.Title,
+                Description = model.Description,
+                Genres = model.Genres,
+                Tags = model.Tags,
+                Type = model.Type,
+                Format = model.Format,
+                ReleaseYear = model.ReleaseYear,
+                AlternativeTitles = model.AlternativeTitles,
+                RelatedNovelIds = model.RelatedNovelIds, // Make sure this is handled if it's a list/array
+                AuthorId = currentUser.Id, // Default to current user, admin might change it later if UI allows
+                Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            };
+
+            var tempCoverPaths = new List<string>();
+            if (model.NewCovers != null)
+            {
+                foreach (var coverFile in model.NewCovers)
+                {
+                    if (coverFile.Length > 0)
+                    {
+                        var tempPath = await _fileService.SaveTempNovelCoverAsync(coverFile);
+                        if (!string.IsNullOrEmpty(tempPath))
+                        {
+                            tempCoverPaths.Add(tempPath);
+                        }
+                        else
+                        {
+                            ModelState.AddModelError("NewCovers", "Не удалось сохранить одну или несколько обложек.");
+                            // Potentially delete already saved temp files if one fails
+                            foreach (var savedTempPath in tempCoverPaths) await _fileService.DeleteCoverAsync(savedTempPath); // Use a generic delete for temp files
+                            return View("~/Views/Novel/Create.cshtml", model);
+                        }
+                    }
+                }
+                novel.Covers = JsonSerializer.Serialize(tempCoverPaths); // Store temp paths for now
+            }
+
+            if (currentUser.Role == UserRole.Admin)
+            {
+                novel.Status = NovelStatus.Approved;
+                int newNovelId = _mySqlService.CreateNovel(novel);
+
+                var finalCoverPaths = new List<string>();
+                foreach (var tempPath in tempCoverPaths)
+                {
+                    var finalPath = await _fileService.CommitTempCoverAsync(tempPath, newNovelId);
+                    if (!string.IsNullOrEmpty(finalPath))
+                    {
+                        finalCoverPaths.Add(finalPath);
+                    }
+                    else
+                    {
+                        // Log error, potentially try to delete other committed covers or the novel entry
+                        _logger.LogError("Failed to commit cover {TempPath} for novel {NewNovelId}", tempPath, newNovelId);
+                    }
+                }
+                novel.Id = newNovelId; // Set ID for update
+                novel.Covers = JsonSerializer.Serialize(finalCoverPaths);
+                _mySqlService.UpdateNovel(novel); // Update with final cover paths
+
+                TempData["SuccessMessage"] = "Новелла успешно создана.";
+                return RedirectToAction("Novel", "NovelView", new { id = newNovelId }); // Assuming NovelView controller and Novel action
+            }
+            else // UserRole.Author
+            {
+                novel.Status = model.IsDraft ? NovelStatus.Draft : NovelStatus.PendingApproval;
+
+                // If it's a draft, save it directly without moderation request for now
+                // OR create a moderation request with status Draft if that's the flow.
+                // For PendingApproval, it definitely goes to moderation.
+                // The current spec implies AddNovel is always for PendingApproval from Author.
+                // If IsDraft is true, AuthorId should be set, and it's saved directly.
+
+                if (novel.Status == NovelStatus.Draft)
+                {
+                    // For drafts, we commit covers directly as they are not yet in a moderation flow
+                    // where admin would do the commit.
+                    int newNovelId = _mySqlService.CreateNovel(novel); // Creates with temp paths initially
+                    var finalCoverPaths = new List<string>();
+                    foreach (var tempPath in tempCoverPaths)
+                    {
+                        var finalPath = await _fileService.CommitTempCoverAsync(tempPath, newNovelId);
+                        if (!string.IsNullOrEmpty(finalPath))
+                        {
+                            finalCoverPaths.Add(finalPath);
+                        }
+                        else { /* Log error */ }
+                    }
+                    novel.Id = newNovelId;
+                    novel.Covers = JsonSerializer.Serialize(finalCoverPaths);
+                    _mySqlService.UpdateNovel(novel);
+
+                    TempData["SuccessMessage"] = "Черновик новеллы успешно сохранен.";
+                    return RedirectToAction("Index", "Profile"); // Or a page showing author's drafts
+                }
+                else // PendingApproval
+                {
+                    // Novel object (with temp paths in novel.Covers) is serialized for moderation
+                    var requestDataJson = JsonSerializer.Serialize(novel);
+
+                    var moderationRequest = new ModerationRequest
+                    {
+                        RequestType = ModerationRequestType.AddNovel,
+                        UserId = currentUser.Id,
+                        RequestData = requestDataJson,
+                        Status = ModerationStatus.Pending,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _mySqlService.CreateModerationRequest(moderationRequest);
+
+                    // Notify admins (optional, as per spec)
+                    // _notificationService.NotifyAdmins("New novel for moderation", $"User {currentUser.Login} submitted a new novel '{novel.Title}' for moderation.");
+
+                    TempData["SuccessMessage"] = "Ваш запрос на добавление новеллы отправлен на модерацию.";
+                    return RedirectToAction("Index", "CatalogView"); // Assuming CatalogView is the main catalog
+                }
+            }
+        }
+
+        [Authorize(Roles = "Author,Admin")]
+        [HttpGet]
+        public IActionResult Edit(int id)
+        {
+            var currentUser = _currentUserService.GetCurrentUser();
+            if (currentUser == null)
+            {
+                TempData["ErrorMessage"] = "Пожалуйста, войдите в систему.";
+                return RedirectToAction("Login", "AuthView"); // Assuming AuthView for login
+            }
+
+            var novel = _mySqlService.GetNovel(id);
+            if (novel == null)
+            {
+                return NotFound("Новелла не найдена.");
+            }
+
+            if (!_permissionService.CanEditNovel(currentUser, novel))
+            {
+                TempData["ErrorMessage"] = "У вас нет прав для редактирования этой новеллы.";
+                return RedirectToAction("Index", "Home"); // Or back to novel page
+            }
+
+            var editModel = new NovelEditModel
+            {
+                Id = novel.Id,
+                Title = novel.Title,
+                Description = novel.Description,
+                Genres = novel.Genres,
+                Tags = novel.Tags,
+                Type = novel.Type,
+                Format = novel.Format,
+                ReleaseYear = novel.ReleaseYear,
+                AlternativeTitles = novel.AlternativeTitles,
+                RelatedNovelIds = novel.RelatedNovelIds,
+                ExistingCoverPaths = novel.CoversList ?? new List<string>(),
+                // IsDraft could be set if we allow editing a Draft into a non-draft or vice-versa
+                // For now, IsDraft is mainly for the Create action's initial state.
+                // If novel.Status == NovelStatus.Draft, IsDraft could be true here.
+                IsDraft = (novel.Status == NovelStatus.Draft && novel.AuthorId == currentUser.Id)
+            };
+
+            return View("~/Views/Novel/Edit.cshtml", editModel);
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Author,Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(NovelEditModel model)
+        {
+            var currentUser = _currentUserService.GetCurrentUser();
+            if (currentUser == null)
+            {
+                TempData["ErrorMessage"] = "Пожалуйста, войдите в систему.";
+                return RedirectToAction("Login", "AuthView");
+            }
+
+            var existingNovel = _mySqlService.GetNovel(model.Id);
+            if (existingNovel == null)
+            {
+                return NotFound("Новелла не найдена.");
+            }
+
+            if (!_permissionService.CanEditNovel(currentUser, existingNovel))
+            {
+                TempData["ErrorMessage"] = "У вас нет прав для редактирования этой новеллы.";
+                // Maybe redirect to novel page instead of Home?
+                return RedirectToAction("Novel", "NovelView", new { id = model.Id });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                // Repopulate ExistingCoverPaths if model state is invalid and we return to view
+                model.ExistingCoverPaths = existingNovel.CoversList ?? new List<string>();
+                return View("~/Views/Novel/Edit.cshtml", model);
+            }
+
+            // Prepare the NovelUpdateRequest or directly update existingNovel for Admin
+            // For Authors, NovelUpdateRequest is serialized for moderation.
+            // For Admins, existingNovel is updated and then saved.
+
+            var currentCoverPaths = existingNovel.CoversList ?? new List<string>();
+            var finalCoverPathsForNovel = new List<string>(currentCoverPaths);
+
+            // 1. Delete covers marked for deletion
+            if (model.CoversToDelete != null)
+            {
+                foreach (var coverToDelete in model.CoversToDelete)
+                {
+                    if (finalCoverPathsForNovel.Contains(coverToDelete))
+                    {
+                        await _fileService.DeleteCoverAsync(coverToDelete);
+                        finalCoverPathsForNovel.Remove(coverToDelete);
+                    }
+                }
+            }
+
+            // 2. Save new covers as temporary files
+            var newTempCoverPaths = new List<string>();
+            if (model.NewCovers != null)
+            {
+                foreach (var newCoverFile in model.NewCovers)
+                {
+                    if (newCoverFile.Length > 0)
+                    {
+                        var tempPath = await _fileService.SaveTempNovelCoverAsync(newCoverFile);
+                        if (!string.IsNullOrEmpty(tempPath))
+                        {
+                            newTempCoverPaths.Add(tempPath);
+                        }
+                        else
+                        {
+                            ModelState.AddModelError("NewCovers", "Не удалось сохранить одну или несколько новых обложек.");
+                            model.ExistingCoverPaths = finalCoverPathsForNovel; // Reflect deletions
+                            return View("~/Views/Novel/Edit.cshtml", model);
+                        }
+                    }
+                }
+            }
+
+            // This will be the list of covers if the edit is applied directly (by Admin)
+            // or the list including temporary paths for Author's moderation request.
+            var updatedCoverListForRequest = new List<string>(finalCoverPathsForNovel);
+            updatedCoverListForRequest.AddRange(newTempCoverPaths);
+
+
+            if (currentUser.Role == UserRole.Admin)
+            {
+                existingNovel.Title = model.Title;
+                existingNovel.Description = model.Description;
+                existingNovel.Genres = model.Genres;
+                existingNovel.Tags = model.Tags;
+                existingNovel.Type = model.Type;
+                existingNovel.Format = model.Format;
+                existingNovel.ReleaseYear = model.ReleaseYear;
+                existingNovel.AlternativeTitles = model.AlternativeTitles;
+                existingNovel.RelatedNovelIds = model.RelatedNovelIds;
+                // Admin might change status directly, if UI allows. For now, keep existing.
+                // existingNovel.Status = model.IsDraft ? NovelStatus.Draft : existingNovel.Status; // Example if admin can change draft status
+
+                // Commit new temp covers for Admin
+                var committedNewPaths = new List<string>();
+                foreach (var tempPath in newTempCoverPaths)
+                {
+                    var finalPath = await _fileService.CommitTempCoverAsync(tempPath, existingNovel.Id);
+                    if (!string.IsNullOrEmpty(finalPath))
+                    {
+                        committedNewPaths.Add(finalPath);
+                    }
+                    else { /* Log error */ }
+                }
+                finalCoverPathsForNovel.AddRange(committedNewPaths); // Add newly committed paths
+                existingNovel.Covers = JsonSerializer.Serialize(finalCoverPathsForNovel);
+
+                _mySqlService.UpdateNovel(existingNovel);
+                TempData["SuccessMessage"] = "Новелла успешно обновлена.";
+                return RedirectToAction("Novel", "NovelView", new { id = existingNovel.Id });
+            }
+            else // UserRole.Author
+            {
+                // Authors submit changes for moderation.
+                // The NovelUpdateRequest should contain all proposed changes including new temp cover paths.
+                var novelUpdateRequest = new NovelUpdateRequest // Using the API DTO, but could be a specific ViewModel
+                {
+                    Title = model.Title,
+                    Description = model.Description,
+                    Genres = model.Genres,
+                    Tags = model.Tags,
+                    Type = model.Type,
+                    Format = model.Format,
+                    ReleaseYear = model.ReleaseYear,
+                    AlternativeTitles = model.AlternativeTitles,
+                    // RelatedNovelIds = model.RelatedNovelIds, // Assuming this is part of NovelUpdateRequest DTO
+                    Covers = updatedCoverListForRequest, // Includes existing kept paths + new temp paths
+                    // AuthorId is not part of request as author cannot change authorship
+                };
+                // Add RelatedNovelIds if it's part of NovelUpdateRequest or handle it
+                // For now, assuming it's implicitly part of the model being updated.
+
+                var requestDataJson = JsonSerializer.Serialize(novelUpdateRequest);
+                var moderationRequest = new ModerationRequest
+                {
+                    RequestType = ModerationRequestType.EditNovel,
+                    UserId = currentUser.Id,
+                    NovelId = existingNovel.Id,
+                    RequestData = requestDataJson,
+                    Status = ModerationStatus.Pending,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _mySqlService.CreateModerationRequest(moderationRequest);
+
+                TempData["SuccessMessage"] = "Ваш запрос на редактирование новеллы отправлен на модерацию.";
+                return RedirectToAction("Novel", "NovelView", new { id = existingNovel.Id });
+            }
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Author,Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(int id) // Changed from Delete(NovelEditModel model) to Delete(int id)
+        {
+            var currentUser = _currentUserService.GetCurrentUser();
+            if (currentUser == null)
+            {
+                TempData["ErrorMessage"] = "Пожалуйста, войдите в систему.";
+                return RedirectToAction("Login", "AuthView");
+            }
+
+            var novelToDelete = _mySqlService.GetNovel(id);
+            if (novelToDelete == null)
+            {
+                return NotFound("Новелла не найдена.");
+            }
+
+            if (!_permissionService.CanDeleteNovel(currentUser, novelToDelete))
+            {
+                TempData["ErrorMessage"] = "У вас нет прав для удаления этой новеллы.";
+                return RedirectToAction("Novel", "NovelView", new { id = id });
+            }
+
+            if (currentUser.Role == UserRole.Admin)
+            {
+                // Delete covers
+                if (novelToDelete.CoversList != null)
+                {
+                    foreach (var coverPath in novelToDelete.CoversList)
+                    {
+                        await _fileService.DeleteCoverAsync(coverPath);
+                    }
+                }
+                // Delete novel from DB
+                _mySqlService.DeleteNovel(id);
+                // Also delete related chapters, translations, etc. This should be handled by DB cascades or explicitly in MySqlService.DeleteNovel
+
+                TempData["SuccessMessage"] = "Новелла успешно удалена.";
+                return RedirectToAction("Index", "CatalogView"); // Or wherever appropriate
+            }
+            else // UserRole.Author
+            {
+                // Create moderation request for deletion
+                var requestData = JsonSerializer.Serialize(new { Title = novelToDelete.Title, Id = novelToDelete.Id });
+                var moderationRequest = new ModerationRequest
+                {
+                    RequestType = ModerationRequestType.DeleteNovel,
+                    UserId = currentUser.Id,
+                    NovelId = novelToDelete.Id,
+                    RequestData = requestData, // Include basic info for the moderator
+                    Status = ModerationStatus.Pending,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _mySqlService.CreateModerationRequest(moderationRequest);
+
+                TempData["SuccessMessage"] = "Ваш запрос на удаление новеллы отправлен на модерацию.";
+                return RedirectToAction("Novel", "NovelView", new { id = novelToDelete.Id });
+            }
+        }
+        // MVC Actions End Here
+
+
+        // Existing API methods below
+        // GET /api/novels?search=... 
+        [HttpGet("api/novels")]
+        [AllowAnonymous]
         public IActionResult GetNovels([FromQuery] string search = "")
         {
-            var novels = _db.GetNovels(search);
+            var novels = _mySqlService.GetNovels(search);
             return Ok(novels.Select(n => new {
                 id = n.Id,
                 title = n.Title,
@@ -69,7 +494,7 @@ namespace BulbaLib.Controllers
         [AllowAnonymous] // Explicitly allow anonymous access
         public IActionResult GetNovel(int id)
         {
-            var novel = _db.GetNovel(id);
+            var novel = _mySqlService.GetNovel(id);
             if (novel == null)
                 return NotFound(new { error = "Новелла не найдена" });
 
@@ -80,7 +505,7 @@ namespace BulbaLib.Controllers
 
             // Example of adding to ViewBag for server-side rendering (though this is an API controller)
 
-            var chapters = _db.GetChaptersByNovel(id) ?? new List<Chapter>();
+            var chapters = _mySqlService.GetChaptersByNovel(id) ?? new List<Chapter>();
             int chapterCount = chapters.Count();
 
             HashSet<int> bookmarkedChapters = null;
@@ -90,7 +515,7 @@ namespace BulbaLib.Controllers
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
                 int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-                var bookmarks = _db.GetBookmarks(userId);
+                var bookmarks = _mySqlService.GetBookmarks(userId);
                 if (bookmarks != null && bookmarks.ContainsKey(id.ToString()))
                 {
                     bookmarkedChapters = bookmarks[id.ToString()].Select(b => b.ChapterId).ToHashSet();
@@ -101,7 +526,7 @@ namespace BulbaLib.Controllers
                 }
             }
 
-            var author = novel.AuthorId.HasValue ? _db.GetUser(novel.AuthorId.Value) : null;
+            var author = novel.AuthorId.HasValue ? _mySqlService.GetUser(novel.AuthorId.Value) : null;
 
             var chaptersResult = chapters.Select(ch => new {
                 id = ch.Id,
@@ -182,7 +607,7 @@ namespace BulbaLib.Controllers
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
-                _db.CreateModerationRequest(moderationRequest);
+                _mySqlService.CreateModerationRequest(moderationRequest);
                 return Accepted(new { message = "Novel creation request submitted for moderation." });
             }
             else if (currentUser.Role == UserRole.Admin) // Assuming Admin can create directly
@@ -205,7 +630,7 @@ namespace BulbaLib.Controllers
                     AlternativeTitles = req.AlternativeTitles,
                     Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 };
-                _db.CreateNovel(novel);
+                _mySqlService.CreateNovel(novel);
                 return StatusCode(201, new { message = "Novel created directly by Admin." });
             }
             else
@@ -225,7 +650,7 @@ namespace BulbaLib.Controllers
                 return Unauthorized();
             }
 
-            var novel = _db.GetNovel(id);
+            var novel = _mySqlService.GetNovel(id);
             if (novel == null)
                 return NotFound(new { error = "Novel not found" });
 
@@ -251,7 +676,7 @@ namespace BulbaLib.Controllers
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
-                _db.CreateModerationRequest(moderationRequest);
+                _mySqlService.CreateModerationRequest(moderationRequest);
                 return Accepted(new { message = "Novel update request submitted for moderation." });
             }
             else if (currentUser.Role == UserRole.Admin) // Assuming Admin can update directly
@@ -272,7 +697,7 @@ namespace BulbaLib.Controllers
                 if (req.AuthorId.HasValue) novel.AuthorId = req.AuthorId;
                 novel.AlternativeTitles = req.AlternativeTitles ?? novel.AlternativeTitles;
 
-                _db.UpdateNovel(novel);
+                _mySqlService.UpdateNovel(novel);
                 return Ok(new { message = "Novel updated directly by Admin." });
             }
             else
@@ -292,7 +717,7 @@ namespace BulbaLib.Controllers
                 return Unauthorized();
             }
 
-            var novel = _db.GetNovel(id);
+            var novel = _mySqlService.GetNovel(id);
             if (novel == null)
                 return NotFound(new { error = "Novel not found" });
 
@@ -318,7 +743,7 @@ namespace BulbaLib.Controllers
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
-                _db.CreateModerationRequest(moderationRequest);
+                _mySqlService.CreateModerationRequest(moderationRequest);
                 return Accepted(new { message = "Novel deletion request submitted for moderation." });
             }
             else if (currentUser.Role == UserRole.Admin) // Assuming Admin can delete directly
@@ -327,7 +752,7 @@ namespace BulbaLib.Controllers
                 {
                     return Forbid("Admins are not allowed to delete this novel directly based on current permissions.");
                 }
-                _db.DeleteNovel(id);
+                _mySqlService.DeleteNovel(id);
                 return Ok(new { message = "Novel deleted directly by Admin." });
             }
             else
@@ -366,7 +791,7 @@ namespace BulbaLib.Controllers
             if (limit <= 0) limit = 5; // Default limit if invalid
             if (limit > 20) limit = 20; // Max limit
 
-            var novelsFromDb = _db.SearchNovelsByTitle(query, limit);
+            var novelsFromDb = _mySqlService.SearchNovelsByTitle(query, limit);
 
             var results = novelsFromDb.Select(novel => new
             {
@@ -407,7 +832,7 @@ namespace BulbaLib.Controllers
             // Assuming _mySqlService can fetch multiple novels by IDs.
             // If not, this needs to be implemented in MySqlService.
             // For now, let's assume a method GetNovelsByIds exists or iterate.
-            var novels = _db.GetNovelsByIds(idList); // This method needs to exist in MySqlService
+            var novels = _mySqlService.GetNovelsByIds(idList); // This method needs to exist in MySqlService
 
             if (novels == null || !novels.Any())
             {
@@ -453,5 +878,42 @@ namespace BulbaLib.Controllers
         public int? ReleaseYear { get; set; }
         public int? AuthorId { get; set; }
         public string AlternativeTitles { get; set; }
+    }
+
+    // ViewModels for MVC Actions
+    public class NovelCreateModel
+    {
+        [Required(ErrorMessage = "Название обязательно")]
+        [StringLength(200, MinimumLength = 1, ErrorMessage = "Название должно быть от 1 до 200 символов")]
+        public string Title { get; set; }
+
+        [DataType(DataType.MultilineText)]
+        public string Description { get; set; }
+
+        public string Genres { get; set; }
+        public string Tags { get; set; }
+
+        [StringLength(100)]
+        public string Type { get; set; }
+
+        [StringLength(100)]
+        public string Format { get; set; }
+
+        [Range(1900, 2100, ErrorMessage = "Год выпуска должен быть между 1900 и 2100")]
+        public int? ReleaseYear { get; set; }
+
+        public string AlternativeTitles { get; set; }
+        public string RelatedNovelIds { get; set; }
+
+        public List<IFormFile> NewCovers { get; set; } = new List<IFormFile>();
+
+        public bool IsDraft { get; set; }
+    }
+
+    public class NovelEditModel : NovelCreateModel
+    {
+        public int Id { get; set; }
+        public List<string> ExistingCoverPaths { get; set; } = new List<string>();
+        public List<string> CoversToDelete { get; set; } = new List<string>();
     }
 }

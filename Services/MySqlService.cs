@@ -106,6 +106,31 @@ namespace BulbaLib.Services
                 Console.WriteLine($"Error creating Notifications table: {ex.Message}");
             }
 
+            // Check and create NovelTranslators table
+            try
+            {
+                using var cmdCheckNovelTranslatorsTable = conn.CreateCommand();
+                cmdCheckNovelTranslatorsTable.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'NovelTranslators'";
+                var novelTranslatorsTableExists = Convert.ToInt32(cmdCheckNovelTranslatorsTable.ExecuteScalar()) > 0;
+                if (!novelTranslatorsTableExists)
+                {
+                    using var cmdCreateNovelTranslatorsTable = conn.CreateCommand();
+                    cmdCreateNovelTranslatorsTable.CommandText = @"
+                        CREATE TABLE NovelTranslators (
+                            NovelId INT NOT NULL,
+                            TranslatorId INT NOT NULL,
+                            PRIMARY KEY (NovelId, TranslatorId),
+                            FOREIGN KEY (NovelId) REFERENCES Novels(Id) ON DELETE CASCADE,
+                            FOREIGN KEY (TranslatorId) REFERENCES Users(Id) ON DELETE CASCADE
+                        );";
+                    cmdCreateNovelTranslatorsTable.ExecuteNonQuery();
+                }
+            }
+            catch (MySqlException ex)
+            {
+                Console.WriteLine($"Error creating NovelTranslators table: {ex.Message}");
+            }
+
             // Check and drop TranslatorId column from Novels table
             try
             {
@@ -125,6 +150,28 @@ namespace BulbaLib.Services
                 // Log or handle exception
                 Console.WriteLine($"Error checking/altering Novels table for TranslatorId column: {ex.Message}");
             }
+
+            // Check and add Status column to Novels table
+            try
+            {
+                using var cmdCheckNovelStatusColumn = conn.CreateCommand();
+                cmdCheckNovelStatusColumn.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Novels' AND COLUMN_NAME = 'Status'";
+                var statusColumnExists = Convert.ToInt32(cmdCheckNovelStatusColumn.ExecuteScalar()) > 0;
+                if (!statusColumnExists)
+                {
+                    using var cmdAlterNovelStatus = conn.CreateCommand();
+                    cmdAlterNovelStatus.CommandText = "ALTER TABLE Novels ADD COLUMN Status VARCHAR(50) NULL"; // Or NOT NULL DEFAULT 'Draft'
+                    cmdAlterNovelStatus.ExecuteNonQuery();
+                    Console.WriteLine("Successfully added Status column to Novels table.");
+                }
+                // If the column exists, ensure its type is compatible. This is harder to check programmatically for all cases.
+                // We assume VARCHAR(50) is fine. If it was previously TEXT or a very different type, manual intervention might be needed.
+            }
+            catch (MySqlException ex)
+            {
+                Console.WriteLine($"Error checking/altering Novels table for Status column: {ex.Message}");
+            }
+
 
             // Check and add CreatorId column to Chapters table
             try
@@ -149,6 +196,25 @@ namespace BulbaLib.Services
             catch (MySqlException ex)
             {
                 Console.WriteLine($"Error checking/altering Chapters table for CreatorId column: {ex.Message}");
+            }
+
+            // Check and drop Content column from Chapters table
+            try
+            {
+                using var cmdCheckChapterContentColumn = conn.CreateCommand();
+                cmdCheckChapterContentColumn.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Chapters' AND COLUMN_NAME = 'Content'";
+                var contentColumnExists = Convert.ToInt32(cmdCheckChapterContentColumn.ExecuteScalar()) > 0;
+                if (contentColumnExists)
+                {
+                    using var cmdAlterChapterContent = conn.CreateCommand();
+                    cmdAlterChapterContent.CommandText = "ALTER TABLE Chapters DROP COLUMN Content";
+                    cmdAlterChapterContent.ExecuteNonQuery();
+                    Console.WriteLine("Successfully dropped Content column from Chapters table.");
+                }
+            }
+            catch (MySqlException ex)
+            {
+                Console.WriteLine($"Error checking/altering Chapters table for Content column: {ex.Message}");
             }
         }
 
@@ -315,33 +381,79 @@ namespace BulbaLib.Services
             return users;
         }
 
+        // ---------- NOVEL TRANSLATORS ----------
+        public void AddNovelTranslator(int novelId, int translatorId)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            // Using IGNORE to prevent error if the pair already exists.
+            cmd.CommandText = "INSERT IGNORE INTO NovelTranslators (NovelId, TranslatorId) VALUES (@novelId, @translatorId)";
+            cmd.Parameters.AddWithValue("@novelId", novelId);
+            cmd.Parameters.AddWithValue("@translatorId", translatorId);
+            cmd.ExecuteNonQuery();
+        }
+
+        public void RemoveNovelTranslator(int novelId, int translatorId)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM NovelTranslators WHERE NovelId = @novelId AND TranslatorId = @translatorId";
+            cmd.Parameters.AddWithValue("@novelId", novelId);
+            cmd.Parameters.AddWithValue("@translatorId", translatorId);
+            cmd.ExecuteNonQuery();
+        }
+
         public List<User> GetTranslatorsForNovel(int novelId)
         {
-            var translators = new List<User>();
+            var users = new List<User>();
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"
-                SELECT DISTINCT u.Id, u.Login, u.Avatar, u.Role, u.IsBlocked
-                FROM Chapters c
-                JOIN Users u ON c.CreatorId = u.Id
-                WHERE c.NovelId = @novelId AND u.Role = @role AND c.CreatorId IS NOT NULL;
-            "; // Added c.CreatorId IS NOT NULL to be safe
+                SELECT u.Id, u.Login, u.Avatar, u.Role, u.IsBlocked 
+                FROM Users u
+                JOIN NovelTranslators nt ON u.Id = nt.TranslatorId
+                WHERE nt.NovelId = @novelId";
             cmd.Parameters.AddWithValue("@novelId", novelId);
-            cmd.Parameters.AddWithValue("@role", UserRole.Translator.ToString());
 
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                translators.Add(new User
+                users.Add(new User
                 {
                     Id = reader.GetInt32("Id"),
                     Login = reader.GetString("Login"),
                     Avatar = !reader.IsDBNull(reader.GetOrdinal("Avatar")) ? (byte[])reader["Avatar"] : null,
-                    Role = Enum.Parse<UserRole>(reader.GetString("Role"), true), // Should always be Translator here
+                    Role = Enum.Parse<UserRole>(reader.GetString("Role"), true),
                     IsBlocked = reader.GetBoolean("IsBlocked")
                 });
             }
-            return translators;
+            return users;
+        }
+
+        public List<Novel> GetNovelsByTranslator(int translatorId)
+        {
+            var novels = new List<Novel>();
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT n.Id, n.Title, n.Covers, n.Status 
+                FROM Novels n
+                JOIN NovelTranslators nt ON n.Id = nt.NovelId
+                WHERE nt.TranslatorId = @translatorId";
+            cmd.Parameters.AddWithValue("@translatorId", translatorId);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                novels.Add(new Novel
+                {
+                    Id = reader.GetInt32("Id"),
+                    Title = reader.GetString("Title"),
+                    Covers = reader.IsDBNull(reader.GetOrdinal("Covers")) ? null : reader.GetString("Covers"),
+                    Status = reader.IsDBNull("Status") ? NovelStatus.Draft : Enum.Parse<NovelStatus>(reader.GetString("Status"), true)
+                });
+            }
+            return novels;
         }
 
         // ---------- NOVELS ----------
@@ -353,14 +465,14 @@ namespace BulbaLib.Services
             using var cmd = conn.CreateCommand();
             if (!string.IsNullOrWhiteSpace(search))
             {
-                cmd.CommandText = @"SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date 
+                cmd.CommandText = @"SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status 
                             FROM Novels 
                             WHERE MATCH(Title, Genres, Tags) AGAINST (@search IN NATURAL LANGUAGE MODE)";
                 cmd.Parameters.AddWithValue("@search", search);
             }
             else
             {
-                cmd.CommandText = @"SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date 
+                cmd.CommandText = @"SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status 
                             FROM Novels";
             }
 
@@ -382,7 +494,8 @@ namespace BulbaLib.Services
                     AuthorId = reader.IsDBNull("AuthorId") ? (int?)null : reader.GetInt32("AuthorId"),
                     AlternativeTitles = reader.IsDBNull("AlternativeTitles") ? "" : reader.GetString("AlternativeTitles"),
                     RelatedNovelIds = reader.IsDBNull("RelatedNovelIds") ? "" : reader.GetString("RelatedNovelIds"),
-                    Date = reader.IsDBNull("Date") ? 0 : reader.GetInt64("Date") // если ты добавил поле Date
+                    Date = reader.IsDBNull("Date") ? 0 : reader.GetInt64("Date"),
+                    Status = reader.IsDBNull("Status") ? NovelStatus.Draft : Enum.Parse<NovelStatus>(reader.GetString("Status"), true)
                 });
             }
             return novels;
@@ -392,7 +505,7 @@ namespace BulbaLib.Services
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date FROM Novels WHERE Id = @id";
+            cmd.CommandText = "SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status FROM Novels WHERE Id = @id";
             cmd.Parameters.AddWithValue("@id", id);
             using var reader = cmd.ExecuteReader();
             if (reader.Read())
@@ -410,7 +523,8 @@ namespace BulbaLib.Services
                     ReleaseYear = reader.IsDBNull("ReleaseYear") ? (int?)null : reader.GetInt32("ReleaseYear"),
                     AuthorId = reader.IsDBNull("AuthorId") ? (int?)null : reader.GetInt32("AuthorId"),
                     AlternativeTitles = reader.IsDBNull("AlternativeTitles") ? "" : reader.GetString("AlternativeTitles"),
-                    RelatedNovelIds = reader.IsDBNull("RelatedNovelIds") ? "" : reader.GetString("RelatedNovelIds")
+                    RelatedNovelIds = reader.IsDBNull("RelatedNovelIds") ? "" : reader.GetString("RelatedNovelIds"),
+                    Status = reader.IsDBNull("Status") ? NovelStatus.Draft : Enum.Parse<NovelStatus>(reader.GetString("Status"), true)
                 };
             }
             return null;
@@ -453,8 +567,8 @@ namespace BulbaLib.Services
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT INTO Novels 
-                (Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, Date, RelatedNovelIds)
-                VALUES (@title, @desc, @covers, @genres, @tags, @type, @format, @releaseYear, @authorId, @altTitles, @date, @relatedNovelIds);
+                (Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, Date, RelatedNovelIds, Status)
+                VALUES (@title, @desc, @covers, @genres, @tags, @type, @format, @releaseYear, @authorId, @altTitles, @date, @relatedNovelIds, @status);
                 SELECT LAST_INSERT_ID();";
             cmd.Parameters.AddWithValue("@title", novel.Title);
             cmd.Parameters.AddWithValue("@desc", novel.Description ?? (object)DBNull.Value);
@@ -468,6 +582,7 @@ namespace BulbaLib.Services
             cmd.Parameters.AddWithValue("@altTitles", novel.AlternativeTitles ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@relatedNovelIds", string.IsNullOrEmpty(novel.RelatedNovelIds) ? (object)DBNull.Value : novel.RelatedNovelIds);
             cmd.Parameters.AddWithValue("@date", novel.Date);
+            cmd.Parameters.AddWithValue("@status", novel.Status.ToString());
 
             var result = cmd.ExecuteScalar();
             return Convert.ToInt32(result);
@@ -488,20 +603,22 @@ namespace BulbaLib.Services
         ReleaseYear=@releaseYear,
         AuthorId=@authorId,
         AlternativeTitles=@altTitles,
-        RelatedNovelIds=@relatedNovelIds 
+        RelatedNovelIds=@relatedNovelIds,
+        Status=@status 
         WHERE Id=@id";
             cmd.Parameters.AddWithValue("@title", novel.Title);
-            cmd.Parameters.AddWithValue("@desc", novel.Description ?? (object)DBNull.Value); // Consistent with CreateNovel
+            cmd.Parameters.AddWithValue("@desc", novel.Description ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@covers", novel.Covers ?? "[]");
-            cmd.Parameters.AddWithValue("@genres", novel.Genres ?? (object)DBNull.Value);   // Consistent with CreateNovel
-            cmd.Parameters.AddWithValue("@tags", novel.Tags ?? (object)DBNull.Value);     // Consistent with CreateNovel
-            cmd.Parameters.AddWithValue("@type", novel.Type ?? (object)DBNull.Value);     // Consistent with CreateNovel
-            cmd.Parameters.AddWithValue("@format", novel.Format ?? (object)DBNull.Value);   // Consistent with CreateNovel
+            cmd.Parameters.AddWithValue("@genres", novel.Genres ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@tags", novel.Tags ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@type", novel.Type ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@format", novel.Format ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@releaseYear", novel.ReleaseYear.HasValue ? novel.ReleaseYear.Value : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@id", novel.Id);
-            cmd.Parameters.AddWithValue("@altTitles", novel.AlternativeTitles ?? (object)DBNull.Value); // Consistent with CreateNovel
+            cmd.Parameters.AddWithValue("@altTitles", novel.AlternativeTitles ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@authorId", novel.AuthorId.HasValue ? novel.AuthorId.Value : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@relatedNovelIds", string.IsNullOrEmpty(novel.RelatedNovelIds) ? (object)DBNull.Value : novel.RelatedNovelIds);
+            cmd.Parameters.AddWithValue("@status", novel.Status.ToString());
             cmd.ExecuteNonQuery();
         }
 
@@ -523,7 +640,8 @@ namespace BulbaLib.Services
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, NovelId, Number, Title, Content, Date, CreatorId FROM Chapters WHERE NovelId = @novelId";
+            // Removed Content from SELECT
+            cmd.CommandText = "SELECT Id, NovelId, Number, Title, Date, CreatorId FROM Chapters WHERE NovelId = @novelId";
             cmd.Parameters.AddWithValue("@novelId", novelId);
 
             var chapters = new List<Chapter>();
@@ -536,7 +654,7 @@ namespace BulbaLib.Services
                     NovelId = reader.GetInt32("NovelId"),
                     Number = reader.IsDBNull("Number") ? "" : reader.GetString("Number"),
                     Title = reader.GetString("Title"),
-                    Content = reader.GetString("Content"),
+                    // Content = reader.GetString("Content"), // Removed
                     Date = reader.IsDBNull("Date") ? 0 : reader.GetInt64("Date"),
                     CreatorId = reader.IsDBNull("CreatorId") ? (int?)null : reader.GetInt32("CreatorId")
                 });
@@ -574,7 +692,8 @@ namespace BulbaLib.Services
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, NovelId, Number, Title, Content, Date, CreatorId FROM Chapters WHERE Id = @id";
+            // Removed Content from SELECT
+            cmd.CommandText = "SELECT Id, NovelId, Number, Title, Date, CreatorId FROM Chapters WHERE Id = @id";
             cmd.Parameters.AddWithValue("@id", chapterId);
             using var reader = cmd.ExecuteReader();
             if (reader.Read())
@@ -585,7 +704,7 @@ namespace BulbaLib.Services
                     NovelId = reader.GetInt32("NovelId"),
                     Number = reader.IsDBNull("Number") ? "" : reader.GetString("Number"),
                     Title = reader.GetString("Title"),
-                    Content = reader.GetString("Content"),
+                    // Content = reader.GetString("Content"), // Removed
                     Date = reader.IsDBNull("Date") ? 0 : reader.GetInt64("Date"),
                     CreatorId = reader.IsDBNull("CreatorId") ? (int?)null : reader.GetInt32("CreatorId")
                 };
@@ -597,11 +716,12 @@ namespace BulbaLib.Services
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "INSERT INTO Chapters (NovelId, Number, Title, Content, Date, CreatorId) VALUES (@novelId, @number, @title, @content, @date, @creatorId)";
+            // Removed Content from INSERT
+            cmd.CommandText = "INSERT INTO Chapters (NovelId, Number, Title, Date, CreatorId) VALUES (@novelId, @number, @title, @date, @creatorId)";
             cmd.Parameters.AddWithValue("@novelId", chapter.NovelId);
             cmd.Parameters.AddWithValue("@number", chapter.Number ?? "");
             cmd.Parameters.AddWithValue("@title", chapter.Title);
-            cmd.Parameters.AddWithValue("@content", chapter.Content ?? "");
+            // cmd.Parameters.AddWithValue("@content", chapter.Content ?? ""); // Removed
             cmd.Parameters.AddWithValue("@date", chapter.Date);
             cmd.Parameters.AddWithValue("@creatorId", chapter.CreatorId.HasValue ? (object)chapter.CreatorId.Value : DBNull.Value);
             cmd.ExecuteNonQuery();
@@ -611,10 +731,11 @@ namespace BulbaLib.Services
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "UPDATE Chapters SET Number=@number, Title=@title, Content=@content WHERE Id=@id";
+            // Removed Content from UPDATE
+            cmd.CommandText = "UPDATE Chapters SET Number=@number, Title=@title WHERE Id=@id";
             cmd.Parameters.AddWithValue("@number", chapter.Number ?? "");
             cmd.Parameters.AddWithValue("@title", chapter.Title);
-            cmd.Parameters.AddWithValue("@content", chapter.Content ?? "");
+            // cmd.Parameters.AddWithValue("@content", chapter.Content ?? ""); // Removed
             cmd.Parameters.AddWithValue("@id", chapter.Id);
             cmd.ExecuteNonQuery();
         }
@@ -844,7 +965,8 @@ namespace BulbaLib.Services
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             var idList = chapterIds.ToList();
-            cmd.CommandText = $"SELECT Id, Number, Title, Content FROM Chapters WHERE Id IN ({string.Join(",", idList.Select((_, i) => $"@id{i}"))}) ORDER BY Number";
+            // Removed Content from SELECT
+            cmd.CommandText = $"SELECT Id, Number, Title FROM Chapters WHERE Id IN ({string.Join(",", idList.Select((_, i) => $"@id{i}"))}) ORDER BY Number";
             for (int i = 0; i < idList.Count; i++)
                 cmd.Parameters.AddWithValue($"@id{i}", idList[i]);
             var chapters = new List<Chapter>();
@@ -856,7 +978,7 @@ namespace BulbaLib.Services
                     Id = reader.GetInt32("Id"),
                     Number = reader.IsDBNull("Number") ? "" : reader.GetString("Number"),
                     Title = reader.GetString("Title"),
-                    Content = reader.GetString("Content")
+                    // Content = reader.GetString("Content") // Removed
                 });
             }
             return chapters;
@@ -915,7 +1037,7 @@ namespace BulbaLib.Services
                 {
                     parameters[i] = $"@id{i}";
                 }
-                string commandText = $"SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date FROM Novels WHERE Id IN ({string.Join(",", parameters)})";
+                string commandText = $"SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status FROM Novels WHERE Id IN ({string.Join(",", parameters)})";
 
                 using (var command = new MySqlCommand(commandText, connection))
                 {
@@ -942,7 +1064,8 @@ namespace BulbaLib.Services
                                 AuthorId = reader.IsDBNull(reader.GetOrdinal("AuthorId")) ? (int?)null : reader.GetInt32("AuthorId"),
                                 AlternativeTitles = reader.IsDBNull(reader.GetOrdinal("AlternativeTitles")) ? null : reader.GetString("AlternativeTitles"),
                                 RelatedNovelIds = reader.IsDBNull(reader.GetOrdinal("RelatedNovelIds")) ? null : reader.GetString("RelatedNovelIds"),
-                                Date = reader.IsDBNull(reader.GetOrdinal("Date")) ? 0 : reader.GetInt64("Date")
+                                Date = reader.IsDBNull(reader.GetOrdinal("Date")) ? 0 : reader.GetInt64("Date"),
+                                Status = reader.IsDBNull("Status") ? NovelStatus.Draft : Enum.Parse<NovelStatus>(reader.GetString("Status"), true)
                             });
                         }
                     }
@@ -1119,6 +1242,96 @@ namespace BulbaLib.Services
                 ModeratorId = reader.IsDBNull("ModeratorId") ? (int?)null : reader.GetInt32("ModeratorId"),
                 ModerationComment = reader.IsDBNull("ModerationComment") ? null : reader.GetString("ModerationComment"),
                 UpdatedAt = reader.GetDateTime("UpdatedAt")
+            };
+        }
+
+        // ---------- NOTIFICATIONS ----------
+        public int CreateNotification(Notification notification)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"INSERT INTO Notifications 
+                                (UserId, Type, Message, RelatedItemId, RelatedItemType, IsRead, CreatedAt) 
+                                VALUES (@userId, @type, @message, @relatedItemId, @relatedItemType, @isRead, @createdAt);
+                                SELECT LAST_INSERT_ID();";
+
+            cmd.Parameters.AddWithValue("@userId", notification.UserId);
+            cmd.Parameters.AddWithValue("@type", notification.Type.ToString());
+            cmd.Parameters.AddWithValue("@message", notification.Message);
+            cmd.Parameters.AddWithValue("@relatedItemId", notification.RelatedItemId.HasValue ? (object)notification.RelatedItemId.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@relatedItemType", notification.RelatedItemType == RelatedItemType.None ? DBNull.Value : (object)notification.RelatedItemType.ToString());
+            cmd.Parameters.AddWithValue("@isRead", notification.IsRead);
+            cmd.Parameters.AddWithValue("@createdAt", notification.CreatedAt);
+
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+
+        public List<Notification> GetNotificationsByUserId(int userId, bool onlyUnread, int limit, int offset)
+        {
+            var notifications = new List<Notification>();
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+
+            string sql = "SELECT * FROM Notifications WHERE UserId = @userId";
+            if (onlyUnread)
+            {
+                sql += " AND IsRead = FALSE";
+            }
+            sql += " ORDER BY CreatedAt DESC LIMIT @limit OFFSET @offset";
+
+            cmd.CommandText = sql;
+            cmd.Parameters.AddWithValue("@userId", userId);
+            cmd.Parameters.AddWithValue("@limit", limit);
+            cmd.Parameters.AddWithValue("@offset", offset);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                notifications.Add(MapReaderToNotification(reader));
+            }
+            return notifications;
+        }
+
+        public bool MarkNotificationAsRead(int notificationId, int userId)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE Notifications SET IsRead = TRUE WHERE Id = @notificationId AND UserId = @userId";
+            cmd.Parameters.AddWithValue("@notificationId", notificationId);
+            cmd.Parameters.AddWithValue("@userId", userId);
+            return cmd.ExecuteNonQuery() > 0;
+        }
+
+        public int MarkAllNotificationsAsRead(int userId)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE Notifications SET IsRead = TRUE WHERE UserId = @userId AND IsRead = FALSE";
+            cmd.Parameters.AddWithValue("@userId", userId);
+            return cmd.ExecuteNonQuery();
+        }
+
+        public int CountUnreadNotifications(int userId)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM Notifications WHERE UserId = @userId AND IsRead = FALSE";
+            cmd.Parameters.AddWithValue("@userId", userId);
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+
+        private Notification MapReaderToNotification(MySqlDataReader reader)
+        {
+            return new Notification
+            {
+                Id = reader.GetInt32("Id"),
+                UserId = reader.GetInt32("UserId"),
+                Type = Enum.Parse<NotificationType>(reader.GetString("Type")),
+                Message = reader.GetString("Message"),
+                RelatedItemId = reader.IsDBNull("RelatedItemId") ? (int?)null : reader.GetInt32("RelatedItemId"),
+                RelatedItemType = reader.IsDBNull("RelatedItemType") ? RelatedItemType.None : Enum.Parse<RelatedItemType>(reader.GetString("RelatedItemType")),
+                IsRead = reader.GetBoolean("IsRead"),
+                CreatedAt = reader.GetDateTime("CreatedAt")
             };
         }
     }

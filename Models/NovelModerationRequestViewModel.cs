@@ -2,6 +2,7 @@
 
 namespace BulbaLib.Models
 {
+    /*
     public class NovelModerationRequestViewModel
     {
         public int RequestId { get; set; }
@@ -36,4 +37,5 @@ namespace BulbaLib.Models
         // Helper to get a summary of changes for Edit requests
         public string ChangeSummary { get; set; }
     }
+    */
 }

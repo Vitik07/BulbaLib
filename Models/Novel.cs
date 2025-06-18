@@ -17,7 +17,7 @@ namespace BulbaLib.Models
         public string AlternativeTitles { get; set; }
         public string? RelatedNovelIds { get; set; }
         public long Date { get; set; }
-        public string Status { get; set; } // Added: e.g., "draft", "pending_approval", "approved", "rejected"
+        public NovelStatus Status { get; set; }
 
         public List<string> CoversList
         {

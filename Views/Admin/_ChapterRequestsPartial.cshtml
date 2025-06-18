@@ -1,4 +1,4 @@
-﻿@model List<BulbaLib.Models.ChapterModerationRequestViewModel>
+﻿﻿@model List<BulbaLib.Models.ChapterModerationRequestViewModel>
 
 @{
     // Layout = null; // This is a partial view
@@ -123,7 +123,8 @@
         $('#chapter-requests-content-area').on('click', '.chapter-request-page-link', function(e) {
             e.preventDefault();
             var page = $(this).data('page');
-            $('#chapter-requests-content-area').load('@Url.Action("ChapterRequests", "Admin")?page=' + page);
+            var pageSize = @ViewData["PageSize"]; // Get pageSize from ViewData
+            $('#chapter-requests-content-area').load('@Url.Action("ChapterRequestsPartial", "Admin")?page=' + page + '&pageSize=' + pageSize);
         });
 
         // AJAX for approving chapter request
@@ -139,7 +140,10 @@
                 success: function (response) {
                     if (response.success) {
                         alert(response.message);
-                        $('#chapter-requests-content-area').load('@Url.Action("ChapterRequests", "Admin")');
+                        // Reload with current page and page size to stay on the same page after action
+                        var currentPage = @ViewData["CurrentPage"];
+                        var pageSize = @ViewData["PageSize"];
+                        $('#chapter-requests-content-area').load('@Url.Action("ChapterRequestsPartial", "Admin")?page=' + currentPage + '&pageSize=' + pageSize);
                     } else {
                         alert('Ошибка: ' + response.message);
                     }
@@ -174,7 +178,9 @@
                             alert(response.message);
                              var modalInstance = bootstrap.Modal.getInstance(rejectChapterModal);
                             if(modalInstance) modalInstance.hide();
-                            $('#chapter-requests-content-area').load('@Url.Action("ChapterRequests", "Admin")');
+                            var currentPage = @ViewData["CurrentPage"];
+                            var pageSize = @ViewData["PageSize"];
+                            $('#chapter-requests-content-area').load('@Url.Action("ChapterRequestsPartial", "Admin")?page=' + currentPage + '&pageSize=' + pageSize);
                         } else {
                             alert('Ошибка: ' + response.message);
                         }

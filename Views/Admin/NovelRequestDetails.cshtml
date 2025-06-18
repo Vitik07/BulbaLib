@@ -1,9 +1,13 @@
 ﻿@model BulbaLib.Models.ModerationRequest
 @{
     ViewData["Title"] = $"Детали запроса ID: {Model.Id}";
-    Layout = "~/Views/Shared/_Layout.cshtml"; // Or _AdminLayout
+
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
     var requestedNovel = ViewData["RequestedNovel"] as Novel;
+
     var existingNovel = ViewData["ExistingNovel"] as Novel;
+
     var requester = ViewData["RequesterUser"] as User;
 }
 
@@ -34,113 +38,141 @@
 </div>
 
 @if (Model.RequestType == ModerationRequestType.AddNovel && requestedNovel != null)
+
 {
     <h4>Предлагаемая новая новелла:</h4>
     <partial name="_NovelDisplayPartial" model="requestedNovel" />
 }
+
 else if (Model.RequestType == ModerationRequestType.EditNovel)
+
 {
     <div class="row mt-4">
         @if (existingNovel != null)
+
         {
             <div class="col-md-6">
                 <h4>Существующая новелла (ID: @existingNovel.Id):</h4>
                 <partial name="_NovelDisplayPartial" model="existingNovel" />
             </div>
         }
-        @if (requestedNovel != null)
+        @if (requestedNovel != null) // This contains the proposed changes mapped to a Novel object
+
         {
             <div class="col-md-6">
                 <h4>Предлагаемые изменения:</h4>
                 <partial name="_NovelDisplayPartial" model="requestedNovel" />
             </div>
         }
+
+        else if (!string.IsNullOrEmpty(Model.RequestData))
+
+        {
+            <div class="col-md-6">
+                <h4>JSON с изменениями:</h4>
+                <pre style="max-height: 400px; overflow:auto; border:1px solid #ccc; padding:10px;">@Model.RequestData</pre>
+            </div>
+        }
     </div>
 }
+
 else if (Model.RequestType == ModerationRequestType.DeleteNovel && existingNovel != null)
+
 {
     <h4>Новелла к удалению:</h4>
     <partial name="_NovelDisplayPartial" model="existingNovel" />
 }
 
-
 @if (Model.Status == ModerationStatus.Pending)
+
 {
     <div class="mt-4">
-        <form asp-action="ApproveNovelRequest" method="post" class="d-inline">
+        <h4>Обработка запроса:</h4>
+        <form id="processNovelRequestForm" method="post">
             @Html.AntiForgeryToken()
             <input type="hidden" name="requestId" value="@Model.Id" />
-            <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> Одобрить</button>
-        </form>
-        <button type="button" class="btn btn-danger d-inline ms-2" data-bs-toggle="modal" data-bs-target="#rejectModal">
-            <i class="fas fa-times"></i> Отклонить
-        </button>
-    </div>
-
-    <!-- Modal for Rejection Comment -->
-    <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form asp-action="RejectNovelRequest" method="post">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="requestId" value="@Model.Id" />
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="rejectModalLabel">Причина отклонения запроса ID @Model.Id</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="moderationComment" class="form-label">Комментарий (необязательно):</label>
-                            <textarea class="form-control" id="moderationComment" name="moderationComment" rows="3"></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                        <button type="submit" class="btn btn-danger">Отклонить запрос</button>
-                    </div>
-                </form>
+            <div class="form-group mb-3">
+                <label for="moderationCommentNovel" class="form-label">Комментарий модератора (причина отклонения, если есть):</label>
+                <textarea id="moderationCommentNovel" name="moderationComment" class="form-control" rows="3"></textarea>
             </div>
-        </div>
+            <div class="form-group">
+                <button type="button" class="btn btn-success btn-process-novel-request" data-approve="true"><i class="fas fa-check"></i> Одобрить</button>
+                <button type="button" class="btn btn-danger btn-process-novel-request" data-approve="false"><i class="fas fa-times"></i> Отклонить</button>
+                <a href="@Url.Action("Index", "Admin")#novel-requests-tab" class="btn btn-secondary">Назад к списку</a>
+            </div>
+        </form>
     </div>
 }
+
 else
+
 {
-    <div class="mt-4">
-        <p><strong>Модератор:</strong> @(Model.ModeratorId.HasValue ? Model.ModeratorId.Value.ToString() : "N/A")</p>
-        <p><strong>Дата обновления:</strong> @Model.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss")</p>
+    <div class="mt-4 alert alert-info">
+        <p><strong>Модератор:</strong> @(ViewData["ModeratorUserLogin"]?.ToString() ?? (Model.ModeratorId.HasValue ? Model.ModeratorId.Value.ToString() : "N/A"))</p>
+        <p><strong>Дата обработки:</strong> @Model.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss")</p>
         @if (!string.IsNullOrEmpty(Model.ModerationComment))
+
         {
             <p><strong>Комментарий модератора:</strong> @Model.ModerationComment</p>
         }
+        <a href="@Url.Action("Index", "Admin")#novel-requests-tab" class="btn btn-outline-secondary mt-2">Назад к списку запросов</a>
     </div>
 }
 
 <div class="mt-3">
-    <a asp-action="NovelRequests" class="btn btn-outline-secondary">Назад к списку запросов</a>
-</div>
+    @if (Model.Status != ModerationStatus.Pending) // Show this link only if already processed
 
-@* Placeholder for _NovelDisplayPartial - Create this file in Views/Shared/ or Views/Admin/ *@
-@* For now, this partial might look like: *@
-@*
-    @model Novel
-    <dl class="row">
-        <dt class="col-sm-3">Название:</dt><dd class="col-sm-9">@Model.Title</dd>
-        <dt class="col-sm-3">Описание:</dt><dd class="col-sm-9">@Model.Description</dd>
-        <dt class="col-sm-3">Обложки:</dt><dd class="col-sm-9">@Model.Covers</dd>
-        <dt class="col-sm-3">Жанры:</dt><dd class="col-sm-9">@Model.Genres</dd>
-        <dt class="col-sm-3">Теги:</dt><dd class="col-sm-9">@Model.Tags</dd>
-        <dt class="col-sm-3">Тип:</dt><dd class="col-sm-9">@Model.Type</dd>
-        <dt class="col-sm-3">Формат:</dt><dd class="col-sm-9">@Model.Format</dd>
-        <dt class="col-sm-3">Год выпуска:</dt><dd class="col-sm-9">@Model.ReleaseYear</dd>
-        <dt class="col-sm-3">Альт. названия:</dt><dd class="col-sm-9">@Model.AlternativeTitles</dd>
-        <dt class="col-sm-3">Автор ID:</dt><dd class="col-sm-9">@Model.AuthorId</dd>
-    </dl>
-*@
+    {
+        <a href="@Url.Action("Index", "Admin")#novel-requests-tab" class="btn btn-outline-secondary">Назад к списку запросов</a>
+    }
+</div>
 
 @section Scripts {
     <script>
-        // Ensure bootstrap JS is loaded if not globally for modal
-        // Example: <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-            // This might be in _Layout.cshtml already.
-        </script>
+        $(document).ready(function () {
+            $('.btn-process-novel-request').click(function () {
+                var approve = $(this).data('approve') === true;
+                var requestId = $('#processNovelRequestForm input[name="requestId"]').val();
+                var moderationComment = $('#moderationCommentNovel').val();
+                var token = $('#processNovelRequestForm input[name="__RequestVerificationToken"]').val();
+                var button = $(this);
+                var originalButtonText = button.text();
+
+                // Disable both buttons
+                $('.btn-process-novel-request').prop('disabled', true).text('Обработка...');
+
+                $.ajax({
+                    url: '@Url.Action("ProcessNovelRequest", "Admin")',
+                    type: 'POST',
+                    data: {
+                        __RequestVerificationToken: token,
+                        requestId: requestId,
+                        approve: approve,
+                        moderationComment: moderationComment
+                    },
+                    success: function (response) {
+                        if (response.success) {
+                            alert(response.message);
+                            window.location.href = '@Url.Action("Index", "Admin")#novel-requests-tab';
+                        } else {
+                            alert('Ошибка: ' + response.message);
+                            // Re-enable buttons on error
+                            $('.btn-process-novel-request').prop('disabled', false);
+                            // Restore specific button text if needed, or a generic one
+                            button.text(originalButtonText);
+                            if (approve) { $('.btn-process-novel-request[data-approve="false"]').text('Отклонить'); }
+                            else { $('.btn-process-novel-request[data-approve="true"]').text('Одобрить'); }
+                        }
+                    },
+                    error: function (xhr) {
+                        alert('Произошла ошибка: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Неизвестная ошибка.'));
+                        $('.btn-process-novel-request').prop('disabled', false);
+                        button.text(originalButtonText);
+                        if (approve) { $('.btn-process-novel-request[data-approve="false"]').text('Отклонить'); }
+                        else { $('.btn-process-novel-request[data-approve="true"]').text('Одобрить'); }
+                    }
+                });
+            });
+        });
+    </script>
 }

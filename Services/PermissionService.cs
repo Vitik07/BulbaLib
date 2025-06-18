@@ -14,6 +14,12 @@ namespace BulbaLib.Services
             _mySqlService = mySqlService;
         }
 
+        public bool CanCreateNovel(User currentUser)
+        {
+            if (currentUser == null) return false;
+            return currentUser.Role == UserRole.Admin || currentUser.Role == UserRole.Author;
+        }
+
         public bool CanManageUsers(User currentUser)
         {
             return currentUser != null && currentUser.Role == UserRole.Admin;
@@ -44,19 +50,22 @@ namespace BulbaLib.Services
         public bool CanEditNovel(User currentUser, Novel novel)
         {
             if (currentUser == null || novel == null) return false;
-            // Admins can directly edit any novel.
             if (currentUser.Role == UserRole.Admin) return true;
-            // Authors cannot directly edit novels; they must submit for moderation.
-            // The check for novel.AuthorId == currentUser.Id is done in the controller before creating a moderation request.
+            if (currentUser.Role == UserRole.Author)
+            {
+                return novel.AuthorId == currentUser.Id;
+            }
             return false;
         }
 
         public bool CanDeleteNovel(User currentUser, Novel novel)
         {
             if (currentUser == null || novel == null) return false;
-            // Admins can directly delete any novel.
             if (currentUser.Role == UserRole.Admin) return true;
-            // Authors cannot directly delete novels; they must submit for moderation.
+            if (currentUser.Role == UserRole.Author)
+            {
+                return novel.AuthorId == currentUser.Id;
+            }
             return false;
         }
 
@@ -71,25 +80,35 @@ namespace BulbaLib.Services
             return currentUser != null && currentUser.Role == UserRole.Admin;
         }
 
+        public bool CanCreateChapter(User currentUser, Novel novel) // Changed from novelId to Novel object for consistency
+        {
+            if (currentUser == null || novel == null) return false;
+            if (currentUser.Role == UserRole.Admin && CanAddChapterDirectly(currentUser)) return true;
+            if (currentUser.Role == UserRole.Translator && CanSubmitChapterForModeration(currentUser, novel)) return true;
+            return false;
+        }
+
         // For CanEditChapter and CanDeleteChapter, we need to ensure the Translator is linked to the Novel.
         // The Chapter model itself doesn't have a direct user link.
         public bool CanEditChapter(User currentUser, Chapter chapter, Novel novel)
         {
             if (currentUser == null || chapter == null || novel == null) return false;
-            // Admins can directly edit any chapter.
             if (currentUser.Role == UserRole.Admin) return true;
-            // Translators cannot directly edit chapters; they must submit for moderation.
-            // The check for chapter.CreatorId == currentUser.Id and IsTranslatorAssignedToNovel is done 
-            // in the controller before creating a moderation request.
+            if (currentUser.Role == UserRole.Translator)
+            {
+                return chapter.CreatorId == currentUser.Id;
+            }
             return false;
         }
 
         public bool CanDeleteChapter(User currentUser, Chapter chapter, Novel novel)
         {
             if (currentUser == null || chapter == null || novel == null) return false;
-            // Admins can directly delete any chapter.
             if (currentUser.Role == UserRole.Admin) return true;
-            // Translators cannot directly delete chapters; they must submit for moderation.
+            if (currentUser.Role == UserRole.Translator)
+            {
+                return chapter.CreatorId == currentUser.Id;
+            }
             return false;
         }
 

@@ -275,10 +275,45 @@ namespace BulbaLib.Services
 
             // Truncate parts if too long to avoid overly long filenames
             const int maxPartLength = 50; // Max length for number part and title part
-            sanitizedNumber = sanitizedNumber.Length > maxPartLength ? sanitizedNumber.Substring(0, maxPartLength) : sanitizedNumber;
-            sanitizedTitle = sanitizedTitle.Length > maxPartLength ? sanitizedTitle.Substring(0, maxPartLength) : sanitizedTitle;
+            sanitizedNumber = sanitizedNumber.Length > maxPartLength ? sanitizedNumber.Substring(0, maxPartLength).Trim() : sanitizedNumber.Trim();
+            sanitizedTitle = sanitizedTitle.Length > maxPartLength ? sanitizedTitle.Substring(0, maxPartLength).Trim() : sanitizedTitle.Trim();
 
-            string fileName = $"{sanitizedNumber} - {sanitizedTitle}.txt";
+            // Refined filename logic
+            string fileName;
+            bool numIsEmpty = string.IsNullOrWhiteSpace(chapterNumber) || sanitizedNumber == "_" || sanitizedNumber.Equals("Chapter", StringComparison.OrdinalIgnoreCase);
+            bool titleIsEmpty = string.IsNullOrWhiteSpace(chapterTitle) || sanitizedTitle == "_" || sanitizedTitle.Equals("Untitled", StringComparison.OrdinalIgnoreCase);
+
+            if (numIsEmpty && titleIsEmpty)
+            {
+                fileName = "Глава без номера и названия.txt";
+            }
+            else if (titleIsEmpty)
+            {
+                fileName = $"{sanitizedNumber}.txt";
+            }
+            else if (numIsEmpty) // Number is "Chapter" or empty, but title is present
+            {
+                fileName = $"{sanitizedTitle}.txt"; // Prioritize title if number is generic/empty
+            }
+            else
+            {
+                fileName = $"{sanitizedNumber} - {sanitizedTitle}.txt";
+            }
+
+            // Final sanitization pass on the whole filename just in case, though previous steps should handle most.
+            fileName = Regex.Replace(fileName, invalidCharsRegex, "_");
+            // Ensure it doesn't start or end with problematic characters like underscore or space after previous logic.
+            fileName = fileName.Trim().Trim(new[] { '_', '.' });
+            if (string.IsNullOrWhiteSpace(fileName) || fileName.Equals(".txt", StringComparison.OrdinalIgnoreCase)) // if all was stripped
+            {
+                fileName = "DefaultChapterName.txt"; // Ultimate fallback
+            }
+            else if (!fileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+            {
+                fileName += ".txt";
+            }
+
+
             string filePath = Path.Combine(novelContentDir, fileName);
 
             // Save the textContent to the file
@@ -295,6 +330,67 @@ namespace BulbaLib.Services
 
             // Return the relative web path
             return $"/{_uploadsBaseFolder}/content/{novelId}/{fileName}";
+        }
+
+        public async Task<string> ReadChapterContentAsync(string relativeFilePath)
+        {
+            if (string.IsNullOrEmpty(relativeFilePath))
+            {
+                _logger.LogWarning("[ReadChapterContentAsync] Relative file path is null or empty.");
+                return null;
+            }
+
+            var fullPath = Path.Combine(_webHostEnvironment.WebRootPath, relativeFilePath.TrimStart('/'));
+            _logger.LogInformation("[ReadChapterContentAsync] Attempting to read content from: {FullPath}", fullPath);
+
+            if (!File.Exists(fullPath))
+            {
+                _logger.LogWarning("[ReadChapterContentAsync] File not found at: {FullPath}", fullPath);
+                return null;
+            }
+
+            try
+            {
+                return await File.ReadAllTextAsync(fullPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[ReadChapterContentAsync] Error reading file content from: {FullPath}", fullPath);
+                return null;
+            }
+        }
+
+        public async Task<bool> DeleteChapterContentAsync(string relativeFilePath)
+        {
+            if (string.IsNullOrEmpty(relativeFilePath))
+            {
+                _logger.LogWarning("[DeleteChapterContentAsync] Relative file path is null or empty.");
+                return false;
+            }
+
+            var fullPath = Path.Combine(_webHostEnvironment.WebRootPath, relativeFilePath.TrimStart('/'));
+            _logger.LogInformation("[DeleteChapterContentAsync] Attempting to delete file: {FullPath}", fullPath);
+
+            if (!File.Exists(fullPath))
+            {
+                _logger.LogWarning("[DeleteChapterContentAsync] File not found at: {FullPath}. Cannot delete.", fullPath);
+                return false;
+            }
+
+            try
+            {
+                File.Delete(fullPath); // Synchronous, but often acceptable. Async version not standard.
+                _logger.LogInformation("[DeleteChapterContentAsync] File successfully deleted: {FullPath}", fullPath);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[DeleteChapterContentAsync] Error deleting file: {FullPath}", fullPath);
+                return false;
+            }
+            // To make it truly async if File.Delete had an async counterpart, it would be:
+            // await Task.Run(() => File.Delete(fullPath)); 
+            // However, for this operation, the overhead of Task.Run might not be worth it unless contention is high.
         }
     }
 }

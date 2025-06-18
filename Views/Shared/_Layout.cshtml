@@ -1,4 +1,4 @@
-﻿﻿
+﻿﻿﻿
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -27,10 +27,11 @@
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
                         @if (User.Identity.IsAuthenticated)
+
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Notification" asp-action="Index">
-                                    Уведомления <span class="badge bg-danger" id="notification-unread-count" style="display:none;">0</span>
+                                <a class="nav-link text-dark" asp-controller="Notifications" asp-action="Index" id="notificationLink">
+                                    🔔 <span class="badge bg-danger" id="notification-unread-count" style="display:none; vertical-align: top;">0</span>
                                 </a>
                             </li>
                             <li class="nav-item">
@@ -42,7 +43,9 @@
                                 </form>
                             </li>
                         }
+
                         else
+
                         {
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-controller="AuthView" asp-action="Login">Вход</a>
@@ -72,10 +75,11 @@
     <script src="~/js/site.js" asp-append-version="true"></script>
 
     @if (User.Identity.IsAuthenticated)
+
     {
         <script>
             window.updateNotificationCount = function () {
-                $.get('@Url.Action("UnreadCount", "Notification", new { area = "" })', function (data) {
+                $.get('@Url.Action("GetUnreadCount", "Notifications", new { area = "" })', function (data) {
                     var countBadge = $('#notification-unread-count');
                     if (data.count > 0) {
                         countBadge.text(data.count).show();

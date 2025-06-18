@@ -1,5 +1,9 @@
-﻿﻿@{
+﻿﻿﻿@{
     ViewData["Title"] = "Каталог новелл";
+
+
+
+
 
 
 
@@ -27,12 +31,11 @@
             <div class="catalog-main-container">
                 <div class="catalog-title-container" style="display: flex; justify-content: space-between; align-items: center;">
                     <h1 class="catalog-title">Каталог новелл</h1>
-                    @if (User.IsInRole("Admin") || User.IsInRole("Author"))
-
-
+                    @if (User.IsInRole("Admin") || User.IsInRole("Author")) // This basic check is okay for now.
+                                                                           // For more complex scenarios, inject PermissionService.
 
                     {
-                        <a href="@Url.Action("Create", "Novel")" class="btn btn-primary" style="margin-left: 20px; text-decoration: none; padding: 10px 15px; background-color: #007bff; color: white; border-radius: 5px;">Добавить новеллу</a>
+                        <a href="@Url.Action("Create", "Novels")" class="btn btn-primary" style="margin-left: 20px; text-decoration: none; padding: 10px 15px; background-color: #007bff; color: white; border-radius: 5px;">Добавить новеллу (MVC)</a>
                     }
                 </div>
                 <div class="catalog-filters">
@@ -204,18 +207,18 @@
                 card.className = 'novel-card';
                 card.onclick = () => window.location.href = `/novel/${novel.id}`; // Убедитесь, что novel.id доступен и корректен
                 card.innerHTML = `
-                                                    <div class="novel-cover-wrap">
-                                                        <img class="novel-cover" src="${getLastCover(novel)}" alt="${novel.title}">
-                                                    </div>
-                                                    <div class="novel-info">
-                                                        <div class="novel-title" title="${novel.title}">${novel.title}</div>
-                                                        <div class="novel-meta">
-                                                            ${(novel.releaseYear ? `<span class="novel-meta-item"><i class="fa-solid fa-calendar"></i> ${novel.releaseYear}</span>` : '')}
-                                                            ${(novel.type ? `<span class="novel-meta-item"><i class="fa-solid fa-book"></i> ${novel.type}</span>` : '')}
-                                                            ${(novel.format ? `<span class="novel-meta-item"><i class="fa-solid fa-file-lines"></i> ${novel.format}</span>` : '')}
-                                                        </div>
-                                                    </div>
-                                                `;
+                                                            <div class="novel-cover-wrap">
+                                                                <img class="novel-cover" src="${getLastCover(novel)}" alt="${novel.title}">
+                                                            </div>
+                                                            <div class="novel-info">
+                                                                <div class="novel-title" title="${novel.title}">${novel.title}</div>
+                                                                <div class="novel-meta">
+                                                                    ${(novel.releaseYear ? `<span class="novel-meta-item"><i class="fa-solid fa-calendar"></i> ${novel.releaseYear}</span>` : '')}
+                                                                    ${(novel.type ? `<span class="novel-meta-item"><i class="fa-solid fa-book"></i> ${novel.type}</span>` : '')}
+                                                                    ${(novel.format ? `<span class="novel-meta-item"><i class="fa-solid fa-file-lines"></i> ${novel.format}</span>` : '')}
+                                                                </div>
+                                                            </div>
+                                                        `;
                 list.appendChild(card);
             });
         }

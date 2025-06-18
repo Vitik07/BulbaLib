@@ -1,4 +1,4 @@
-﻿@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+﻿﻿@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
 @{
         ViewData["Title"] = "Новелла";
 
@@ -134,27 +134,28 @@
                     </div>
                     <div class="novel-actions-under-status novel-actions-panel">
                         @if (ViewData["CanEditNovel"] != null && (bool)ViewData["CanEditNovel"])
-
                         {
-                            <a asp-controller="Novel" asp-action="Edit" asp-route-id="@Model.Id" class="novel-action-btn">
-                                <i class="fa-solid fa-pen"></i> Редактировать
+                            // Assuming Model.Id is the novel's ID. If this view is fully client-side, this needs JS.
+                            // For MVC context, @Model.Id or a similar server-passed variable is expected.
+                            // The asp-route-id likely comes from the model of the page.
+                            <a asp-controller="Novels" asp-action="Edit" asp-route-id="@ViewData["NovelId"]" class="novel-action-btn">
+                                <i class="fa-solid fa-pen"></i> Редактировать (MVC)
                             </a>
                         }
                         @if (ViewData["CanDeleteNovel"] != null && (bool)ViewData["CanDeleteNovel"])
-
                         {
-                            <form asp-controller="Novel" asp-action="Delete" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить эту новеллу? Это действие необратимо.');" style="display:inline;">
-                                @Html.AntiForgeryToken()
+                            <form asp-controller="Novels" asp-action="Delete" asp-route-id="@ViewData["NovelId"]" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить эту новеллу? Это действие необратимо.');" style="display:inline;">
+                                @Html.AntiForgeryToken() // Ensure this is the correct way to get token if form is outside a full .NET form context
                                 <button type="submit" class="novel-action-btn novel-delete">
-                                    <i class="fa-solid fa-trash"></i> Удалить
+                                    <i class="fa-solid fa-trash"></i> Удалить (MVC)
                                 </button>
                             </form>
                         }
                         @if (ViewData["CanAddChapter"] != null && (bool)ViewData["CanAddChapter"])
-
                         {
-                            <a asp-controller="Chapter" asp-action="Create" asp-route-novelId="@ViewData["NovelId"]" class="novel-action-btn novel-add-chapter">
-                                <i class="fa-solid fa-plus"></i> Добавить главу
+                            // Points to the new MVC action in ChaptersController
+                            <a asp-controller="Chapters" asp-action="Create" asp-route-novelId="@ViewData["NovelId"]" class="novel-action-btn novel-add-chapter">
+                                <i class="fa-solid fa-plus"></i> Добавить главу (MVC)
                             </a>
                         }
                     </div>
@@ -442,13 +443,15 @@
 
                     let actionsHtml = '';
                     if (cvm.CanEdit) {
-                        actionsHtml += `<a href="/Chapter/Edit/${chapter.Id}" class="chapter-action-icon-btn" data-tippy-content="Редактировать главу"><i class="fa-solid fa-pen"></i></a>`;
+                        // Points to the new MVC action in ChaptersController
+                        actionsHtml += `<a href="/Chapters/Edit/${chapter.Id}" class="chapter-action-icon-btn" data-tippy-content="Редактировать главу (MVC)"><i class="fa-solid fa-pen"></i></a>`;
                     }
                     if (cvm.CanDelete) {
                         const requestVerificationToken = document.getElementById('RequestVerificationToken').value;
-                        actionsHtml += `<form action="/Chapter/Delete/${chapter.Id}" method="post" style="display:inline;" onsubmit="return confirm('Вы уверены, что хотите удалить эту главу?');">
+                        // Points to the new MVC action in ChaptersController
+                        actionsHtml += `<form action="/Chapters/Delete/${chapter.Id}" method="post" style="display:inline;" onsubmit="return confirm('Вы уверены, что хотите удалить эту главу?');">
                                     <input type="hidden" name="__RequestVerificationToken" value="${requestVerificationToken}" />
-                                    <button type="submit" class="chapter-action-icon-btn delete" data-tippy-content="Удалить главу"><i class="fa-solid fa-trash"></i></button>
+                                    <button type="submit" class="chapter-action-icon-btn delete" data-tippy-content="Удалить главу (MVC)"><i class="fa-solid fa-trash"></i></button>
                                 </form>`;
                     }
 

@@ -1,148 +1,176 @@
-﻿@model BulbaLib.Models.ModerationRequest
+﻿@model BulbaLib.Models.ChapterModerationRequestViewModel
 @{
-    ViewData["Title"] = $"Детали запроса главы ID: {Model.Id}";
+    ViewData["Title"] = $"Детали запроса главы: {Model.RequestTypeFriendlyName} ID {Model.RequestId}";
     Layout = "~/Views/Shared/_Layout.cshtml";
-    var requestedChapter = ViewData["RequestedChapter"] as Chapter;
-    var existingChapter = ViewData["ExistingChapter"] as Chapter;
-    var parentNovel = ViewData["ParentNovel"] as Novel;
-    var requester = ViewData["RequesterUser"] as User;
 }
+
 <h1>@ViewData["Title"]</h1>
 <hr />
+
 <div class="row">
     <div class="col-md-7">
         <h4>Информация о запросе</h4>
         <dl class="row">
             <dt class="col-sm-4">ID Запроса:</dt>
-            <dd class="col-sm-8">@Model.Id</dd>
+            <dd class="col-sm-8">@Model.RequestId</dd>
             <dt class="col-sm-4">Тип:</dt>
-            <dd class="col-sm-8">@Model.RequestType</dd>
+            <dd class="col-sm-8">@Model.RequestTypeFriendlyName</dd>
             <dt class="col-sm-4">Пользователь:</dt>
-            <dd class="col-sm-8">@(requester?.Login ?? Model.UserId.ToString()) (ID: @Model.UserId)</dd>
+            <dd class="col-sm-8">@Model.RequesterLogin (ID: @Model.UserId)</dd>
             <dt class="col-sm-4">Дата запроса:</dt>
             <dd class="col-sm-8">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</dd>
-            @if (parentNovel != null)
+            @if (Model.NovelId.HasValue)
             {
                 <dt class="col-sm-4">Новелла:</dt>
-                <dd class="col-sm-8"><a asp-controller="NovelView" asp-action="Details" asp-route-id="@parentNovel.Id" target="_blank">@parentNovel.Title (ID: @parentNovel.Id)</a></dd>
-            }
-            else if (Model.NovelId.HasValue)
-            {
-                <dt class="col-sm-4">Novel ID:</dt>
-                <dd class="col-sm-8">@Model.NovelId.Value</dd>
+                <dd class="col-sm-8"><a asp-controller="NovelView" asp-action="Novel" asp-route-id="@Model.NovelId.Value" target="_blank">@Model.NovelTitle (ID: @Model.NovelId.Value)</a></dd>
             }
             @if (Model.ChapterId.HasValue && Model.RequestType != ModerationRequestType.AddChapter)
             {
-                <dt class="col-sm-4">Chapter ID:</dt>
+                <dt class="col-sm-4">ID Главы (существующей):</dt>
                 <dd class="col-sm-8">@Model.ChapterId.Value</dd>
             }
-            <dt class="col-sm-4">Статус:</dt>
+            <dt class="col-sm-4">Номер Главы (предлагаемый/существующий):</dt>
+            <dd class="col-sm-8">@Model.ChapterNumber</dd>
+            <dt class="col-sm-4">Название Главы (предлагаемое/существующее):</dt>
+            <dd class="col-sm-8">@Model.ChapterTitle</dd>
+            <dt class="col-sm-4">Статус Запроса:</dt>
             <dd class="col-sm-8">@Model.Status</dd>
         </dl>
     </div>
 </div>
 
-
-@if (Model.RequestType == ModerationRequestType.AddChapter && requestedChapter != null)
+@if (Model.RequestType == ModerationRequestType.AddChapter && Model.ProposedChapterData != null)
 {
     <h4 class="mt-4">Предлагаемая новая глава:</h4>
-    <partial name="_ChapterDisplayPartial" model="requestedChapter" />
+    <partial name="_ChapterDisplayPartial" model="Model.ProposedChapterData" />
 }
 else if (Model.RequestType == ModerationRequestType.EditChapter)
 {
     <div class="row mt-4">
-        @if (existingChapter != null)
+        @if (Model.ExistingChapterData != null)
         {
             <div class="col-md-6">
-                <h4>Существующая глава (ID: @existingChapter.Id):</h4>
-                <partial name="_ChapterDisplayPartial" model="existingChapter" />
+                <h4>Существующая глава (ID: @Model.ExistingChapterData.Id):</h4>
+                @{ Model.ExistingChapterData.Content = Model.ExistingContent; }
+                <partial name="_ChapterDisplayPartial" model="Model.ExistingChapterData" />
             </div>
         }
-        @if (requestedChapter != null)
+        @if (Model.ProposedChapterData != null)
         {
             <div class="col-md-6">
                 <h4>Предлагаемые изменения:</h4>
-                <partial name="_ChapterDisplayPartial" model="requestedChapter" />
+                @{ Model.ProposedChapterData.Content = Model.ProposedContent; }
+                <partial name="_ChapterDisplayPartial" model="Model.ProposedChapterData" />
             </div>
         }
     </div>
 }
-else if (Model.RequestType == ModerationRequestType.DeleteChapter && existingChapter != null)
+else if (Model.RequestType == ModerationRequestType.DeleteChapter && Model.ExistingChapterData != null)
 {
     <h4 class="mt-4">Глава к удалению:</h4>
-    <partial name="_ChapterDisplayPartial" model="existingChapter" />
+    @{ Model.ExistingChapterData.Content = Model.ExistingContent; }
+    <partial name="_ChapterDisplayPartial" model="Model.ExistingChapterData" />
+}
+else if (!string.IsNullOrEmpty(Model.RequestDataJson) && Model.ProposedChapterData == null && Model.ExistingChapterData == null)
+{
+    <h4 class="mt-4">JSON данные запроса:</h4>
+    <pre class="border p-2"><code>@Model.RequestDataJson</code></pre>
 }
 
 
-@if (Model.Status == ModerationStatus.Pending)
+@if (Model.Status == ModerationStatus.Pending.ToString())
 {
     <div class="mt-4">
-        <form asp-action="ApproveChapterRequest" method="post" class="d-inline">
+        <h4>Обработка запроса:</h4>
+        <form id="processChapterRequestForm" method="post">
             @Html.AntiForgeryToken()
-            <input type="hidden" name="requestId" value="@Model.Id" />
-            <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> Одобрить</button>
-        </form>
-        <button type="button" class="btn btn-danger d-inline ms-2" data-bs-toggle="modal" data-bs-target="#rejectChapterModal">
-            <i class="fas fa-times"></i> Отклонить
-        </button>
-    </div>
-
-    <!-- Modal for Rejection Comment -->
-    <div class="modal fade" id="rejectChapterModal" tabindex="-1" aria-labelledby="rejectChapterModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form asp-action="RejectChapterRequest" method="post">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="requestId" value="@Model.Id" />
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="rejectChapterModalLabel">Причина отклонения запроса главы ID @Model.Id</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="moderationCommentChapter" class="form-label">Комментарий (необязательно):</label>
-                            <textarea class="form-control" id="moderationCommentChapter" name="moderationComment" rows="3"></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                        <button type="submit" class="btn btn-danger">Отклонить запрос</button>
-                    </div>
-                </form>
+            <input type="hidden" name="requestId" value="@Model.RequestId" />
+            <div class="form-group mb-3">
+                <label for="moderationCommentChapter" class="form-label">Комментарий модератора (причина отклонения, если есть):</label>
+                <textarea class="form-control" id="moderationCommentChapter" name="moderationComment" rows="3"></textarea>
             </div>
-        </div>
+            <div class="form-group">
+                <button type="button" class="btn btn-success btn-process-chapter-request" data-approve="true"><i class="fas fa-check"></i> Одобрить</button>
+                <button type="button" class="btn btn-danger btn-process-chapter-request" data-approve="false"><i class="fas fa-times"></i> Отклонить</button>
+                <a href="@Url.Action("Index", "Admin")#chapter-requests-tab" class="btn btn-secondary">Назад к списку</a>
+            </div>
+        </form>
     </div>
 }
 else
 {
     <div class="mt-4 alert alert-info">
-        <p><strong>Модератор:</strong> @(ViewData["ModeratorUserLogin"] != null ? ViewData["ModeratorUserLogin"] : (Model.ModeratorId.HasValue ? Model.ModeratorId.Value.ToString() : "N/A"))</p>
-        <p><strong>Дата обработки:</strong> @Model.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss")</p>
-        @if (!string.IsNullOrEmpty(Model.ModerationComment))
-        {
-            <p><strong>Комментарий модератора:</strong> @Model.ModerationComment</p>
+        <p><strong>Модератор:</strong> @(ViewData["ModeratorUserLogin"]?.ToString() ?? "N/A")</p>
+         @{
+            var moderationRequestModel = Model.GetType().GetProperty("ModerationRequest")?.GetValue(Model) as ModerationRequest ?? 
+                                     (Context.Items["ModerationRequestObject"] as ModerationRequest); // Fallback if needed
+            var modComment = Model.GetType().GetProperty("ModerationComment")?.GetValue(Model) as string; // Assuming this exists on ViewModel from controller
+            var updatedAt = Model.GetType().GetProperty("UpdatedAt")?.GetValue(Model) as DateTime?; // Assuming this exists
+
+            if (moderationRequestModel != null) // Prefer data from a full ModerationRequest if passed (not standard for this VM)
+            {
+                 if (moderationRequestModel.ModeratorId.HasValue && ViewData["ModeratorUserLogin"] == null) {
+                    // ViewData["ModeratorUserLogin"] = _mySqlService.GetUser(moderationRequestModel.ModeratorId.Value)?.Login ?? "N/A";
+                    // Cannot call service here. This logic should be in controller setting up ViewData.
+                 }
+                 modComment = moderationRequestModel.ModerationComment;
+                 updatedAt = moderationRequestModel.UpdatedAt;
+            }
         }
+        <p><strong>Дата обработки:</strong> @(updatedAt.HasValue ? updatedAt.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A")</p>
+        @if (!string.IsNullOrEmpty(modComment))
+        {
+            <p><strong>Комментарий модератора:</strong> @modComment</p>
+        }
+        <a href="@Url.Action("Index", "Admin")#chapter-requests-tab" class="btn btn-outline-secondary mt-2">Назад к списку запросов</a>
     </div>
 }
 
-<div class="mt-3">
-    <a asp-action="ChapterRequests" class="btn btn-outline-secondary">Назад к списку запросов</a>
-</div>
-
-@*
-    Placeholder for _ChapterDisplayPartial.cshtml.
-    Create this in Views/Shared/ or Views/Admin/.
-    Example:
-    @model Chapter
-    <dl class="row">
-        <dt class="col-sm-3">Номер:</dt><dd class="col-sm-9">@Model.Number</dd>
-        <dt class="col-sm-3">Название:</dt><dd class="col-sm-9">@Model.Title</dd>
-        <dt class="col-sm-3">Содержимое (фрагмент):</dt>
-        <dd class="col-sm-9"><pre style="white-space: pre-wrap; max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 5px;">@(Model.Content?.Substring(0, Math.Min(Model.Content.Length, 500))) ...</pre></dd>
-    </dl>
-*@
-
 @section Scripts {
-    @* Ensure Bootstrap JS for modal is loaded. It might be in _Layout.cshtml. If not, uncomment the line below. *@
-    @* <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script> *@
+    <script>
+    $(document).ready(function () {
+        $('.btn-process-chapter-request').click(function () {
+            var approve = $(this).data('approve') === true;
+            var requestId = $('#processChapterRequestForm input[name="requestId"]').val();
+            var moderationComment = $('#moderationCommentChapter').val();
+            var token = $('#processChapterRequestForm input[name="__RequestVerificationToken"]').val();
+            var button = $(this);
+            var originalButtonText = button.text();
+            
+            $('.btn-process-chapter-request').prop('disabled', true).text('Обработка...');
+
+            var actionUrl = approve ? '@Url.Action("ApproveChapterRequest", "Admin")' : '@Url.Action("RejectChapterRequest", "Admin")';
+            
+            var postData = {
+                __RequestVerificationToken: token,
+                requestId: requestId,
+                moderationComment: moderationComment
+            };
+
+            $.ajax({
+                url: actionUrl,
+                type: 'POST',
+                data: postData,
+                success: function (response) {
+                    if (response.success) {
+                        alert(response.message);
+                        window.location.href = '@Url.Action("Index", "Admin")#chapter-requests-tab';
+                    } else {
+                        alert('Ошибка: ' + response.message);
+                        $('.btn-process-chapter-request').prop('disabled', false);
+                        // Restore specific button text
+                        $('.btn-process-chapter-request[data-approve="true"]').text('Одобрить');
+                        $('.btn-process-chapter-request[data-approve="false"]').text('Отклонить');
+                    }
+                },
+                error: function (xhr) {
+                    alert('Произошла ошибка: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Неизвестная ошибка.'));
+                    $('.btn-process-chapter-request').prop('disabled', false);
+                    $('.btn-process-chapter-request[data-approve="true"]').text('Одобрить');
+                    $('.btn-process-chapter-request[data-approve="false"]').text('Отклонить');
+                }
+            });
+        });
+    });
+    </script>
 }
