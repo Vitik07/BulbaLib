@@ -9,7 +9,7 @@ using System.Text.Json;
 using System.IO;
 using System.Text.RegularExpressions;
 using System;
-using BulbaLib.Interfaces;
+using BulbaLib.Services; // Replaced BulbaLib.Interfaces
 using System.Linq;
 
 namespace BulbaLib.Controllers
@@ -212,7 +212,7 @@ namespace BulbaLib.Controllers
                     _notificationService.CreateNotification(request.UserId, NotificationType.ModerationApproved, $"Запрос '{request.RequestType}' для новеллы '{finalNT}' одобрен.", request.NovelId, RelatedItemType.Novel);
                     return Json(new { success = true, message = $"Запрос ID {requestId} ({request.RequestType}) одобрен." });
                 }
-                catch (Exception ex) { _logger.LogError(ex, "Error approving req ID {Rid}", requestId); return Json(new { success = false, message:"Ошибка: " + ex.Message }); }
+                catch (Exception ex) { _logger.LogError(ex, "Error approving req ID {Rid}", requestId); return Json(new { success = false, message = "Ошибка одобрения запроса" }); }
             }
             else
             {
@@ -425,7 +425,7 @@ namespace BulbaLib.Controllers
                     }
                     return Json(new { success = true, message = $"Запрос главы ID {requestId} ({request.RequestType}) одобрен." });
                 }
-                catch (Exception ex) { _logger.LogError(ex, "Error approving chapter req ID {Rid}", requestId); return Json(new { success = false, message:"Ошибка: " + ex.Message }); }
+                catch (Exception ex) { _logger.LogError(ex, "Error approving chapter req ID {Rid}", requestId); return Json(new { success = false, message = "Ошибка одобрения запроса главы" }); }
             }
             else
             {

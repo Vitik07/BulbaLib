@@ -9,7 +9,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using System;
 using Microsoft.Extensions.Logging;
-using BulbaLib.Interfaces;
+using BulbaLib.Services; // Replaced BulbaLib.Interfaces
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http; // Added for IFormFile
 using System.ComponentModel.DataAnnotations; // Added for DataAnnotations

@@ -99,24 +99,31 @@ else if (!string.IsNullOrEmpty(Model.RequestDataJson) && Model.ProposedChapterDa
 }
 else
 {
-    <div class="mt-4 alert alert-info">
-        <p><strong>Модератор:</strong> @(ViewData["ModeratorUserLogin"]?.ToString() ?? "N/A")</p>
-         @{
-            var moderationRequestModel = Model.GetType().GetProperty("ModerationRequest")?.GetValue(Model) as ModerationRequest ?? 
-                                     (Context.Items["ModerationRequestObject"] as ModerationRequest); // Fallback if needed
-            var modComment = Model.GetType().GetProperty("ModerationComment")?.GetValue(Model) as string; // Assuming this exists on ViewModel from controller
-            var updatedAt = Model.GetType().GetProperty("UpdatedAt")?.GetValue(Model) as DateTime?; // Assuming this exists
+    @{
+        // Declare variables in a scope accessible by later HTML
+        string? modComment = null;
+        DateTime? updatedAt = null;
+        string moderatorLogin = ViewData["ModeratorUserLogin"]?.ToString() ?? "N/A";
 
-            if (moderationRequestModel != null) // Prefer data from a full ModerationRequest if passed (not standard for this VM)
-            {
-                 if (moderationRequestModel.ModeratorId.HasValue && ViewData["ModeratorUserLogin"] == null) {
-                    // ViewData["ModeratorUserLogin"] = _mySqlService.GetUser(moderationRequestModel.ModeratorId.Value)?.Login ?? "N/A";
-                    // Cannot call service here. This logic should be in controller setting up ViewData.
-                 }
-                 modComment = moderationRequestModel.ModerationComment;
-                 updatedAt = moderationRequestModel.UpdatedAt;
-            }
+        // Logic to populate modComment and updatedAt
+        var moderationRequestModel = Model.GetType().GetProperty("ModerationRequest")?.GetValue(Model) as ModerationRequest ??
+                                     (Context.Items["ModerationRequestObject"] as ModerationRequest); // Fallback if needed
+        
+        // Try to get initial values from the Model itself first
+        modComment = Model.GetType().GetProperty("ModerationComment")?.GetValue(Model) as string;
+        updatedAt = Model.GetType().GetProperty("UpdatedAt")?.GetValue(Model) as DateTime?;
+
+        if (moderationRequestModel != null) // Prefer data from a full ModerationRequest if available
+        {
+             if (moderationRequestModel.ModeratorId.HasValue && moderatorLogin == "N/A") {
+                // Logic to set moderatorLogin if it wasn't in ViewData should be in controller
+             }
+             modComment = moderationRequestModel.ModerationComment; // Override if available in request model
+             updatedAt = moderationRequestModel.UpdatedAt;     // Override if available in request model
         }
+    }
+    <div class="mt-4 alert alert-info">
+        <p><strong>Модератор:</strong> @moderatorLogin</p>
         <p><strong>Дата обработки:</strong> @(updatedAt.HasValue ? updatedAt.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A")</p>
         @if (!string.IsNullOrEmpty(modComment))
         {

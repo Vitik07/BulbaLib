@@ -52,6 +52,7 @@ namespace BulbaLib.Models
 
         // To show who the original author is, not editable by Author role in this form.
         // Admin might be able to change it if UI/logic supports it.
+        [Display(Name = "Автор")]
         public int? AuthorId { get; set; }
         public string? AuthorLogin { get; set; } // For display purposes
 

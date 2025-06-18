@@ -1,4 +1,4 @@
-﻿﻿@model List<BulbaLib.Models.User>
+﻿@model List<BulbaLib.Models.User>
 @using BulbaLib.Models
 
 <div class="table-responsive">
@@ -16,7 +16,9 @@
         <tbody>
             @if (Model != null && Model.Any())
             {
+
                 foreach (var user in Model)
+
                 {
                     <tr>
                         <td>@user.Id</td>
@@ -83,7 +85,7 @@
     // If using jQuery's .load(), this script block will execute.
     // For more complex scenarios or if issues arise, consider event delegation from the parent page (Index.cshtml).
 
-    $(document).ready(function() { // Ensures DOM is ready for this partial too
+    $(document).ready(function () { // Ensures DOM is ready for this partial too
         // Using event delegation for dynamically loaded content is more robust
         // However, if this partial is reloaded, these direct bindings will be set again.
         $('#adminTabContent').off('submit.userRole').on('submit.userRole', '.form-change-role', function (e) {
@@ -103,7 +105,7 @@
                 },
                 success: function (response) {
                     if (response.success) {
-                        alert(response.message); 
+                        alert(response.message);
                         // Update the role text in the table directly
                         form.closest('tr').find('td').eq(3).text(newRole); // Assuming 4th td is the role display
                     } else {
@@ -127,7 +129,7 @@
                 type: 'POST',
                 url: '@Url.Action("ToggleUserBlock", "Admin")',
                 data: {
-                     __RequestVerificationToken: token,
+                    __RequestVerificationToken: token,
                     userId: userId
                 },
                 success: function (response) {
@@ -146,7 +148,7 @@
                     }
                 },
                 error: function (xhr) {
-                     alert('Произошла ошибка: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Неизвестная ошибка.'));
+                    alert('Произошла ошибка: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Неизвестная ошибка.'));
                 }
             });
         });

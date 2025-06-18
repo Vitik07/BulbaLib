@@ -1,4 +1,4 @@
-﻿﻿@model List<BulbaLib.Models.ChapterModerationRequestViewModel>
+﻿@model List<BulbaLib.Models.ChapterModerationRequestViewModel>
 
 @{
     // Layout = null; // This is a partial view
@@ -21,7 +21,9 @@
         <tbody>
             @if (Model != null && Model.Any())
             {
+
                 foreach (var req in Model)
+
                 {
                     <tr>
                         <td>@req.RequestId</td>
@@ -74,14 +76,17 @@
 
 @{
     int totalPages = ViewData["TotalPages"] != null ? (int)ViewData["TotalPages"] : 1;
+
     int currentPage = ViewData["CurrentPage"] != null ? (int)ViewData["CurrentPage"] : 1;
 }
 
 @if (totalPages > 1)
+
 {
     <nav aria-label="Page navigation" class="mt-3">
         <ul class="pagination justify-content-center">
             @for (int i = 1; i <= totalPages; i++)
+
             {
                 <li class="page-item @(i == currentPage ? "active" : "")">
                     <a class="page-link chapter-request-page-link" href="#" data-page="@i">@i</a>
@@ -120,7 +125,7 @@
 <script>
     $(document).ready(function () {
         // AJAX for chapter requests pagination
-        $('#chapter-requests-content-area').on('click', '.chapter-request-page-link', function(e) {
+        $('#chapter-requests-content-area').on('click', '.chapter-request-page-link', function (e) {
             e.preventDefault();
             var page = $(this).data('page');
             var pageSize = @ViewData["PageSize"]; // Get pageSize from ViewData
@@ -164,11 +169,11 @@
                 modalRequestIdInput.value = requestId;
             });
 
-            $('#formRejectChapter').submit(function(e) {
+            $('#formRejectChapter').submit(function (e) {
                 e.preventDefault();
                 var form = $(this);
                 if (!confirm('Вы уверены, что хотите отклонить этот запрос?')) return;
-                
+
                 $.ajax({
                     type: form.attr('method'),
                     url: form.attr('action'),
@@ -176,8 +181,8 @@
                     success: function (response) {
                         if (response.success) {
                             alert(response.message);
-                             var modalInstance = bootstrap.Modal.getInstance(rejectChapterModal);
-                            if(modalInstance) modalInstance.hide();
+                            var modalInstance = bootstrap.Modal.getInstance(rejectChapterModal);
+                            if (modalInstance) modalInstance.hide();
                             var currentPage = @ViewData["CurrentPage"];
                             var pageSize = @ViewData["PageSize"];
                             $('#chapter-requests-content-area').load('@Url.Action("ChapterRequestsPartial", "Admin")?page=' + currentPage + '&pageSize=' + pageSize);

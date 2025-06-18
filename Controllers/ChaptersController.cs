@@ -11,7 +11,7 @@ using System.Collections.Generic; // For List
 using System.Linq;
 using System.Text.Json;
 using Microsoft.Extensions.Logging; // Added for ILogger
-using BulbaLib.Interfaces; // Added for ICurrentUserService, INotificationService
+using BulbaLib.Services; // Replaced BulbaLib.Interfaces
 // Ensure FileService is in BulbaLib.Services
 // using Microsoft.AspNetCore.Hosting; // Not directly needed if FileService handles it
 using System.ComponentModel.DataAnnotations; // Added for ViewModels
