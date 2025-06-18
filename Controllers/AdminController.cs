@@ -126,7 +126,7 @@ namespace BulbaLib.Controllers
 
             //pageSize = 10; // Already a parameter
             var novelRequestTypes = new List<ModerationRequestType> // Updated enum values
-                { ModerationRequestType.NovelCreate, ModerationRequestType.NovelUpdate, ModerationRequestType.NovelDelete };
+                { ModerationRequestType.AddNovel, ModerationRequestType.EditNovel, ModerationRequestType.DeleteNovel };
 
             List<ModerationRequest> rawRequests = _mySqlService.GetPendingModerationRequestsByType(novelRequestTypes, pageSize, (page - 1) * pageSize);
 
@@ -136,7 +136,7 @@ namespace BulbaLib.Controllers
                 Novel proposedData = null;
                 NovelUpdateRequest updateData = null;
 
-                if (r.RequestType == ModerationRequestType.NovelCreate && !string.IsNullOrEmpty(r.RequestData))
+                if (r.RequestType == ModerationRequestType.AddNovel && !string.IsNullOrEmpty(r.RequestData))
                 {
                     try
                     {
@@ -145,7 +145,7 @@ namespace BulbaLib.Controllers
                     }
                     catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize NovelCreate RequestData for request ID {RequestId}", r.Id); }
                 }
-                else if (r.RequestType == ModerationRequestType.NovelUpdate && !string.IsNullOrEmpty(r.RequestData))
+                else if (r.RequestType == ModerationRequestType.EditNovel && !string.IsNullOrEmpty(r.RequestData))
                 {
                     try
                     {
@@ -154,7 +154,7 @@ namespace BulbaLib.Controllers
                     }
                     catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize NovelUpdate RequestData for request ID {RequestId}", r.Id); }
                 }
-                else if (r.RequestType == ModerationRequestType.NovelDelete && !string.IsNullOrEmpty(r.RequestData))
+                else if (r.RequestType == ModerationRequestType.DeleteNovel && !string.IsNullOrEmpty(r.RequestData))
                 {
                     // For delete, RequestData might contain { "Title": "..." }
                     try { novelTitle = JsonDocument.Parse(r.RequestData).RootElement.GetProperty("Title").GetString() ?? novelTitle; }
@@ -221,7 +221,7 @@ namespace BulbaLib.Controllers
                 if (viewModel.NovelTitle == null) viewModel.NovelTitle = viewModel.ExistingNovelData?.Title;
             }
 
-            if (request.RequestType == ModerationRequestType.NovelCreate && !string.IsNullOrEmpty(request.RequestData))
+            if (request.RequestType == ModerationRequestType.AddNovel && !string.IsNullOrEmpty(request.RequestData))
             {
                 try
                 {
@@ -230,7 +230,7 @@ namespace BulbaLib.Controllers
                 }
                 catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize NovelCreate RequestData for details view, request ID {RequestId}", request.Id); }
             }
-            else if (request.RequestType == ModerationRequestType.NovelUpdate && !string.IsNullOrEmpty(request.RequestData))
+            else if (request.RequestType == ModerationRequestType.EditNovel && !string.IsNullOrEmpty(request.RequestData))
             {
                 try
                 {
@@ -246,7 +246,7 @@ namespace BulbaLib.Controllers
                 }
                 catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize NovelUpdate RequestData for details view, request ID {RequestId}", request.Id); }
             }
-            else if (request.RequestType == ModerationRequestType.NovelDelete && !string.IsNullOrEmpty(request.RequestData))
+            else if (request.RequestType == ModerationRequestType.DeleteNovel && !string.IsNullOrEmpty(request.RequestData))
             {
                 if (viewModel.NovelTitle == null) // If not already set by existing novel
                 {
@@ -294,7 +294,7 @@ namespace BulbaLib.Controllers
                 {
                     switch (request.RequestType)
                     {
-                        case ModerationRequestType.NovelCreate:
+                        case ModerationRequestType.AddNovel:
                             var novelCreateData = JsonSerializer.Deserialize<Novel>(request.RequestData);
                             if (novelCreateData == null) throw new JsonException("Failed to deserialize NovelCreate data.");
 
@@ -347,7 +347,7 @@ namespace BulbaLib.Controllers
                             }
                             break;
 
-                        case ModerationRequestType.NovelUpdate:
+                        case ModerationRequestType.EditNovel:
                             var novelUpdateData = JsonSerializer.Deserialize<NovelUpdateRequest>(request.RequestData);
                             if (novelUpdateData == null) throw new JsonException("Failed to deserialize NovelUpdate data.");
 
@@ -393,7 +393,7 @@ namespace BulbaLib.Controllers
                             _mySqlService.UpdateNovel(novelToUpdate);
                             break;
 
-                        case ModerationRequestType.NovelDelete:
+                        case ModerationRequestType.DeleteNovel:
                             if (!request.NovelId.HasValue) throw new Exception("NovelId is missing for delete request.");
                             var novelToDelete = _mySqlService.GetNovel(request.NovelId.Value);
                             if (novelToDelete != null)
@@ -434,7 +434,7 @@ namespace BulbaLib.Controllers
                 request.Status = ModerationStatus.Rejected;
                 _mySqlService.UpdateModerationRequest(request);
 
-                if (request.RequestType == ModerationRequestType.NovelCreate || request.RequestType == ModerationRequestType.NovelUpdate)
+                if (request.RequestType == ModerationRequestType.AddNovel || request.RequestType == ModerationRequestType.EditNovel)
                 {
                     if (!string.IsNullOrEmpty(request.RequestData))
                     {
@@ -443,9 +443,9 @@ namespace BulbaLib.Controllers
                             Novel novelDetails = null;
                             // Try deserializing as Novel (for Create) or NovelUpdateRequest (for Update) then get Covers
                             // For simplicity, assuming Covers property is accessible similarly or is a List<string>
-                            if (request.RequestType == ModerationRequestType.NovelCreate)
+                            if (request.RequestType == ModerationRequestType.AddNovel)
                                 novelDetails = JsonSerializer.Deserialize<Novel>(request.RequestData);
-                            else if (request.RequestType == ModerationRequestType.NovelUpdate)
+                            else if (request.RequestType == ModerationRequestType.EditNovel)
                             {
                                 // If NovelUpdateRequest has Covers as List<string>
                                 var updateReq = JsonSerializer.Deserialize<NovelUpdateRequest>(request.RequestData);
@@ -471,7 +471,7 @@ namespace BulbaLib.Controllers
                 }
 
                 string rejectedNovelTitle = "Неизвестная новелла";
-                if (request.RequestType == ModerationRequestType.NovelCreate && !string.IsNullOrEmpty(request.RequestData))
+                if (request.RequestType == ModerationRequestType.AddNovel && !string.IsNullOrEmpty(request.RequestData))
                 {
                     try { var nt = JsonSerializer.Deserialize<Novel>(request.RequestData); rejectedNovelTitle = nt?.Title; } catch { }
                 }
@@ -503,7 +503,7 @@ namespace BulbaLib.Controllers
 
             //pageSize = 10; // Already a parameter
             var chapterRequestTypes = new List<ModerationRequestType> // Updated enum values
-                { ModerationRequestType.ChapterCreate, ModerationRequestType.ChapterUpdate, ModerationRequestType.ChapterDelete };
+                { ModerationRequestType.AddChapter, ModerationRequestType.EditChapter, ModerationRequestType.DeleteChapter };
 
             List<ModerationRequest> rawRequests = _mySqlService.GetPendingModerationRequestsByType(chapterRequestTypes, pageSize, (page - 1) * pageSize);
             int totalRequests = _mySqlService.CountPendingModerationRequestsByType(chapterRequestTypes);
@@ -521,7 +521,7 @@ namespace BulbaLib.Controllers
                 string chapterTitle = existingChapterData?.Title;
                 string chapterNumber = existingChapterData?.Number;
 
-                if (r.RequestType == ModerationRequestType.ChapterCreate && !string.IsNullOrEmpty(r.RequestData))
+                if (r.RequestType == ModerationRequestType.AddChapter && !string.IsNullOrEmpty(r.RequestData))
                 {
                     try
                     {
@@ -531,7 +531,7 @@ namespace BulbaLib.Controllers
                     }
                     catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize ChapterCreate RequestData for request ID {RequestId}", r.Id); }
                 }
-                else if (r.RequestType == ModerationRequestType.ChapterUpdate && !string.IsNullOrEmpty(r.RequestData))
+                else if (r.RequestType == ModerationRequestType.EditChapter && !string.IsNullOrEmpty(r.RequestData))
                 {
                     try
                     {
@@ -542,7 +542,7 @@ namespace BulbaLib.Controllers
                     }
                     catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize ChapterUpdate RequestData for request ID {RequestId}", r.Id); }
                 }
-                else if (r.RequestType == ModerationRequestType.ChapterDelete && !string.IsNullOrEmpty(r.RequestData))
+                else if (r.RequestType == ModerationRequestType.DeleteChapter && !string.IsNullOrEmpty(r.RequestData))
                 {
                     // RequestData might have { "Number": "...", "Title": "..." }
                     try
@@ -609,14 +609,14 @@ namespace BulbaLib.Controllers
                 }
             }
 
-            if ((request.RequestType == ModerationRequestType.ChapterCreate || request.RequestType == ModerationRequestType.ChapterUpdate)
+            if ((request.RequestType == ModerationRequestType.AddChapter || request.RequestType == ModerationRequestType.EditChapter)
                 && !string.IsNullOrEmpty(request.RequestData))
             {
                 try
                 {
                     viewModel.ProposedChapterData = JsonSerializer.Deserialize<Chapter>(request.RequestData);
                     // Update display title/number if proposed data has them (especially for create)
-                    if (request.RequestType == ModerationRequestType.ChapterCreate)
+                    if (request.RequestType == ModerationRequestType.AddChapter)
                     {
                         viewModel.ChapterNumber = viewModel.ProposedChapterData?.Number ?? viewModel.ChapterNumber;
                         viewModel.ChapterTitle = viewModel.ProposedChapterData?.Title ?? viewModel.ChapterTitle;
@@ -624,7 +624,7 @@ namespace BulbaLib.Controllers
                 }
                 catch (JsonException ex) { _logger.LogError(ex, "Failed to deserialize Chapter RequestData for details view, request ID {RequestId}", request.Id); }
             }
-            else if (request.RequestType == ModerationRequestType.ChapterDelete && !string.IsNullOrEmpty(request.RequestData))
+            else if (request.RequestType == ModerationRequestType.DeleteChapter && !string.IsNullOrEmpty(request.RequestData))
             {
                 if (viewModel.ChapterTitle == null) // If not already set by existing chapter
                 {
@@ -679,7 +679,7 @@ namespace BulbaLib.Controllers
                 {
                     switch (request.RequestType)
                     {
-                        case ModerationRequestType.ChapterCreate:
+                        case ModerationRequestType.AddChapter:
                             var chapterCreateData = JsonSerializer.Deserialize<Chapter>(request.RequestData);
                             if (chapterCreateData == null) throw new JsonException("Failed to deserialize ChapterCreate data.");
 
@@ -708,7 +708,7 @@ namespace BulbaLib.Controllers
                             }
                             break;
 
-                        case ModerationRequestType.ChapterUpdate:
+                        case ModerationRequestType.EditChapter:
                             var chapterUpdateData = JsonSerializer.Deserialize<ChapterUpdateRequest>(request.RequestData);
                             if (chapterUpdateData == null) throw new JsonException("Failed to deserialize ChapterUpdate data.");
 
@@ -724,7 +724,7 @@ namespace BulbaLib.Controllers
                             chapterDataForNotification = chapterToUpdate;
                             break;
 
-                        case ModerationRequestType.ChapterDelete:
+                        case ModerationRequestType.DeleteChapter:
                             if (!request.ChapterId.HasValue) throw new Exception("ChapterId is missing for delete request.");
                             var chapterToDelete = _mySqlService.GetChapter(request.ChapterId.Value);
                             if (chapterToDelete != null)
@@ -760,7 +760,7 @@ namespace BulbaLib.Controllers
                     string approvedMessage = $"Ваш запрос '{request.RequestType.ToString()}' для главы '{approvedChapterTitle}' (новелла '{novelTitleForNotification}') был одобрен.";
 
                     int? approvedRelatedChapterId = request.ChapterId;
-                    if (request.RequestType == ModerationRequestType.ChapterCreate && chapterDataForNotification != null)
+                    if (request.RequestType == ModerationRequestType.AddChapter && chapterDataForNotification != null)
                     {
                         var newChapter = _mySqlService.GetChaptersByNovel(chapterDataForNotification.NovelId)
                                              .FirstOrDefault(c => c.Title == chapterDataForNotification.Title &&
@@ -770,7 +770,7 @@ namespace BulbaLib.Controllers
                     }
                     _notificationService.CreateNotification(request.UserId, NotificationType.ModerationApproved, approvedMessage, approvedRelatedChapterId ?? request.NovelId, RelatedItemType.Chapter);
 
-                    if (request.RequestType == ModerationRequestType.ChapterCreate && request.NovelId.HasValue && chapterDataForNotification != null)
+                    if (request.RequestType == ModerationRequestType.AddChapter && request.NovelId.HasValue && chapterDataForNotification != null)
                     {
                         var newChapterForSubscribers = _mySqlService.GetChaptersByNovel(request.NovelId.Value)
                                              .FirstOrDefault(c => c.Title == chapterDataForNotification.Title && c.Number == chapterDataForNotification.Number && c.CreatorId == request.UserId);
@@ -801,7 +801,7 @@ namespace BulbaLib.Controllers
                 _mySqlService.UpdateModerationRequest(request);
 
                 string rejectedChapterTitle = "Неизвестная глава";
-                if (request.RequestType == ModerationRequestType.ChapterCreate && !string.IsNullOrEmpty(request.RequestData))
+                if (request.RequestType == ModerationRequestType.AddChapter && !string.IsNullOrEmpty(request.RequestData))
                 {
                     try { var ch = JsonSerializer.Deserialize<Chapter>(request.RequestData); rejectedChapterTitle = ch?.Title; } catch { }
                 }

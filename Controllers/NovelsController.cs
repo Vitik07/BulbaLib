@@ -174,7 +174,7 @@ namespace BulbaLib.Controllers
 
                 var moderationRequest = new ModerationRequest
                 {
-                    RequestType = ModerationRequestType.NovelCreate,
+                    RequestType = ModerationRequestType.AddNovel,
                     UserId = currentUser.Id,
                     NovelId = null,
                     RequestData = JsonSerializer.Serialize(novelDataForModeration),
@@ -243,7 +243,7 @@ namespace BulbaLib.Controllers
 
                 var moderationRequest = new ModerationRequest
                 {
-                    RequestType = ModerationRequestType.NovelUpdate,
+                    RequestType = ModerationRequestType.EditNovel,
                     UserId = currentUser.Id,
                     NovelId = id,
                     RequestData = JsonSerializer.Serialize(req), // req is NovelUpdateRequest
@@ -310,7 +310,7 @@ namespace BulbaLib.Controllers
 
                 var moderationRequest = new ModerationRequest
                 {
-                    RequestType = ModerationRequestType.NovelDelete,
+                    RequestType = ModerationRequestType.DeleteNovel,
                     UserId = currentUser.Id,
                     NovelId = id,
                     RequestData = JsonSerializer.Serialize(new { novel.Title }), // Optional info

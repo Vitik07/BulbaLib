@@ -158,7 +158,7 @@ namespace BulbaLib.Controllers
 
                 var moderationRequest = new ModerationRequest
                 {
-                    RequestType = ModerationRequestType.ChapterCreate,
+                    RequestType = ModerationRequestType.AddChapter,
                     UserId = currentUser.Id,
                     NovelId = req.NovelId,
                     ChapterId = null,
@@ -217,7 +217,7 @@ namespace BulbaLib.Controllers
             {
                 var moderationRequest = new ModerationRequest
                 {
-                    RequestType = ModerationRequestType.ChapterUpdate,
+                    RequestType = ModerationRequestType.EditChapter,
                     UserId = currentUser.Id,
                     NovelId = chapter.NovelId,
                     ChapterId = id,
@@ -270,7 +270,7 @@ namespace BulbaLib.Controllers
             {
                 var moderationRequest = new ModerationRequest
                 {
-                    RequestType = ModerationRequestType.ChapterDelete,
+                    RequestType = ModerationRequestType.DeleteChapter,
                     UserId = currentUser.Id,
                     NovelId = chapter.NovelId,
                     ChapterId = id,
