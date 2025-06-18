@@ -63,7 +63,7 @@ namespace BulbaLib.Services
                             ModeratorId INT NULL,
                             ModerationComment TEXT NULL,
                             UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                            FOREIGN KEY (UserId) REFERENCES Users(Id),
+                            FOREIGN KEY (UserId) REFERENCES Users(Id) ON DELETE SET NULL,
                             FOREIGN KEY (NovelId) REFERENCES Novels(Id) ON DELETE SET NULL,
                             FOREIGN KEY (ChapterId) REFERENCES Chapters(Id) ON DELETE SET NULL,
                             FOREIGN KEY (ModeratorId) REFERENCES Users(Id) ON DELETE SET NULL
@@ -313,6 +313,35 @@ namespace BulbaLib.Services
                 });
             }
             return users;
+        }
+
+        public List<User> GetTranslatorsForNovel(int novelId)
+        {
+            var translators = new List<User>();
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT DISTINCT u.Id, u.Login, u.Avatar, u.Role, u.IsBlocked
+                FROM Chapters c
+                JOIN Users u ON c.CreatorId = u.Id
+                WHERE c.NovelId = @novelId AND u.Role = @role AND c.CreatorId IS NOT NULL;
+            "; // Added c.CreatorId IS NOT NULL to be safe
+            cmd.Parameters.AddWithValue("@novelId", novelId);
+            cmd.Parameters.AddWithValue("@role", UserRole.Translator.ToString());
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                translators.Add(new User
+                {
+                    Id = reader.GetInt32("Id"),
+                    Login = reader.GetString("Login"),
+                    Avatar = !reader.IsDBNull(reader.GetOrdinal("Avatar")) ? (byte[])reader["Avatar"] : null,
+                    Role = Enum.Parse<UserRole>(reader.GetString("Role"), true), // Should always be Translator here
+                    IsBlocked = reader.GetBoolean("IsBlocked")
+                });
+            }
+            return translators;
         }
 
         // ---------- NOVELS ----------

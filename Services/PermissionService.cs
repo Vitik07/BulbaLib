@@ -62,10 +62,8 @@ namespace BulbaLib.Services
 
         public bool CanSubmitChapterForModeration(User currentUser, Novel novel)
         {
-            // Translator can submit chapters for a novel they are assigned to
-            return currentUser != null && novel != null &&
-                   currentUser.Role == UserRole.Translator &&
-                   IsTranslatorAssignedToNovel(currentUser, novel);
+            // Translator can submit chapters for any novel (novel parameter kept for potential future novel-specific checks)
+            return currentUser != null && currentUser.Role == UserRole.Translator && novel != null;
         }
 
         public bool CanAddChapterDirectly(User currentUser)
@@ -108,15 +106,6 @@ namespace BulbaLib.Services
         public bool CanModerateChapterRequests(User currentUser)
         {
             return currentUser != null && currentUser.Role == UserRole.Admin;
-        }
-
-        private bool IsTranslatorAssignedToNovel(User translator, Novel novel)
-        {
-            if (translator == null || novel == null || novel.TranslatorIds == null || !novel.TranslatorIds.Any())
-            {
-                return false;
-            }
-            return novel.TranslatorIds.Contains(translator.Id);
         }
     }
 }

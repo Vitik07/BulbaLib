@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic; // For List
 using Microsoft.Extensions.Logging; // Added for ILogger
 using System.Text.Json;
+using System.IO;
+using System.Text.RegularExpressions;
 
 namespace BulbaLib.Controllers
 {
@@ -690,21 +692,37 @@ namespace BulbaLib.Controllers
                             _mySqlService.CreateChapter(chapterCreateData);
                             chapterDataForNotification = chapterCreateData;
 
-                            if (request.NovelId.HasValue)
-                            { // Auto add TranslatorId to Novel
-                                var novelForUpdate = _mySqlService.GetNovel(request.NovelId.Value);
-                                if (novelForUpdate != null)
+                            try
+                            {
+                                // Ensure chapterCreateData has the necessary info after creation if CreateChapter doesn't return it
+                                // For now, assuming chapterCreateData (deserialized from RequestData) is sufficient
+                                string chapterFilePath = await _fileService.SaveChapterContentAsync(
+                                    chapterCreateData.NovelId,
+                                    chapterCreateData.Number,
+                                    chapterCreateData.Title,
+                                    chapterCreateData.Content
+                                );
+                                if (string.IsNullOrEmpty(chapterFilePath))
                                 {
-                                    if (novelForUpdate.TranslatorIds == null)
-                                    {
-                                        novelForUpdate.TranslatorIds = new List<int>();
-                                    }
-                                    if (!novelForUpdate.TranslatorIds.Contains(request.UserId)) // request.UserId is int
-                                    {
-                                        novelForUpdate.TranslatorIds.Add(request.UserId);
-                                        _mySqlService.UpdateNovel(novelForUpdate); // UpdateNovel will handle serialization
-                                    }
+                                    _logger.LogWarning("Failed to save chapter content to file for new chapter. NovelId: {NovelId}, Chapter Title: {ChapterTitle}", chapterCreateData.NovelId, chapterCreateData.Title);
+                                    // Decide if this should be a critical error or just a warning.
+                                    // For now, it's a warning and processing continues.
                                 }
+                                else
+                                {
+                                    _logger.LogInformation("Successfully saved content for new chapter {ChapterTitle} to {Path}", chapterCreateData.Title, chapterFilePath);
+                                    // If you decide to store the file path in Chapter.Content in the DB:
+                                    // var chapterForPathUpdate = _mySqlService.GetChapter(ID_OF_NEWLY_CREATED_CHAPTER); // Need a way to get this ID
+                                    // if(chapterForPathUpdate != null) {
+                                    // chapterForPathUpdate.Content = chapterFilePath; // Or a marker + path
+                                    // _mySqlService.UpdateChapter(chapterForPathUpdate);
+                                    // }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Error saving chapter content to file for new chapter. NovelId: {NovelId}, Chapter Title: {ChapterTitle}", chapterCreateData.NovelId, chapterCreateData.Title);
+                                // Handle exception, perhaps return an error or log extensively
                             }
                             break;
 
@@ -722,6 +740,36 @@ namespace BulbaLib.Controllers
                             chapterToUpdate.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(); // Update date on edit
                             _mySqlService.UpdateChapter(chapterToUpdate);
                             chapterDataForNotification = chapterToUpdate;
+
+                            try
+                            {
+                                // Potentially delete old file if chapter Number or Title changed, resulting in a new filename.
+                                // For simplicity now, just saving with new data. If filename changes, old file might remain.
+                                // To implement deletion of old file:
+                                // 1. Get existingChapterData from DB before updating chapterToUpdate.
+                                // 2. Form old file path using existingChapterData.Number, existingChapterData.Title.
+                                // 3. After updating chapterToUpdate, form new file path.
+                                // 4. If paths differ and old file exists, delete old file.
+
+                                string updatedChapterFilePath = await _fileService.SaveChapterContentAsync(
+                                    chapterToUpdate.NovelId,
+                                    chapterToUpdate.Number,
+                                    chapterToUpdate.Title,
+                                    chapterToUpdate.Content
+                                );
+                                if (string.IsNullOrEmpty(updatedChapterFilePath))
+                                {
+                                    _logger.LogWarning("Failed to save updated chapter content to file. ChapterId: {ChapterId}", chapterToUpdate.Id);
+                                }
+                                else
+                                {
+                                    _logger.LogInformation("Successfully saved content for updated chapter {ChapterId} to {Path}", chapterToUpdate.Id, updatedChapterFilePath);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Error saving chapter content to file for updated chapter. ChapterId: {ChapterId}", chapterToUpdate.Id);
+                            }
                             break;
 
                         case ModerationRequestType.DeleteChapter:
@@ -731,23 +779,34 @@ namespace BulbaLib.Controllers
                             {
                                 chapterDataForNotification = new Chapter { Title = chapterToDelete.Title, Number = chapterToDelete.Number };
                                 int novelIdForDeleteCheck = chapterToDelete.NovelId; // Use chapter's novelId
-                                int userIdForDeleteCheck = chapterToDelete.CreatorId.Value; // Use chapter's creatorId
+                                // int userIdForDeleteCheck = chapterToDelete.CreatorId.Value; // Use chapter's creatorId // Not needed anymore
 
-                                _mySqlService.DeleteChapter(request.ChapterId.Value);
-
-                                var novelAfterDelete = _mySqlService.GetNovel(novelIdForDeleteCheck); // Auto remove TranslatorId from Novel
-                                if (novelAfterDelete != null)
+                                // chapterDataForNotification is chapterToDelete, which is fetched above
+                                if (chapterDataForNotification != null && request.NovelId.HasValue)
                                 {
-                                    // Check if there are any OTHER chapters by this user for this novel
-                                    var remainingChaptersByThisUser = _mySqlService.GetChaptersByNovel(novelIdForDeleteCheck)
-                                                                         .Any(c => c.CreatorId == userIdForDeleteCheck); // Simpler check: any chapter by this user remains
-
-                                    if (!remainingChaptersByThisUser && novelAfterDelete.TranslatorIds != null && novelAfterDelete.TranslatorIds.Contains(userIdForDeleteCheck))
+                                    try
                                     {
-                                        novelAfterDelete.TranslatorIds.Remove(userIdForDeleteCheck);
-                                        _mySqlService.UpdateNovel(novelAfterDelete); // UpdateNovel will handle serialization
+                                        // Replicate filename generation logic from FileService.SaveChapterContentAsync for accuracy
+                                        string invalidCharsRegex = string.Format(@"([{0}]*\.+$)|([{0}]+)", System.Text.RegularExpressions.Regex.Escape(new string(System.IO.Path.GetInvalidFileNameChars())));
+                                        string sanitizedNumber = string.IsNullOrWhiteSpace(chapterDataForNotification.Number) ? "Chapter" : System.Text.RegularExpressions.Regex.Replace(chapterDataForNotification.Number, invalidCharsRegex, "_");
+                                        string sanitizedTitle = string.IsNullOrWhiteSpace(chapterDataForNotification.Title) ? "Untitled" : System.Text.RegularExpressions.Regex.Replace(chapterDataForNotification.Title, invalidCharsRegex, "_");
+                                        const int maxPartLength = 50;
+                                        sanitizedNumber = sanitizedNumber.Length > maxPartLength ? sanitizedNumber.Substring(0, maxPartLength) : sanitizedNumber;
+                                        sanitizedTitle = sanitizedTitle.Length > maxPartLength ? sanitizedTitle.Substring(0, maxPartLength) : sanitizedTitle;
+                                        string fileNameToDelete = $"{sanitizedNumber} - {sanitizedTitle}.txt";
+
+                                        string relativePathToDelete = $"/uploads/content/{request.NovelId.Value}/{fileNameToDelete}";
+
+                                        _fileService.DeleteFile(relativePathToDelete);
+                                        _logger.LogInformation("Attempted to delete chapter content file: {RelativePathToDelete} for chapter ID {ChapterId}", relativePathToDelete, request.ChapterId.Value);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(ex, "Error deleting chapter content file for chapter ID {ChapterId}", request.ChapterId.Value);
                                     }
                                 }
+
+                                _mySqlService.DeleteChapter(request.ChapterId.Value);
                             }
                             else { throw new Exception("Chapter to delete not found."); }
                             break;
