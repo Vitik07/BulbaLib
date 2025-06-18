@@ -353,8 +353,34 @@ namespace BulbaLib.Controllers
 
             if (_permissionService.CanAddChapterDirectly(currentUser)) // Admin can delete chapters directly
             {
+                int? nullableCreatorId = chapter.CreatorId; // Store before chapter is deleted
+                int novelIdForUpdate = chapter.NovelId;    // Store before chapter is deleted
+
                 _mySqlService.DeleteChapter(id);
                 TempData["SuccessMessage"] = "Глава успешно удалена.";
+
+                if (nullableCreatorId.HasValue)
+                {
+                    int creatorId = nullableCreatorId.Value;
+                    var chapterCreator = _mySqlService.GetUser(creatorId);
+                    if (chapterCreator != null && chapterCreator.Role == UserRole.Translator)
+                    {
+                        var novelToUpdate = _mySqlService.GetNovel(novelIdForUpdate);
+                        if (novelToUpdate != null)
+                        {
+                            // Check if any OTHER chapters by this user for this novel still exist
+                            var remainingChaptersByThisUser = _mySqlService.GetChaptersByNovel(novelIdForUpdate)
+                                                                 .Any(c => c.CreatorId == creatorId);
+
+                            if (!remainingChaptersByThisUser && novelToUpdate.TranslatorIds != null && novelToUpdate.TranslatorIds.Contains(creatorId))
+                            {
+                                novelToUpdate.TranslatorIds.Remove(creatorId);
+                                _mySqlService.UpdateNovel(novelToUpdate);
+                                // Optional: Log this removal or notify someone
+                            }
+                        }
+                    }
+                }
             }
             // Translators (who are part of the novel's translator list and have CanDeleteChapter = true) submit for moderation
             else if (_permissionService.CanDeleteChapter(currentUser, chapter, novel)) // Changed condition here

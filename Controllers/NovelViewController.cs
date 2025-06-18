@@ -342,7 +342,7 @@ namespace BulbaLib.Controllers
                 //                    string.Join("\n", JsonSerializer.Deserialize<List<string>>(novel.AlternativeTitles) ?? new List<string>()),
                 RelatedNovelIds = novel.RelatedNovelIds, // This will be handled in a later step
                 AuthorId = novel.AuthorId,
-                TranslatorId = novel.TranslatorId,
+                // TranslatorId = novel.TranslatorId, // Removed as per requirement
             };
 
             // Handle Covers separately with error catching and deserialization
@@ -487,7 +487,7 @@ namespace BulbaLib.Controllers
                     RelatedNovelIds = model.RelatedNovelIds,
                     AuthorId = (currentUser.Role == UserRole.Admin) ? model.AuthorId : currentUser.Id, // Admin can change, Author forced to own ID
                     Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(), // Update date on edit
-                    TranslatorId = originalNovel.TranslatorId // TranslatorId is now managed automatically
+                    // TranslatorId = originalNovel.TranslatorId, // Removed as per requirement
                     // Covers will be set below based on role
                 };
 
@@ -551,7 +551,7 @@ namespace BulbaLib.Controllers
                     originalNovel.AlternativeTitles = novelWithChanges.AlternativeTitles;
                     originalNovel.RelatedNovelIds = novelWithChanges.RelatedNovelIds;
                     originalNovel.AuthorId = novelWithChanges.AuthorId; // This was correctly set in novelWithChanges for Admin
-                    // originalNovel.TranslatorId = novelWithChanges.TranslatorId; // This line is removed as TranslatorId is auto-managed
+                    // TranslatorId is auto-managed and should not be manually set here from novelWithChanges
                     originalNovel.Date = novelWithChanges.Date; // Ensure date is updated
                     originalNovel.Covers = JsonSerializer.Serialize(finalCoverPathsForNovel.Distinct().ToList());
 

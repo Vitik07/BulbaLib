@@ -695,12 +695,14 @@ namespace BulbaLib.Controllers
                                 var novelForUpdate = _mySqlService.GetNovel(request.NovelId.Value);
                                 if (novelForUpdate != null)
                                 {
-                                    List<string> translatorIds = !string.IsNullOrWhiteSpace(novelForUpdate.TranslatorId) ? JsonSerializer.Deserialize<List<string>>(novelForUpdate.TranslatorId) ?? new List<string>() : new List<string>();
-                                    if (!translatorIds.Contains(request.UserId.ToString()))
+                                    if (novelForUpdate.TranslatorIds == null)
                                     {
-                                        translatorIds.Add(request.UserId.ToString());
-                                        novelForUpdate.TranslatorId = JsonSerializer.Serialize(translatorIds);
-                                        _mySqlService.UpdateNovel(novelForUpdate);
+                                        novelForUpdate.TranslatorIds = new List<int>();
+                                    }
+                                    if (!novelForUpdate.TranslatorIds.Contains(request.UserId)) // request.UserId is int
+                                    {
+                                        novelForUpdate.TranslatorIds.Add(request.UserId);
+                                        _mySqlService.UpdateNovel(novelForUpdate); // UpdateNovel will handle serialization
                                     }
                                 }
                             }
@@ -734,17 +736,16 @@ namespace BulbaLib.Controllers
                                 _mySqlService.DeleteChapter(request.ChapterId.Value);
 
                                 var novelAfterDelete = _mySqlService.GetNovel(novelIdForDeleteCheck); // Auto remove TranslatorId from Novel
-                                if (novelAfterDelete != null && !string.IsNullOrWhiteSpace(novelAfterDelete.TranslatorId))
+                                if (novelAfterDelete != null)
                                 {
-                                    var remainingChapters = _mySqlService.GetChaptersByNovel(novelIdForDeleteCheck).Any(c => c.CreatorId == userIdForDeleteCheck);
-                                    if (!remainingChapters)
+                                    // Check if there are any OTHER chapters by this user for this novel
+                                    var remainingChaptersByThisUser = _mySqlService.GetChaptersByNovel(novelIdForDeleteCheck)
+                                                                         .Any(c => c.CreatorId == userIdForDeleteCheck); // Simpler check: any chapter by this user remains
+
+                                    if (!remainingChaptersByThisUser && novelAfterDelete.TranslatorIds != null && novelAfterDelete.TranslatorIds.Contains(userIdForDeleteCheck))
                                     {
-                                        List<string> translatorIds = JsonSerializer.Deserialize<List<string>>(novelAfterDelete.TranslatorId) ?? new List<string>();
-                                        if (translatorIds.Remove(userIdForDeleteCheck.ToString()))
-                                        {
-                                            novelAfterDelete.TranslatorId = JsonSerializer.Serialize(translatorIds);
-                                            _mySqlService.UpdateNovel(novelAfterDelete);
-                                        }
+                                        novelAfterDelete.TranslatorIds.Remove(userIdForDeleteCheck);
+                                        _mySqlService.UpdateNovel(novelAfterDelete); // UpdateNovel will handle serialization
                                     }
                                 }
                             }
