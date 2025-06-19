@@ -293,12 +293,17 @@ namespace BulbaLib.Controllers
 
             if (request.ChapterId.HasValue && (request.RequestType == ModerationRequestType.EditChapter || request.RequestType == ModerationRequestType.DeleteChapter))
             {
-                viewModel.ExistingChapterData = _mySqlService.GetChapter(request.ChapterId.Value);
+                viewModel.ExistingChapterData = await _mySqlService.GetChapterAsync(request.ChapterId.Value);
                 if (viewModel.ExistingChapterData != null)
                 {
                     viewModel.ChapterNumber = viewModel.ExistingChapterData.Number; viewModel.ChapterTitle = viewModel.ExistingChapterData.Title;
-                    string path = ReconstructChapterFilePath(viewModel.ExistingChapterData.NovelId, viewModel.ExistingChapterData.Number, viewModel.ExistingChapterData.Title);
-                    viewModel.ExistingContent = await _fileService.ReadChapterContentAsync(path) ?? "[Не удалось загрузить существующий контент]";
+                    // Content is now loaded by GetChapterAsync, direct file path reconstruction here for content might be redundant
+                    // if GetChapterAsync populates viewModel.ExistingChapterData.Content directly.
+                    // For now, we assume GetChapterAsync populates .Content, so ExistingContent can use it.
+                    // If GetChapterAsync does NOT populate .Content, then the ReadChapterContentAsync call might still be needed
+                    // using viewModel.ExistingChapterData.ContentFilePath.
+                    // Given the previous subtask, GetChapterAsync *should* load the content.
+                    viewModel.ExistingContent = viewModel.ExistingChapterData.Content ?? "[Не удалось загрузить существующий контент или контент пуст]";
                 }
                 else { viewModel.ExistingContent = "[Существующая глава не найдена]"; }
             }

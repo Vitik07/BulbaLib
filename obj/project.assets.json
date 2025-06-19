@@ -5428,11 +5428,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark8\\BulbaLib\\BulbaLib.csproj",
+      "projectUniqueName": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark9\\BulbaLib\\BulbaLib.csproj",
       "projectName": "BulbaLib",
-      "projectPath": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark8\\BulbaLib\\BulbaLib.csproj",
+      "projectPath": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark9\\BulbaLib\\BulbaLib.csproj",
       "packagesPath": "C:\\Users\\Витя Рабадон\\.nuget\\packages\\",
-      "outputPath": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark8\\BulbaLib\\obj\\",
+      "outputPath": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark9\\BulbaLib\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Витя Рабадон\\AppData\\Roaming\\NuGet\\NuGet.Config",

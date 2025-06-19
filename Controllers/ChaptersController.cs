@@ -236,7 +236,7 @@ namespace BulbaLib.Controllers
                 return RedirectToAction("Login", "AuthView");
             }
 
-            var chapter = _mySqlService.GetChapter(id);
+            var chapter = await _mySqlService.GetChapterAsync(id);
             if (chapter == null)
             {
                 return NotFound("Глава не найдена.");
@@ -358,7 +358,7 @@ namespace BulbaLib.Controllers
                 return RedirectToAction("Login", "AuthView");
             }
 
-            var existingChapter = _mySqlService.GetChapter(model.Id);
+            var existingChapter = await _mySqlService.GetChapterAsync(model.Id);
             if (existingChapter == null)
             {
                 return NotFound("Глава не найдена.");
@@ -474,7 +474,7 @@ namespace BulbaLib.Controllers
                 return RedirectToAction("Login", "AuthView");
             }
 
-            var chapterToDelete = _mySqlService.GetChapter(id);
+            var chapterToDelete = await _mySqlService.GetChapterAsync(id);
             if (chapterToDelete == null)
             {
                 return NotFound("Глава не найдена.");
@@ -518,26 +518,13 @@ namespace BulbaLib.Controllers
                     _logger.LogWarning("ContentFilePath not found for chapter {ChapterId}. File not deleted.", id);
                 }
 
-                _mySqlService.DeleteChapter(id);
+                await _mySqlService.DeleteChapterAsync(id); // Assuming DeleteChapter was made async
 
-                // Check if this was the last chapter by this user for this novel (if user is a translator)
-                // This logic is complex and might be better suited for a service layer or when handling moderation response.
-                // For direct admin deletion, it's less common for admin to be the "translator" whose status depends on chapter count.
-                // However, if an Admin was also acting as a translator:
+                // Refined logic to remove translator if it was their last chapter for this novel
                 if (chapterToDelete.CreatorId.HasValue)
                 {
-                    var remainingChaptersByCreator = _mySqlService.GetChaptersByNovel(novel.Id)
-                                                            .Count(c => c.CreatorId == chapterToDelete.CreatorId.Value);
-                    if (remainingChaptersByCreator == 0)
-                    {
-                        // Check if user is in NovelTranslators before removing
-                        var translators = _mySqlService.GetTranslatorsForNovel(novel.Id);
-                        if (translators.Any(t => t.Id == chapterToDelete.CreatorId.Value))
-                        {
-                            _mySqlService.RemoveNovelTranslator(novel.Id, chapterToDelete.CreatorId.Value);
-                            _logger.LogInformation("User {UserId} removed from NovelTranslators for Novel {NovelId} as it was their last chapter.", chapterToDelete.CreatorId.Value, novel.Id);
-                        }
-                    }
+                    await _mySqlService.RemoveTranslatorIfLastChapterAsync(novel.Id, chapterToDelete.CreatorId.Value);
+                    _logger.LogInformation("Checked and potentially removed user {UserId} from NovelTranslators for Novel {NovelId} if it was their last chapter.", chapterToDelete.CreatorId.Value, novel.Id);
                 }
 
                 TempData["SuccessMessage"] = "Глава успешно удалена.";
@@ -587,7 +574,6 @@ namespace BulbaLib.Controllers
                         novelId = ch.NovelId,
                         number = ch.Number,
                         title = ch.Title,
-                        content = ch.Content,
                         date = ch.Date
                     })
                 });
@@ -618,9 +604,9 @@ namespace BulbaLib.Controllers
         // GET /api/chapters/{id}
         [HttpGet("api/chapters/{id}")]
         [AllowAnonymous]
-        public IActionResult GetChapterApi(int id)
+        public async Task<IActionResult> GetChapterApi(int id)
         {
-            var chapter = _mySqlService.GetChapter(id);
+            var chapter = await _mySqlService.GetChapterAsync(id);
             if (chapter == null)
                 return NotFound(new { error = "Глава не найдена" });
 
@@ -719,7 +705,7 @@ namespace BulbaLib.Controllers
         // PUT /api/chapters/{id}
         [HttpPut("api/chapters/{id}")] // Adjusted route
         [Authorize(Roles = "Admin,Translator")]
-        public IActionResult UpdateChapterApi(int id, [FromBody] ChapterUpdateRequest req) // Renamed
+        public async Task<IActionResult> UpdateChapterApi(int id, [FromBody] ChapterUpdateRequest req) // Renamed
         {
             var currentUser = GetCurrentUser();
             if (currentUser == null)
@@ -727,7 +713,7 @@ namespace BulbaLib.Controllers
                 return Unauthorized();
             }
 
-            var chapter = _mySqlService.GetChapter(id);
+            var chapter = await _mySqlService.GetChapterAsync(id);
             if (chapter == null)
                 return NotFound(new { error = "Chapter not found" });
 
@@ -772,7 +758,7 @@ namespace BulbaLib.Controllers
         // DELETE /api/chapters/{id}
         [HttpDelete("api/chapters/{id}")] // Adjusted route
         [Authorize(Roles = "Admin,Translator")]
-        public IActionResult DeleteChapterApi(int id) // Renamed
+        public async Task<IActionResult> DeleteChapterApi(int id) // Renamed
         {
             var currentUser = GetCurrentUser();
             if (currentUser == null)
@@ -780,7 +766,7 @@ namespace BulbaLib.Controllers
                 return Unauthorized();
             }
 
-            var chapter = _mySqlService.GetChapter(id);
+            var chapter = await _mySqlService.GetChapterAsync(id);
             if (chapter == null)
                 return NotFound(new { error = "Chapter not found" });
 
@@ -824,7 +810,7 @@ namespace BulbaLib.Controllers
         public async Task<IActionResult> UploadImageApi(int chapterId, IFormFile image) // Renamed
         {
             // Permission check added
-            var chapterForUpload = _mySqlService.GetChapter(chapterId);
+            var chapterForUpload = await _mySqlService.GetChapterAsync(chapterId);
             if (chapterForUpload == null) return NotFound("Chapter not found for image upload.");
             var currentUserForUpload = GetCurrentUser();
             var novelContextForUpload = _mySqlService.GetNovel(chapterForUpload.NovelId); // Renamed 'novelForUpload' to 'novelContextForUpload'

@@ -183,12 +183,12 @@ namespace BulbaLib.Controllers
 
         [Authorize(Roles = "Admin,Translator")]
         [HttpGet("Edit/{id}")]
-        public IActionResult Edit(int id) // Chapter Id
+        public async Task<IActionResult> Edit(int id) // Chapter Id
         {
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null) return RedirectToAction("Login", "AuthView");
 
-            Chapter chapter = _mySqlService.GetChapter(id);
+            Chapter chapter = await _mySqlService.GetChapterAsync(id);
             if (chapter == null)
             {
                 return NotFound("Глава не найдена.");
@@ -238,7 +238,7 @@ namespace BulbaLib.Controllers
                 return BadRequest();
             }
 
-            Chapter originalChapter = _mySqlService.GetChapter(id);
+            Chapter originalChapter = await _mySqlService.GetChapterAsync(id);
             if (originalChapter == null)
             {
                 return NotFound("Оригинальная глава не найдена.");
@@ -329,12 +329,12 @@ namespace BulbaLib.Controllers
         [Authorize(Roles = "Admin,Translator")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Delete(int id) // Chapter Id
+        public async Task<IActionResult> Delete(int id) // Chapter Id
         {
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null) return Unauthorized();
 
-            Chapter chapter = _mySqlService.GetChapter(id);
+            Chapter chapter = await _mySqlService.GetChapterAsync(id);
             if (chapter == null)
             {
                 return NotFound("Глава не найдена.");
@@ -372,11 +372,15 @@ namespace BulbaLib.Controllers
                             var remainingChaptersByThisUser = _mySqlService.GetChaptersByNovel(novelIdForUpdate)
                                                                  .Any(c => c.CreatorId == creatorId);
 
-                            if (!remainingChaptersByThisUser && novelToUpdate.TranslatorIds != null && novelToUpdate.TranslatorIds.Contains((char)creatorId))
+                            // If this was the last chapter by this translator for this novel, remove them from NovelTranslators
+                            if (!remainingChaptersByThisUser)
                             {
-                                novelToUpdate.TranslatorIds.Remove((char)creatorId);
-                                _mySqlService.UpdateNovel(novelToUpdate);
-                                // Optional: Log this removal or notify someone
+                                var currentTranslators = _mySqlService.GetTranslatorsForNovel(novelToUpdate.Id);
+                                if (currentTranslators.Any(t => t.Id == creatorId))
+                                {
+                                    _mySqlService.RemoveNovelTranslator(novelToUpdate.Id, creatorId);
+                                    // Optional: Log this removal or notify someone
+                                }
                             }
                         }
                     }

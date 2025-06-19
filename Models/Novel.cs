@@ -18,7 +18,6 @@ namespace BulbaLib.Models
         public string? RelatedNovelIds { get; set; }
         public long Date { get; set; }
         public NovelStatus Status { get; set; }
-        public string TranslatorIds { get; set; } = "[]"; // For storing JSON array of translator user IDs
 
         public List<string> CoversList
         {

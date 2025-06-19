@@ -723,31 +723,6 @@ namespace BulbaLib.Services
             return 9999;
         }
 
-        public Chapter GetChapter(int chapterId)
-        {
-            using var conn = GetConnection();
-            using var cmd = conn.CreateCommand();
-            // Removed Content from SELECT, Added ContentFilePath
-            cmd.CommandText = "SELECT Id, NovelId, Number, Title, Date, CreatorId, ContentFilePath FROM Chapters WHERE Id = @id";
-            cmd.Parameters.AddWithValue("@id", chapterId);
-            using var reader = cmd.ExecuteReader();
-            if (reader.Read())
-            {
-                return new Chapter
-                {
-                    Id = reader.GetInt32("Id"),
-                    NovelId = reader.GetInt32("NovelId"),
-                    Number = reader.IsDBNull("Number") ? "" : reader.GetString("Number"),
-                    Title = reader.GetString("Title"),
-                    // Content = reader.GetString("Content"), // Removed
-                    Date = reader.IsDBNull("Date") ? 0 : reader.GetInt64("Date"),
-                    CreatorId = reader.IsDBNull("CreatorId") ? (int?)null : reader.GetInt32("CreatorId"),
-                    ContentFilePath = reader.IsDBNull("ContentFilePath") ? null : reader.GetString("ContentFilePath")
-                };
-            }
-            return null;
-        }
-
         public void CreateChapter(Chapter chapter)
         {
             using var conn = GetConnection();
@@ -1754,7 +1729,7 @@ namespace BulbaLib.Services
             using var reader = await cmd.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                return new Chapter
+                var chapter = new Chapter
                 {
                     Id = reader.GetInt32("Id"),
                     NovelId = reader.GetInt32("NovelId"),
@@ -1764,6 +1739,12 @@ namespace BulbaLib.Services
                     CreatorId = reader.IsDBNull("CreatorId") ? (int?)null : reader.GetInt32("CreatorId"),
                     ContentFilePath = reader.IsDBNull("ContentFilePath") ? null : reader.GetString("ContentFilePath")
                 };
+
+                if (!string.IsNullOrEmpty(chapter.ContentFilePath))
+                {
+                    chapter.Content = await _fileService.ReadChapterContentAsync(chapter.ContentFilePath);
+                }
+                return chapter;
             }
             return null;
         }

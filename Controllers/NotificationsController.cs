@@ -64,10 +64,11 @@ namespace BulbaLib.Controllers
                     }
                     else if (notification.RelatedItemType == RelatedItemType.Chapter && notification.RelatedItemId.HasValue)
                     {
-                        var chapter = _mySqlService.GetChapter(notification.RelatedItemId.Value);
+                        var chapter = await _mySqlService.GetChapterAsync(notification.RelatedItemId.Value);
                         if (chapter != null)
                         {
                             // Try to get novel title for context
+                            // Consider if GetNovel should also be async if it involves I/O, though not part of this specific error.
                             var novel = _mySqlService.GetNovel(chapter.NovelId);
                             vm.RelatedItemTitle = $"Глава: {chapter.Number} - {chapter.Title} (Новелла: {novel?.Title ?? "N/A"})";
                             vm.RelatedItemUrl = Url.Action("Chapter", "ChapterView", new { id = chapter.Id });

@@ -411,9 +411,30 @@
             const initialRelatedNovelIdsString = @Html.Raw(Json.Serialize(Model.RelatedNovelIds));
             function fetchAndRenderInitialRelatedNovels() {
                 if (initialRelatedNovelIdsString && hiddenRelatedNovelIdsInput) {
-                    const initialIds = initialRelatedNovelIdsString.split(',')
-                        .map(idStr => parseInt(idStr.trim(), 10))
-                        .filter(id => !isNaN(id) && id > 0);
+                    let initialIds = [];
+                    try {
+                        // The @Html.Raw(Json.Serialize(Model.RelatedNovelIds)) correctly makes Model.RelatedNovelIds (server string)
+                        // a JavaScript string literal. If Model.RelatedNovelIds is "\[1,2,3]", initialRelatedNovelIdsString becomes "\[1,2,3]".
+                        // If Model.RelatedNovelIds is "1,2,3", initialRelatedNovelIdsString becomes "1,2,3".
+                        
+                        const parsedJson = JSON.parse(initialRelatedNovelIdsString);
+                        if (Array.isArray(parsedJson)) {
+                            initialIds = parsedJson.map(id => parseInt(id, 10)).filter(id => !isNaN(id) && id > 0);
+                        } else {
+                            // If parsed but not an array (e.g. Model.RelatedNovelIds was "1" which parses to number 1),
+                            // treat as error and fallback to ensure consistent handling for single IDs too.
+                            console.warn("Parsed RelatedNovelIds is not an array, falling back to comma-separated parsing.");
+                            initialIds = initialRelatedNovelIdsString.split(',')
+                                .map(idStr => parseInt(idStr.trim(), 10))
+                                .filter(id => !isNaN(id) && id > 0);
+                        }
+                    } catch (e) {
+                        // Fallback to comma-separated if JSON parsing fails (e.g. it's "1,2,3")
+                        console.warn("JSON parsing of RelatedNovelIds failed, falling back to comma-separated parsing. Error:", e);
+                        initialIds = initialRelatedNovelIdsString.split(',')
+                            .map(idStr => parseInt(idStr.trim(), 10))
+                            .filter(id => !isNaN(id) && id > 0);
+                    }
 
                     if (initialIds.length > 0) {
                         selectedNovelsData = initialIds.map(id => ({ id: id, title: "ID: " + id + " (загрузка...)" }));
