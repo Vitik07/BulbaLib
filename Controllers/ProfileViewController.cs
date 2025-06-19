@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization; // Added
 
 namespace BulbaLib.Controllers
 {
+    [Authorize] // Added
     public class ProfileViewController : Controller
     {
         [HttpGet("/profile/{id:int}")]

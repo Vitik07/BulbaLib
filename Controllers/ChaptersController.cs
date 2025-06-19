@@ -63,7 +63,7 @@ namespace BulbaLib.Controllers
                 TempData["ErrorMessage"] = "Новелла не найдена.";
                 return RedirectToAction("Index", "CatalogView");
             }
-            model.NovelTitle = novel.Title;
+            ViewData["NovelTitle"] = novel.Title;
 
             bool canProceed = false;
             if (currentUser != null)
@@ -212,11 +212,12 @@ namespace BulbaLib.Controllers
             {
                 Id = chapter.Id,
                 NovelId = chapter.NovelId,
-                NovelTitle = novel.Title,
+                // NovelTitle = novel.Title, // Removed
                 Number = chapter.Number,
                 Title = chapter.Title,
                 Content = currentContent // Content will be empty for now, or loaded if ContentFilePath was available
             };
+            ViewData["NovelTitle"] = novel.Title;
 
             return View("~/Views/Chapter/Edit.cshtml", model);
         }
@@ -245,7 +246,7 @@ namespace BulbaLib.Controllers
                 TempData["ErrorMessage"] = "Родительская новелла не найдена.";
                 return RedirectToAction("Index", "CatalogView");
             }
-            model.NovelTitle = novel.Title; // Repopulate for view if needed
+            ViewData["NovelTitle"] = novel.Title; // Repopulate for view if needed
 
             // Permission check
             if (!_permissionService.CanEditChapter(currentUser, existingChapter, novel) &&
@@ -721,30 +722,5 @@ namespace BulbaLib.Controllers
         public string Content { get; set; }
     }
 
-    // ViewModels for Chapter MVC Actions
-    public class ChapterCreateModel
-    {
-        [Required]
-        public int NovelId { get; set; }
-
-        [Required(ErrorMessage = "Номер главы обязателен.")]
-        [StringLength(100, ErrorMessage = "Номер главы не должен превышать 100 символов.")]
-        public string Number { get; set; }
-
-        [Required(ErrorMessage = "Название главы обязательно.")]
-        [StringLength(255, ErrorMessage = "Название главы не должно превышать 255 символов.")]
-        public string Title { get; set; }
-
-        [Required(ErrorMessage = "Содержимое главы обязательно.")]
-        [DataType(DataType.MultilineText)]
-        public string Content { get; set; }
-
-        public string NovelTitle { get; set; } // For display on the create page
-    }
-
-    public class ChapterEditModel : ChapterCreateModel
-    {
-        [Required]
-        public int Id { get; set; } // ChapterId
-    }
+    // ViewModels for Chapter MVC Actions are now expected to be in BulbaLib.Models
 }

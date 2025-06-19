@@ -24,7 +24,7 @@
     <div class="container">
         <main role="main" class="pb-3">
             <h2>@ViewData["Title"]: @Model.Title</h2>
-            <form asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" id="novelEditForm">
+            <form asp-controller="NovelView" asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" id="novelEditForm">
                 @Html.AntiForgeryToken()
                 <input type="hidden" asp-for="Id" />
                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>
@@ -495,86 +495,11 @@
                     fileInputFormGroup.parentNode.insertBefore(newCoversPreviewContainer, fileInputFormGroup.nextSibling);
                 }
             }
-            
-            if (form) {
-                form.addEventListener('submit', async function (event) {
-                    event.preventDefault();
-                    console.log("Edit form submission intercepted.");
-
-                    // Check if new files were selected in the NewCoverFiles input
-                    if (newCoverFilesInput && newCoverFilesInput.files && newCoverFilesInput.files.length > 0) {
-                        alert("Обратите внимание: Вы выбрали новые файлы обложек. " + 
-                              "Текущая версия формы не загружает новые файлы напрямую. " +
-                              "Пожалуйста, сохраните изменения метаданных, а затем используйте отдельный инструмент для загрузки/изменения обложек, если он доступен, " +
-                              "или дождитесь обновления функционала.\n\n" +
-                              "Изменения текстовых данных и списка существующих обложек будут сохранены.");
-                        // Optionally, clear the newCoverFilesInput to prevent confusion
-                        // newCoverFilesInput.value = ""; // This might be too aggressive, user might want to retry later
-                    }
-
-                    const formData = new FormData(form); // Still useful for easily getting some values
-                    const antiForgeryToken = formData.get('__RequestVerificationToken');
-                    const novelId = formData.get('Id');
-
-                    let keptCovers = [];
-                    const keptCoverInputs = document.querySelectorAll('#currentCoversContainer .kept-cover-input');
-                    keptCoverInputs.forEach(input => {
-                        keptCovers.push(input.value);
-                    });
-
-                    let genresValue = document.getElementById('Genres').value;
-                    try { JSON.parse(genresValue); } catch (e) { genresValue = "[]"; }
-
-                    let tagsValue = document.getElementById('Tags').value;
-                    try { JSON.parse(tagsValue); } catch (e) { tagsValue = "[]"; }
-                
-                    const alternativeTitlesValue = document.getElementById('AlternativeTitles').value;
-                    const relatedNovelIdsValue = document.getElementById('RelatedNovelIds').value;
-
-                    const novelUpdateRequest = {
-                        title: formData.get('Title'),
-                        description: formData.get('Description'),
-                        authorId: document.getElementById('AuthorId').value,
-                        genres: genresValue, // Expects JSON string
-                        tags: tagsValue,     // Expects JSON string
-                        type: formData.get('Type'),
-                        format: formData.get('Format'),
-                        releaseYear: parseInt(formData.get('ReleaseYear'), 10),
-                        relatedNovelIds: relatedNovelIdsValue, // Comma-separated string
-                        alternativeTitles: alternativeTitlesValue, // Newline-separated string
-                        covers: keptCovers, // List of strings (URLs of kept covers)
-                        // TranslatorId is not in this form/model for edit
-                    };
-
-                    console.log('Submitting NovelUpdateRequest:', novelUpdateRequest);
-
-                    try {
-                        const response = await fetch(`/api/Novels/${novelId}`, {
-                            method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'RequestVerificationToken': antiForgeryToken
-                            },
-                            body: JSON.stringify(novelUpdateRequest)
-                        });
-
-                        if (response.ok) {
-                            console.log('Novel updated successfully.');
-                             // Redirect to novel details page
-                            window.location.href = `/Novel/Novel/${novelId}`;
-                        } else {
-                            const errorData = await response.json();
-                            console.error('Error updating novel:', response.status, errorData);
-                            alert(`Error updating novel: ${response.status}\n${JSON.stringify(errorData.errors || errorData, null, 2)}`);
-                        }
-                    } catch (error) {
-                        console.error('Network error or other issue:', error);
-                        alert('An error occurred while submitting the form. Please check the console for details.');
-                    }
-                });
-            } else {
-                console.error("Form with ID 'novelEditForm' not found.");
-            }
+            // The JavaScript form submission logic has been removed to allow standard MVC form submission.
+            // Cover management (delete existing, preview new) and other UI logic remains.
+            // The form will now submit via HTTP POST to the asp-controller and asp-action.
+            // File uploads (NewCovers) will be handled by the standard MVC model binding.
+            // Kept existing covers are submitted via their hidden input fields.
 
             // Keep the existing preview and removal logic for NewCoverFiles for UI consistency,
             // even if files are not submitted via this specific JSON PUT.

@@ -14,7 +14,7 @@
 }
 
 
-<form asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data">
+<form asp-controller="ChapterView" asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data">
     @Html.AntiForgeryToken()
     <input type="hidden" asp-for="Id" />
     <input type="hidden" asp-for="NovelId" />
@@ -95,74 +95,6 @@
                             }
                         };
                         reader.readAsText(file);
-                    }
-                });
-            }
-
-            if (form) {
-                form.addEventListener('submit', async function (event) {
-                    event.preventDefault();
-
-                    const formData = new FormData(form);
-                    const antiForgeryToken = formData.get('__RequestVerificationToken');
-                    
-                    const id = formData.get('Id'); // This is @Model.Id
-                    const novelId = formData.get('NovelId'); // This is @Model.NovelId
-                    const number = formData.get('Number');
-                    const title = formData.get('Title');
-                    const content = contentTextArea.value;
-
-                    if (!content) {
-                        alert("Содержимое главы не может быть пустым.");
-                        return;
-                    }
-                    if (!id || id === '00000000-0000-0000-0000-000000000000') {
-                        alert("Chapter ID не найден. Невозможно обновить главу.");
-                        return;
-                    }
-                     if (!novelId) {
-                        alert("NovelId не найден. Невозможно обновить главу.");
-                        return;
-                    }
-
-
-                    const chapterUpdateRequest = {
-                        id: id,
-                        novelId: novelId,
-                        number: number,
-                        title: title,
-                        content: content
-                    };
-
-                    console.log('Submitting ChapterUpdateRequest:', chapterUpdateRequest);
-
-                    try {
-                        const response = await fetch(`/api/Chapters/${chapterId}`, { // Use chapterId from @Model.Id
-                            method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'RequestVerificationToken': antiForgeryToken
-                            },
-                            body: JSON.stringify(chapterUpdateRequest)
-                        });
-
-                        if (response.ok) {
-                            console.log('Chapter updated successfully.');
-                            // Redirect to novel details page
-                             if (novelIdForRedirect && novelIdForRedirect !== '00000000-0000-0000-0000-000000000000' && novelIdForRedirect !== '') {
-                                window.location.href = `/Novel/Novel/${novelIdForRedirect}`;
-                            } else {
-                                console.warn("NovelId for redirect not available from model. Redirecting to homepage or catalog as fallback.");
-                                window.location.href = '/'; 
-                            }
-                        } else {
-                            const errorData = await response.json();
-                            console.error('Error updating chapter:', response.status, errorData);
-                            alert(`Error updating chapter: ${response.status}\n${JSON.stringify(errorData.errors || errorData, null, 2)}`);
-                        }
-                    } catch (error) {
-                        console.error('Network error or other issue:', error);
-                        alert('An error occurred while submitting the form. Please check the console for details.');
                     }
                 });
             }

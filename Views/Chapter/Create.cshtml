@@ -12,7 +12,7 @@
     <h4>Для новеллы: @ViewData["NovelTitle"]</h4>
 }
 
-<form asp-action="Create" method="post" enctype="multipart/form-data">
+<form asp-controller="ChapterView" asp-action="Create" method="post" enctype="multipart/form-data">
     @Html.AntiForgeryToken()
     <input type="hidden" asp-for="NovelId" />
 
@@ -92,71 +92,6 @@
                             }
                         };
                         reader.readAsText(file);
-                    }
-                });
-            }
-
-            if (form) {
-                form.addEventListener('submit', async function (event) {
-                    event.preventDefault();
-
-                    const formData = new FormData(form); // Use FormData for easy token retrieval
-                    const antiForgeryToken = formData.get('__RequestVerificationToken');
-                    
-                    const novelId = formData.get('NovelId');
-                    const number = formData.get('Number');
-                    const title = formData.get('Title');
-                    const content = contentTextArea.value; // Ensure this is up-to-date
-
-                    if (!content) {
-                        alert("Содержимое главы не может быть пустым.");
-                        return;
-                    }
-                     if (!novelId) {
-                        alert("NovelId не найден. Невозможно создать главу.");
-                        return;
-                    }
-
-                    const chapterCreateRequest = {
-                        novelId: novelId,
-                        number: number,
-                        title: title,
-                        content: content
-                    };
-
-                    console.log('Submitting ChapterCreateRequest:', chapterCreateRequest);
-
-                    try {
-                        const response = await fetch('/api/Chapters', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'RequestVerificationToken': antiForgeryToken
-                            },
-                            body: JSON.stringify(chapterCreateRequest)
-                        });
-
-                        if (response.ok) {
-                            const result = await response.json();
-                            console.log('Chapter created successfully:', result);
-                            // Redirect to novel details page
-                            if (novelIdForRedirect && novelIdForRedirect !== '00000000-0000-0000-0000-000000000000' && novelIdForRedirect !== '') {
-                                window.location.href = `/Novel/Novel/${novelIdForRedirect}`;
-                            } else if (result.novelId) { // Fallback if Model.NovelId was not available for some reason
-                                window.location.href = `/Novel/Novel/${result.novelId}`;
-                            }
-                            else {
-                                console.warn("NovelId for redirect not available from model or response. Redirecting to homepage or catalog as fallback.");
-                                window.location.href = '/'; // Or a generic catalog page
-                            }
-                        } else {
-                            const errorData = await response.json();
-                            console.error('Error creating chapter:', response.status, errorData);
-                            alert(`Error creating chapter: ${response.status}\n${JSON.stringify(errorData.errors || errorData, null, 2)}`);
-                        }
-                    } catch (error) {
-                        console.error('Network error or other issue:', error);
-                        alert('An error occurred while submitting the form. Please check the console for details.');
                     }
                 });
             }
