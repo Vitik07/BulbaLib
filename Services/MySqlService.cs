@@ -1265,21 +1265,34 @@ namespace BulbaLib.Services
             return cmd.ExecuteNonQuery() > 0;
         }
 
-        private ModerationRequest MapReaderToModerationRequest(MySqlDataReader reader)
+        private ModerationRequest MapReaderToModerationRequest(System.Data.Common.DbDataReader reader)
         {
+            // Get ordinals once
+            int idOrdinal = reader.GetOrdinal("Id");
+            int requestTypeOrdinal = reader.GetOrdinal("RequestType");
+            int userIdOrdinal = reader.GetOrdinal("UserId");
+            int novelIdOrdinal = reader.GetOrdinal("NovelId");
+            int chapterIdOrdinal = reader.GetOrdinal("ChapterId");
+            int requestDataOrdinal = reader.GetOrdinal("RequestData");
+            int statusOrdinal = reader.GetOrdinal("Status");
+            int createdAtOrdinal = reader.GetOrdinal("CreatedAt");
+            int moderatorIdOrdinal = reader.GetOrdinal("ModeratorId");
+            int moderationCommentOrdinal = reader.GetOrdinal("ModerationComment");
+            int updatedAtOrdinal = reader.GetOrdinal("UpdatedAt");
+
             return new ModerationRequest
             {
-                Id = reader.GetInt32("Id"),
-                RequestType = Enum.Parse<ModerationRequestType>(reader.GetString("RequestType")),
-                UserId = reader.GetInt32("UserId"),
-                NovelId = reader.IsDBNull("NovelId") ? (int?)null : reader.GetInt32("NovelId"),
-                ChapterId = reader.IsDBNull("ChapterId") ? (int?)null : reader.GetInt32("ChapterId"),
-                RequestData = reader.IsDBNull("RequestData") ? null : reader.GetString("RequestData"),
-                Status = Enum.Parse<ModerationStatus>(reader.GetString("Status")),
-                CreatedAt = reader.GetDateTime("CreatedAt"),
-                ModeratorId = reader.IsDBNull("ModeratorId") ? (int?)null : reader.GetInt32("ModeratorId"),
-                ModerationComment = reader.IsDBNull("ModerationComment") ? null : reader.GetString("ModerationComment"),
-                UpdatedAt = reader.GetDateTime("UpdatedAt")
+                Id = reader.GetInt32(idOrdinal),
+                RequestType = Enum.Parse<ModerationRequestType>(reader.GetString(requestTypeOrdinal)),
+                UserId = reader.GetInt32(userIdOrdinal),
+                NovelId = reader.IsDBNull(novelIdOrdinal) ? (int?)null : reader.GetInt32(novelIdOrdinal),
+                ChapterId = reader.IsDBNull(chapterIdOrdinal) ? (int?)null : reader.GetInt32(chapterIdOrdinal),
+                RequestData = reader.IsDBNull(requestDataOrdinal) ? null : reader.GetString(requestDataOrdinal),
+                Status = Enum.Parse<ModerationStatus>(reader.GetString(statusOrdinal)),
+                CreatedAt = reader.GetDateTime(createdAtOrdinal),
+                ModeratorId = reader.IsDBNull(moderatorIdOrdinal) ? (int?)null : reader.GetInt32(moderatorIdOrdinal),
+                ModerationComment = reader.IsDBNull(moderationCommentOrdinal) ? null : reader.GetString(moderationCommentOrdinal),
+                UpdatedAt = reader.GetDateTime(updatedAtOrdinal)
             };
         }
 
@@ -1358,18 +1371,28 @@ namespace BulbaLib.Services
             return Convert.ToInt32(cmd.ExecuteScalar());
         }
 
-        private Notification MapReaderToNotification(MySqlDataReader reader)
+        private Notification MapReaderToNotification(System.Data.Common.DbDataReader reader)
         {
+            // Get ordinals once
+            int idOrdinal = reader.GetOrdinal("Id");
+            int userIdOrdinal = reader.GetOrdinal("UserId");
+            int typeOrdinal = reader.GetOrdinal("Type");
+            int messageOrdinal = reader.GetOrdinal("Message");
+            int relatedItemIdOrdinal = reader.GetOrdinal("RelatedItemId");
+            int relatedItemTypeOrdinal = reader.GetOrdinal("RelatedItemType");
+            int isReadOrdinal = reader.GetOrdinal("IsRead");
+            int createdAtOrdinal = reader.GetOrdinal("CreatedAt");
+
             return new Notification
             {
-                Id = reader.GetInt32("Id"),
-                UserId = reader.GetInt32("UserId"),
-                Type = Enum.Parse<NotificationType>(reader.GetString("Type")),
-                Message = reader.GetString("Message"),
-                RelatedItemId = reader.IsDBNull("RelatedItemId") ? (int?)null : reader.GetInt32("RelatedItemId"),
-                RelatedItemType = reader.IsDBNull("RelatedItemType") ? RelatedItemType.None : Enum.Parse<RelatedItemType>(reader.GetString("RelatedItemType")),
-                IsRead = reader.GetBoolean("IsRead"),
-                CreatedAt = reader.GetDateTime("CreatedAt")
+                Id = reader.GetInt32(idOrdinal),
+                UserId = reader.GetInt32(userIdOrdinal),
+                Type = Enum.Parse<NotificationType>(reader.GetString(typeOrdinal)),
+                Message = reader.GetString(messageOrdinal),
+                RelatedItemId = reader.IsDBNull(relatedItemIdOrdinal) ? (int?)null : reader.GetInt32(relatedItemIdOrdinal),
+                RelatedItemType = reader.IsDBNull(relatedItemTypeOrdinal) ? RelatedItemType.None : Enum.Parse<RelatedItemType>(reader.GetString(relatedItemTypeOrdinal)),
+                IsRead = reader.GetBoolean(isReadOrdinal),
+                CreatedAt = reader.GetDateTime(createdAtOrdinal)
             };
         }
 
@@ -1391,6 +1414,8 @@ namespace BulbaLib.Services
                     C.Number AS CurrentChapterNumber, 
                     C.Title AS CurrentChapterTitle, 
                     mr.RequestData, 
+                    mr.Status, -- Added Status
+                    mr.UserId, -- Added UserId
                     mr.CreatedAt AS RequestedAt
                 FROM ModerationRequests mr
                 JOIN Users u ON mr.UserId = u.Id
@@ -1471,13 +1496,30 @@ namespace BulbaLib.Services
                     NovelId = reader.IsDBNull("NovelId") ? 0 : reader.GetInt32("NovelId"), // Ensure non-null if possible
                     NovelTitle = reader.IsDBNull("NovelTitle") ? "N/A" : reader.GetString("NovelTitle"),
                     NovelCoverImageUrl = firstCoverUrl,
-                    ChapterId = reader.IsDBNull("ChapterId") ? (int?)null : reader.GetInt32("ChapterId"),
-                    CurrentChapterNumber = reader.IsDBNull("CurrentChapterNumber") ? null : reader.GetString("CurrentChapterNumber"),
-                    CurrentChapterTitle = reader.IsDBNull("CurrentChapterTitle") ? null : reader.GetString("CurrentChapterTitle"),
+                    ChapterId = reader.IsDBNull(reader.GetOrdinal("ChapterId")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("ChapterId")),
+
+                    UserId = reader.GetInt32(reader.GetOrdinal("UserId")), // Added
+                    RequesterLogin = reader.GetString(reader.GetOrdinal("UserLogin")), // Assuming UserLogin populates RequesterLogin for this list view
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("RequestedAt")), // RequestedAt is alias for mr.CreatedAt
+                    RequestedAt = reader.GetDateTime(reader.GetOrdinal("RequestedAt")), // Explicitly map
+
+                    RequestDataJson = requestDataJson, // Added
+                    Status = reader.GetString(reader.GetOrdinal("Status")), // Added
+
+                    // Populate generic ChapterNumber/Title based on context for the list
+                    ChapterNumber = !string.IsNullOrEmpty(reader.IsDBNull(reader.GetOrdinal("CurrentChapterNumber")) ? null : reader.GetString(reader.GetOrdinal("CurrentChapterNumber")))
+                                    ? reader.GetString(reader.GetOrdinal("CurrentChapterNumber"))
+                                    : proposedNumber,
+                    ChapterTitle = !string.IsNullOrEmpty(reader.IsDBNull(reader.GetOrdinal("CurrentChapterTitle")) ? null : reader.GetString(reader.GetOrdinal("CurrentChapterTitle")))
+                                   ? reader.GetString(reader.GetOrdinal("CurrentChapterTitle"))
+                                   : proposedTitle,
+
+                    CurrentChapterNumber = reader.IsDBNull(reader.GetOrdinal("CurrentChapterNumber")) ? null : reader.GetString(reader.GetOrdinal("CurrentChapterNumber")),
+                    CurrentChapterTitle = reader.IsDBNull(reader.GetOrdinal("CurrentChapterTitle")) ? null : reader.GetString(reader.GetOrdinal("CurrentChapterTitle")),
+
                     ProposedChapterNumber = proposedNumber,
-                    ProposedChapterTitle = proposedTitle,
-                    RequestedAt = reader.GetDateTime("RequestedAt"),
-                    // ParsedRequestDataChapterNumber and Title are covered by ProposedChapterNumber/Title
+                    ProposedChapterTitle = proposedTitle
+                    // ExistingChapterData, ProposedChapterData, Content fields are typically too heavy for a list view and are omitted here.
                 });
             }
             return requests;
@@ -1535,7 +1577,9 @@ namespace BulbaLib.Services
                     C.Number AS CurrentChapterNumber, 
                     C.Title AS CurrentChapterTitle,
                     C.ContentFilePath AS CurrentChapterContentFilePath,
-                    mr.RequestData, 
+                    mr.RequestData,
+                    mr.Status, -- Added Status
+                    mr.UserId, -- Added UserId
                     mr.CreatedAt AS RequestedAt
                 FROM ModerationRequests mr
                 JOIN Users u ON mr.UserId = u.Id
@@ -1556,19 +1600,23 @@ namespace BulbaLib.Services
                 string proposedNumber = null;
                 string proposedTitle = null;
                 string proposedContent = null;
+                Chapter deserializedProposedChapter = null; // Declare here
 
                 if (!string.IsNullOrEmpty(requestDataJson) && (requestType == ModerationRequestType.AddChapter || requestType == ModerationRequestType.EditChapter))
                 {
                     try
                     {
-                        var chapterDetails = JsonSerializer.Deserialize<Chapter>(requestDataJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                        proposedNumber = chapterDetails?.Number;
-                        proposedTitle = chapterDetails?.Title;
-                        proposedContent = chapterDetails?.Content; // Content is part of Chapter model when serialized
+                        deserializedProposedChapter = JsonSerializer.Deserialize<Chapter>(requestDataJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (deserializedProposedChapter != null)
+                        {
+                            proposedNumber = deserializedProposedChapter.Number;
+                            proposedTitle = deserializedProposedChapter.Title;
+                            proposedContent = deserializedProposedChapter.Content; // Content is part of Chapter model when serialized
+                        }
                     }
                     catch (JsonException ex)
                     {
-                        Console.WriteLine($"Error deserializing RequestData for RequestId {reader.GetInt32("RequestId")}: {ex.Message}");
+                        Console.WriteLine($"Error deserializing RequestData for RequestId {reader.GetInt32(reader.GetOrdinal("RequestId"))}: {ex.Message}");
                     }
                 }
 
@@ -1619,12 +1667,36 @@ namespace BulbaLib.Services
                     NovelCoverImageUrl = firstCoverUrl,
                     ChapterId = reader.IsDBNull("ChapterId") ? (int?)null : reader.GetInt32("ChapterId"),
                     CurrentChapterNumber = reader.IsDBNull("CurrentChapterNumber") ? null : reader.GetString("CurrentChapterNumber"),
-                    CurrentChapterTitle = reader.IsDBNull("CurrentChapterTitle") ? null : reader.GetString("CurrentChapterTitle"),
+                    CurrentChapterTitle = reader.IsDBNull(reader.GetOrdinal("CurrentChapterTitle")) ? null : reader.GetString(reader.GetOrdinal("CurrentChapterTitle")),
                     ProposedChapterNumber = proposedNumber,
-                    ProposedChapterTitle = proposedTitle, // Corrected typo from proposed_Title
-                    RequestedAt = reader.GetDateTime("RequestedAt"),
-                    ProposedChapterContent = proposedContent,
-                    CurrentChapterContent = currentChapterContent
+                    ProposedChapterTitle = proposedTitle,
+                    RequestedAt = reader.GetDateTime(reader.GetOrdinal("RequestedAt")), // Map from alias
+
+                    // Populate additional fields required by the ViewModel
+                    UserId = reader.GetInt32(reader.GetOrdinal("UserId")), // Added
+                    RequesterLogin = reader.GetString(reader.GetOrdinal("UserLogin")), // Assuming UserLogin populates RequesterLogin
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("RequestedAt")), // RequestedAt is alias for mr.CreatedAt
+                    RequestDataJson = requestDataJson, // Already available
+                    Status = reader.GetString(reader.GetOrdinal("Status")), // Added
+
+                    ChapterNumber = !string.IsNullOrEmpty(reader.IsDBNull(reader.GetOrdinal("CurrentChapterNumber")) ? null : reader.GetString(reader.GetOrdinal("CurrentChapterNumber")))
+                                    ? reader.GetString(reader.GetOrdinal("CurrentChapterNumber"))
+                                    : proposedNumber,
+                    ChapterTitle = !string.IsNullOrEmpty(reader.IsDBNull(reader.GetOrdinal("CurrentChapterTitle")) ? null : reader.GetString(reader.GetOrdinal("CurrentChapterTitle")))
+                                   ? reader.GetString(reader.GetOrdinal("CurrentChapterTitle"))
+                                   : proposedTitle,
+
+                    // Content fields
+                    CurrentChapterContent = currentChapterContent, // Already populated from FileService
+                    ExistingContent = currentChapterContent, // Assign to ExistingContent as well if it represents the same
+
+                    ProposedChapterContent = proposedContent, // Already populated from RequestData
+                    ProposedContent = proposedContent, // Assign to ProposedContent as well
+
+                    // Complex type fields
+                    // ExistingChapterData could be more fully populated if needed, here it's implicitly used for CurrentChapterContent etc.
+                    // For now, not creating a full Chapter object for it unless essential for this method's direct output.
+                    ProposedChapterData = deserializedProposedChapter // Use the correctly scoped variable
                 };
             }
             return requestDetails;

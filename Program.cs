@@ -1,14 +1,19 @@
 using BulbaLib.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
 
-builder.Services.AddSingleton(new MySqlService(
-    builder.Configuration.GetConnectionString("DefaultConnection")!
-));
+builder.Services.AddScoped<MySqlService>(serviceProvider =>
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var fileService = serviceProvider.GetRequiredService<FileService>();
+    var connectionString = configuration.GetConnectionString("DefaultConnection")!;
+    return new MySqlService(connectionString, fileService);
+});
 
 builder.Services.AddCors(options =>
 {
@@ -16,7 +21,6 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 });
 
-// Добавляем cookie-авторизацию с корректной обработкой редиректов для API
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -24,7 +28,6 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.LogoutPath = "/logout";
         options.Cookie.Name = "BulbaLibAuth";
 
-        // Критично важно: возвращать 401/403 для API, а не редиректить на /login
         options.Events.OnRedirectToLogin = context =>
         {
             if (context.Request.Path.StartsWithSegments("/api"))
@@ -62,7 +65,7 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseCors();
 
-app.UseAuthentication(); // <-- Обязательно ДО UseAuthorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(

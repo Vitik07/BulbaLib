@@ -1,9 +1,7 @@
-﻿@model IEnumerable<BulbaLib.Models.ChapterModerationRequestViewModel>
+﻿@model IEnumerable<BulbaLib.Models.NovelModerationRequestViewModel>
 @using BulbaLib.Models
 
 @{
-    // ViewData for pagination
-
     int currentPage = ViewData["CurrentPage"] as int? ?? 1;
 
     int totalPages = ViewData["TotalPages"] as int? ?? 1;
@@ -15,12 +13,11 @@
     <table class="table table-striped table-hover adm-table">
         <thead>
             <tr>
-                <th style="width: 5%;">Обложка</th>
-                <th style="width: 20%;">Новелла</th>
-                <th style="width: 25%;">Глава (тек./предл.)</th>
+                <th style="width: 10%;">Обложка</th>
+                <th style="width: 30%;">Название новеллы</th>
                 <th style="width: 15%;">Тип запроса</th>
-                <th style="width: 10%;">Пользователь</th>
-                <th style="width: 10%;">Дата</th>
+                <th style="width: 15%;">Пользователь</th>
+                <th style="width: 15%;">Дата</th>
                 <th style="width: 15%;">Действия</th>
             </tr>
         </thead>
@@ -31,11 +28,32 @@
                 foreach (var item in Model)
 
                 {
+
+                    string coverUrl = null;
+
+                    if (item.ProposedNovelData?.CoversList?.Any() == true)
+
+                    {
+
+                        coverUrl = item.ProposedNovelData.CoversList.FirstOrDefault();
+
+                    }
+
+                    else if (item.ExistingNovelData?.CoversList?.Any() == true)
+
+                    {
+
+                        coverUrl = item.ExistingNovelData.CoversList.FirstOrDefault();
+
+                    }
+
+                    // Note: ProposedNovelChanges might also carry cover info, handle if necessary.
+
                     <tr>
                         <td>
-                            @if (!string.IsNullOrEmpty(item.NovelCoverImageUrl))
+                            @if (!string.IsNullOrEmpty(coverUrl))
                             {
-                                <img src="@item.NovelCoverImageUrl" alt="Обложка" style="max-width: 50px; max-height: 70px; object-fit: cover;" class="img-thumbnail" />
+                                <img src="@coverUrl" alt="Обложка" style="max-width: 50px; max-height: 70px; object-fit: cover;" class="img-thumbnail" />
                             }
                             else
                             {
@@ -45,59 +63,48 @@
                             }
                         </td>
                         <td>
-                            <a asp-controller="NovelView" asp-action="Novel" asp-route-id="@item.NovelId" target="_blank" title="@item.NovelTitle">
-                                @item.NovelTitle
+                            <a asp-controller="Admin" asp-action="NovelRequestDetails" asp-route-requestId="@item.RequestId" title="@item.NovelTitle">
+                                @(item.NovelTitle ?? "N/A")
                             </a>
+                            <small class="d-block text-muted">ID Запроса: @item.RequestId</small>
                         </td>
+                        <td><span class="badge bg-info">@item.RequestTypeFriendlyName</span></td>
+                        <td>@Html.DisplayFor(modelItem => item.RequesterLogin)</td>
+                        <td>@item.CreatedAt.ToString("dd.MM.yy HH:mm")</td>
                         <td>
-                            <small>
-                                @if (item.RequestType == ModerationRequestType.DeleteChapter || item.RequestType == ModerationRequestType.EditChapter)
-
-                                {
-                                    <div>Тек: @(string.IsNullOrEmpty(item.CurrentChapterNumber) ? "N/A" : item.CurrentChapterNumber) - @(string.IsNullOrEmpty(item.CurrentChapterTitle) ? "Без названия" : item.CurrentChapterTitle)</div>
-                                }
-                                @if (item.RequestType == ModerationRequestType.AddChapter || item.RequestType == ModerationRequestType.EditChapter)
-
-                                {
-                                    <div>Предл: @(string.IsNullOrEmpty(item.ProposedChapterNumber) ? "N/A" : item.ProposedChapterNumber) - @(string.IsNullOrEmpty(item.ProposedChapterTitle) ? "Без названия" : item.ProposedChapterTitle)</div>
-                                }
-                            </small>
-                        </td>
-                        <td><span class="badge bg-info">@item.RequestActionDisplay</span></td>
-                        <td>@Html.DisplayFor(modelItem => item.UserLogin)</td>
-                        <td>@item.RequestedAt.ToString("dd.MM.yy HH:mm")</td>
-                        <td>
-                            <a asp-controller="Admin" asp-action="ChapterRequestDetails" asp-route-requestId="@item.RequestId" class="btn btn-sm btn-primary mb-1" title="Просмотреть детали">
+                            <a asp-controller="Admin" asp-action="NovelRequestDetails" asp-route-requestId="@item.RequestId" class="btn btn-sm btn-primary mb-1" title="Просмотреть детали">
                                 <i class="fas fa-eye"></i>
                             </a>
-                            <form method="post" asp-controller="Admin" asp-action="ApproveChapterRequest" asp-route-requestId="@item.RequestId" class="d-inline chapter-request-form-approve">
+                            @* Forms for Approve/Reject for Novel Requests use ProcessNovelRequest *@
+                            <form method="post" asp-controller="Admin" asp-action="ProcessNovelRequest" class="d-inline novel-request-form-approve">
                                 @Html.AntiForgeryToken()
+                                <input type="hidden" name="requestId" value="@item.RequestId" />
+                                <input type="hidden" name="approve" value="true" />
                                 <button type="submit" class="btn btn-sm btn-success mb-1" title="Одобрить">
                                     <i class="fas fa-check"></i>
                                 </button>
                             </form>
-                            <button type="button" class="btn btn-sm btn-danger mb-1 btn-reject-chapter-modal" title="Отклонить"
-                                    data-bs-toggle="modal" data-bs-target="#rejectChapterModal_@item.RequestId"
+                            <button type="button" class="btn btn-sm btn-danger mb-1 btn-reject-novel-modal" title="Отклонить"
+                                    data-bs-toggle="modal" data-bs-target="#rejectNovelModal_@item.RequestId"
                                     data-request-id="@item.RequestId"
-                                    data-novel-title="@item.NovelTitle"
-                                    data-chapter-title="@(item.RequestType == ModerationRequestType.AddChapter ? item.ProposedChapterTitle : item.CurrentChapterTitle)">
+                                    data-novel-title="@item.NovelTitle">
                                 <i class="fas fa-times"></i>
                             </button>
 
                             <!-- Modal for Rejection -->
-                            <div class="modal fade" id="rejectChapterModal_@item.RequestId" tabindex="-1" aria-labelledby="rejectChapterModalLabel_@item.RequestId" aria-hidden="true">
+                            <div class="modal fade" id="rejectNovelModal_@item.RequestId" tabindex="-1" aria-labelledby="rejectNovelModalLabel_@item.RequestId" aria-hidden="true">
                                 <div class="modal-dialog">
                                     <div class="modal-content">
-                                        <form method="post" asp-controller="Admin" asp-action="RejectChapterRequest" asp-route-requestId="@item.RequestId" class="chapter-request-form-reject">
+                                        <form method="post" asp-controller="Admin" asp-action="ProcessNovelRequest" class="novel-request-form-reject">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="requestId" value="@item.RequestId" />
+                                            <input type="hidden" name="approve" value="false" />
                                             <div class="modal-header">
-                                                <h5 class="modal-title" id="rejectChapterModalLabel_@item.RequestId">Отклонить запрос главы</h5>
+                                                <h5 class="modal-title" id="rejectNovelModalLabel_@item.RequestId">Отклонить запрос новеллы</h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                             </div>
                                             <div class="modal-body">
                                                 <p>Новелла: <strong>@item.NovelTitle</strong></p>
-                                                <p>Глава: <strong>@(item.RequestType == ModerationRequestType.AddChapter ? (item.ProposedChapterNumber + " - " + item.ProposedChapterTitle) : (item.CurrentChapterNumber + " - " + item.CurrentChapterTitle))</strong></p>
                                                 <div class="mb-3">
                                                     <label for="moderationComment_@item.RequestId" class="form-label">Причина отклонения (необязательно):</label>
                                                     <textarea name="moderationComment" id="moderationComment_@item.RequestId" class="form-control" rows="3"></textarea>
@@ -118,7 +125,7 @@
             else
             {
                 <tr>
-                    <td colspan="7" class="text-center">Нет ожидающих запросов на модерацию глав.</td>
+                    <td colspan="6" class="text-center">Нет ожидающих запросов на модерацию новелл.</td>
                 </tr>
             }
         </tbody>
@@ -128,48 +135,43 @@
 @if (totalPages > 1)
 
 {
-    <nav aria-label="Chapter requests navigation">
+    <nav aria-label="Novel requests navigation">
         <ul class="pagination justify-content-center">
             <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
-                <a class="page-link chapter-request-page-link" href="#" data-page="@(currentPage - 1)">Предыдущая</a>
+                <a class="page-link novel-request-page-link" href="#" data-page="@(currentPage - 1)">Предыдущая</a>
             </li>
             @for (int i = 1; i <= totalPages; i++)
 
             {
                 <li class="page-item @(i == currentPage ? "active" : "")">
-                    <a class="page-link chapter-request-page-link" href="#" data-page="@i">@i</a>
+                    <a class="page-link novel-request-page-link" href="#" data-page="@i">@i</a>
                 </li>
             }
             <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
-                <a class="page-link chapter-request-page-link" href="#" data-page="@(currentPage + 1)">Следующая</a>
+                <a class="page-link novel-request-page-link" href="#" data-page="@(currentPage + 1)">Следующая</a>
             </li>
         </ul>
     </nav>
 }
 
 <script>
-    // Ensure this script block is loaded only once, even if partial is reloaded.
-    // Best practice: move to a global JS file and use event delegation.
-    // For now, this will re-bind if partial is reloaded into a div.
-    $(function () { // Shorthand for $(document).ready()
+    $(function () {
+        var contentAreaNovel = $('#novel-requests-content-area'); // Assuming this is the ID of the container for novel requests
 
-        // Pagination for chapter requests
-        // Assumes a container like <div id="chapter-requests-content-area"> around this partial
-        $('#chapter-requests-content-area').off('click', '.chapter-request-page-link').on('click', '.chapter-request-page-link', function (e) {
+        contentAreaNovel.off('click', '.novel-request-page-link').on('click', '.novel-request-page-link', function (e) {
             e.preventDefault();
             if ($(this).closest('.page-item').hasClass('disabled') || $(this).closest('.page-item').hasClass('active')) {
                 return;
             }
             var page = $(this).data('page');
             var pageSize = @pageSize;
-            $('#chapter-requests-content-area').load('@Url.Action("ChapterRequestsPartial", "Admin")?page=' + page + '&pageSize=' + pageSize);
+            contentAreaNovel.load('@Url.Action("NovelRequestsPartial", "Admin")?page=' + page + '&pageSize=' + pageSize);
         });
 
-        // AJAX for approving chapter request
-        $('#chapter-requests-content-area').off('submit', '.chapter-request-form-approve').on('submit', '.chapter-request-form-approve', function (e) {
+        contentAreaNovel.off('submit', '.novel-request-form-approve').on('submit', '.novel-request-form-approve', function (e) {
             e.preventDefault();
             var form = $(this);
-            if (!confirm('Вы уверены, что хотите одобрить этот запрос?')) return;
+            if (!confirm('Вы уверены, что хотите одобрить этот запрос новеллы?')) return;
 
             $.ajax({
                 type: form.attr('method'),
@@ -177,29 +179,28 @@
                 data: form.serialize(),
                 success: function (response) {
                     if (response.success) {
-                        showToast(response.message, 'success');
+                        // showToast(response.message, 'success'); // Assuming showToast is available
+                        alert(response.message); // Fallback
                         var currentPage = @currentPage;
                         var pageSize = @pageSize;
-                        $('#chapter-requests-content-area').load('@Url.Action("ChapterRequestsPartial", "Admin")?page=' + currentPage + '&pageSize=' + pageSize);
+                        contentAreaNovel.load('@Url.Action("NovelRequestsPartial", "Admin")?page=' + currentPage + '&pageSize=' + pageSize);
                     } else {
-                        showToast('Ошибка: ' + response.message, 'error');
+                        // showToast('Ошибка: ' + response.message, 'error');
+                        alert('Ошибка: ' + response.message); // Fallback
                     }
                 },
                 error: function () {
-                    showToast('Произошла ошибка при отправке запроса на одобрение.', 'error');
+                    // showToast('Произошла ошибка при отправке запроса.', 'error');
+                    alert('Произошла ошибка при отправке запроса.'); // Fallback
                 }
             });
         });
 
-        // AJAX for rejecting chapter request (from within modal)
-        // Note: Modals are unique now by ID, so direct form ID might be complex for delegation if modals are outside the loaded content.
-        // This script assumes modals are re-rendered with the partial. If modals are static, event listeners need to be set up differently.
-        $('#chapter-requests-content-area').off('submit', '.chapter-request-form-reject').on('submit', '.chapter-request-form-reject', function (e) {
+        contentAreaNovel.off('submit', '.novel-request-form-reject').on('submit', '.novel-request-form-reject', function (e) {
             e.preventDefault();
             var form = $(this);
-            var modalElement = form.closest('.modal'); // Find the modal this form is in
-
-            if (!confirm('Вы уверены, что хотите отклонить этот запрос?')) return;
+            var modalElement = form.closest('.modal');
+            if (!confirm('Вы уверены, что хотите отклонить этот запрос новеллы?')) return;
 
             $.ajax({
                 type: form.attr('method'),
@@ -207,30 +208,25 @@
                 data: form.serialize(),
                 success: function (response) {
                     if (response.success) {
-                        showToast(response.message, 'success');
+                        // showToast(response.message, 'success');
+                        alert(response.message); // Fallback
                         if (modalElement.length > 0) {
                             var modalInstance = bootstrap.Modal.getInstance(modalElement[0]);
                             if (modalInstance) modalInstance.hide();
                         }
                         var currentPage = @currentPage;
                         var pageSize = @pageSize;
-                        // Reload the content area
-                        $('#chapter-requests-content-area').load('@Url.Action("ChapterRequestsPartial", "Admin")?page=' + currentPage + '&pageSize=' + pageSize);
+                        contentAreaNovel.load('@Url.Action("NovelRequestsPartial", "Admin")?page=' + currentPage + '&pageSize=' + pageSize);
                     } else {
-                        showToast('Ошибка: ' + response.message, 'error');
+                        // showToast('Ошибка: ' + response.message, 'error');
+                        alert('Ошибка: ' + response.message); // Fallback
                     }
                 },
                 error: function () {
-                    showToast('Произошла ошибка при отправке запроса на отклонение.', 'error');
+                    // showToast('Произошла ошибка при отправке запроса.', 'error');
+                    alert('Произошла ошибка при отправке запроса.'); // Fallback
                 }
             });
         });
     });
-
-    // Basic toast function (replace with your actual toast implementation if you have one)
-    // function showToast(message, type = 'info') {
-    //     // This is a placeholder. Use a proper toast library like Toastr.js or Bootstrap Toasts.
-    //     console.log(`Toast (${type}): ${message}`);
-    //     alert(message);
-    // }
 </script>
