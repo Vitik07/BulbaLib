@@ -15,7 +15,10 @@ namespace BulbaLib.Models
         public string Description { get; set; }
 
         [Display(Name = "Основная обложка")]
-        public IFormFile CoverFile { get; set; }
+        public IFormFile CoverFile { get; set; } // Оставляем, если используется для главной обложки
+
+        [Display(Name = "Дополнительные обложки")]
+        public List<IFormFile> NewCovers { get; set; } // Для загрузки нескольких обложек
 
         [Display(Name = "Автор")]
         public int? AuthorId { get; set; }
@@ -43,6 +46,9 @@ namespace BulbaLib.Models
         [DataType(DataType.MultilineText)]
         public string? AlternativeTitles { get; set; }
         public string? RelatedNovelIds { get; set; }
+
+        [Display(Name = "Сохранить как черновик")]
+        public bool IsDraft { get; set; } // Для определения, является ли новелла черновиком
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {

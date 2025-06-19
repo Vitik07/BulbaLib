@@ -359,7 +359,7 @@ namespace BulbaLib.Controllers
                     // Initialize with empty list if JSON is malformed
                 }
             }
-            novelEditModel.KeptCovers = currentCovers;
+            novelEditModel.ExistingCoverPaths = currentCovers;
 
             // Handle AlternativeTitles separately with error catching
             if (string.IsNullOrWhiteSpace(novel.AlternativeTitles))
@@ -406,8 +406,8 @@ namespace BulbaLib.Controllers
             _logger.LogInformation($"  Model ReleaseYear: {model.ReleaseYear}");
             _logger.LogInformation($"  Model AlternativeTitles: {model.AlternativeTitles}");
             _logger.LogInformation($"  Model RelatedNovelIds: {model.RelatedNovelIds}");
-            _logger.LogInformation($"  Model KeptCovers (existing, kept by user): {(model.KeptCovers == null ? "null" : string.Join(", ", model.KeptCovers))}");
-            _logger.LogInformation($"  Model NewCoverFiles count: {(model.NewCoverFiles?.Count(f => f != null && f.Length > 0) ?? 0)}");
+            _logger.LogInformation($"  Model ExistingCoverPaths (existing, kept by user): {(model.ExistingCoverPaths == null ? "null" : string.Join(", ", model.ExistingCoverPaths))}");
+            _logger.LogInformation($"  Model NewCovers count: {(model.NewCovers?.Count(f => f != null && f.Length > 0) ?? 0)}");
             // TODO: Log other relevant properties from NovelEditModel if any are added later e.g. AuthorLogin if it were part of POST
 
             var currentUser = _currentUserService.GetCurrentUser();
@@ -423,50 +423,50 @@ namespace BulbaLib.Controllers
                 return RedirectToAction("AccessDenied", "AuthView");
             }
 
-            // Explicitly remove any model state errors for NewCoverFiles before custom validation runs
-            _logger.LogInformation($"[Edit Novel POST] Перед ModelState.Remove. NewCoverFiles is null: {model.NewCoverFiles == null}");
-            if (model.NewCoverFiles != null)
+            // Explicitly remove any model state errors for NewCovers before custom validation runs
+            _logger.LogInformation($"[Edit Novel POST] Перед ModelState.Remove. NewCovers is null: {model.NewCovers == null}");
+            if (model.NewCovers != null)
             {
-                _logger.LogInformation($"[Edit Novel POST] Перед ModelState.Remove. NewCoverFiles count: {model.NewCoverFiles.Count}");
-                for (int i = 0; i < model.NewCoverFiles.Count; i++)
+                _logger.LogInformation($"[Edit Novel POST] Перед ModelState.Remove. NewCovers count: {model.NewCovers.Count}");
+                for (int i = 0; i < model.NewCovers.Count; i++)
                 {
-                    if (model.NewCoverFiles[i] == null)
+                    if (model.NewCovers[i] == null)
                     {
                         _logger.LogInformation($"[Edit Novel POST] File {i} is null");
                     }
                     else
                     {
-                        _logger.LogInformation($"[Edit Novel POST] File {i} Name: {model.NewCoverFiles[i].FileName}, Length: {model.NewCoverFiles[i].Length}");
+                        _logger.LogInformation($"[Edit Novel POST] File {i} Name: {model.NewCovers[i].FileName}, Length: {model.NewCovers[i].Length}");
                     }
                 }
             }
 
-            var newCoverFilesEntry = ModelState[nameof(NovelEditModel.NewCoverFiles)];
-            if (newCoverFilesEntry != null && newCoverFilesEntry.Errors.Any())
+            var newCoversEntry = ModelState[nameof(NovelEditModel.NewCovers)];
+            if (newCoversEntry != null && newCoversEntry.Errors.Any())
             {
-                foreach (var error in newCoverFilesEntry.Errors)
+                foreach (var error in newCoversEntry.Errors)
                 {
-                    _logger.LogWarning($"[Edit Novel POST] Ошибка валидации для NewCoverFiles ПЕРЕД REMOVE: {error.ErrorMessage}");
+                    _logger.LogWarning($"[Edit Novel POST] Ошибка валидации для NewCovers ПЕРЕД REMOVE: {error.ErrorMessage}");
                 }
             }
-            else if (newCoverFilesEntry == null || !newCoverFilesEntry.Errors.Any())
+            else if (newCoversEntry == null || !newCoversEntry.Errors.Any())
             {
-                _logger.LogInformation("[Edit Novel POST] Нет ошибок валидации для NewCoverFiles ПЕРЕД REMOVE.");
+                _logger.LogInformation("[Edit Novel POST] Нет ошибок валидации для NewCovers ПЕРЕД REMOVE.");
             }
 
-            ModelState.Remove(nameof(NovelEditModel.NewCoverFiles));
+            ModelState.Remove(nameof(NovelEditModel.NewCovers));
 
-            var newCoverFilesEntryAfterRemove = ModelState[nameof(NovelEditModel.NewCoverFiles)];
-            if (newCoverFilesEntryAfterRemove != null && newCoverFilesEntryAfterRemove.Errors.Any())
+            var newCoversEntryAfterRemove = ModelState[nameof(NovelEditModel.NewCovers)];
+            if (newCoversEntryAfterRemove != null && newCoversEntryAfterRemove.Errors.Any())
             {
-                foreach (var error in newCoverFilesEntryAfterRemove.Errors)
+                foreach (var error in newCoversEntryAfterRemove.Errors)
                 {
-                    _logger.LogWarning($"[Edit Novel POST] Ошибка валидации для NewCoverFiles ПОСЛЕ REMOVE: {error.ErrorMessage}");
+                    _logger.LogWarning($"[Edit Novel POST] Ошибка валидации для NewCovers ПОСЛЕ REMOVE: {error.ErrorMessage}");
                 }
             }
             else
             {
-                _logger.LogInformation("[Edit Novel POST] Запись ModelState для NewCoverFiles успешно удалена или не содержит ошибок после Remove.");
+                _logger.LogInformation("[Edit Novel POST] Запись ModelState для NewCovers успешно удалена или не содержит ошибок после Remove.");
             }
 
             if (ModelState.IsValid)
@@ -493,20 +493,20 @@ namespace BulbaLib.Controllers
 
                 if (_permissionService.CanAddNovelDirectly(currentUser)) // Admin Path
                 {
-                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Processing covers. KeptCovers count: {model.KeptCovers?.Count ?? 0}, NewCoverFiles count: {model.NewCoverFiles?.Count(f => f != null && f.Length > 0) ?? 0}");
+                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Processing covers. ExistingCoverPaths count: {model.ExistingCoverPaths?.Count ?? 0}, NewCovers count: {model.NewCovers?.Count(f => f != null && f.Length > 0) ?? 0}");
                     List<string> finalCoverPathsForNovel = new List<string>();
 
                     // Add covers that user decided to keep
-                    if (model.KeptCovers != null)
+                    if (model.ExistingCoverPaths != null)
                     {
-                        finalCoverPathsForNovel.AddRange(model.KeptCovers);
+                        finalCoverPathsForNovel.AddRange(model.ExistingCoverPaths);
                     }
-                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Paths after adding KeptCovers: {JsonSerializer.Serialize(finalCoverPathsForNovel)}");
+                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Paths after adding ExistingCoverPaths: {JsonSerializer.Serialize(finalCoverPathsForNovel)}");
 
                     // Process newly uploaded files by Admin, save them directly to permanent location
-                    if (model.NewCoverFiles != null)
+                    if (model.NewCovers != null)
                     {
-                        foreach (var file in model.NewCoverFiles.Where(f => f != null && f.Length > 0))
+                        foreach (var file in model.NewCovers.Where(f => f != null && f.Length > 0))
                         {
                             _logger.LogInformation($"[Edit Novel POST - Admin Path] Saving new cover directly: {file.FileName}");
                             string newPermanentPath = await _fileService.SaveNovelCoverAsync(file, originalNovel.Id);
@@ -521,7 +521,7 @@ namespace BulbaLib.Controllers
                             }
                         }
                     }
-                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Paths after processing NewCoverFiles: {JsonSerializer.Serialize(finalCoverPathsForNovel)}");
+                    _logger.LogInformation($"[Edit Novel POST - Admin Path] Paths after processing NewCovers: {JsonSerializer.Serialize(finalCoverPathsForNovel)}");
 
                     // Determine and delete covers that were removed by the Admin
                     List<string> originalCoversList = new List<string>();
@@ -576,16 +576,16 @@ namespace BulbaLib.Controllers
                 }
                 else if (currentUser.Role == UserRole.Author && originalNovel.AuthorId == currentUser.Id)
                 {
-                    _logger.LogInformation($"[Edit Novel POST - Author Path] Processing covers for author. KeptCovers count: {model.KeptCovers?.Count ?? 0}, NewCoverFiles count: {model.NewCoverFiles?.Count(f => f != null && f.Length > 0) ?? 0}");
+                    _logger.LogInformation($"[Edit Novel POST - Author Path] Processing covers for author. ExistingCoverPaths count: {model.ExistingCoverPaths?.Count ?? 0}, NewCovers count: {model.NewCovers?.Count(f => f != null && f.Length > 0) ?? 0}");
                     List<string> allCoverPaths = new List<string>();
-                    if (model.KeptCovers != null) // Пути к существующим обложкам, которые автор решил оставить
+                    if (model.ExistingCoverPaths != null) // Пути к существующим обложкам, которые автор решил оставить
                     {
-                        allCoverPaths.AddRange(model.KeptCovers);
+                        allCoverPaths.AddRange(model.ExistingCoverPaths);
                     }
 
-                    if (model.NewCoverFiles != null)
+                    if (model.NewCovers != null)
                     {
-                        foreach (var file in model.NewCoverFiles.Where(f => f != null && f.Length > 0))
+                        foreach (var file in model.NewCovers.Where(f => f != null && f.Length > 0))
                         {
                             _logger.LogInformation($"[Edit Novel POST - Author Path] Saving temp cover for file: {file.FileName}");
                             string tempPath = await _fileService.SaveTempNovelCoverAsync(file);

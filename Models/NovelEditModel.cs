@@ -18,11 +18,15 @@ namespace BulbaLib.Models
         [DataType(DataType.MultilineText)]
         public string Description { get; set; }
 
-        public List<string> KeptCovers { get; set; } = new List<string>();
+        [Display(Name = "Существующие обложки")]
+        public List<string> ExistingCoverPaths { get; set; } = new List<string>(); // Переименовано из KeptCovers
+
+        [Display(Name = "Обложки к удалению")]
+        public List<string> CoversToDelete { get; set; } = new List<string>(); // Новое свойство
 
         [Microsoft.AspNetCore.Mvc.ModelBinding.Validation.ValidateNever]
         [Display(Name = "Загрузить новые обложки")]
-        public List<IFormFile>? NewCoverFiles { get; set; }
+        public List<IFormFile>? NewCovers { get; set; } // Переименовано из NewCoverFiles
 
         [Display(Name = "Жанры")]
         public string Genres { get; set; }
@@ -55,6 +59,9 @@ namespace BulbaLib.Models
         public int? AuthorId { get; set; }
         public string? AuthorLogin { get; set; }
 
+        [Display(Name = "Сохранить как черновик")]
+        public bool IsDraft { get; set; } // Новое свойство
+
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             if (ReleaseYear.HasValue && ReleaseYear.Value > DateTime.UtcNow.Year)
@@ -64,14 +71,18 @@ namespace BulbaLib.Models
                     new[] { nameof(ReleaseYear) });
             }
 
-            bool hasExistingCovers = KeptCovers != null && KeptCovers.Any(c => !string.IsNullOrWhiteSpace(c));
-            bool hasNewCoverFiles = NewCoverFiles != null && NewCoverFiles.Any(f => f != null && f.Length > 0);
+            // Обновленная логика валидации обложек
+            bool hasExistingCovers = ExistingCoverPaths != null && ExistingCoverPaths.Any(c => !string.IsNullOrWhiteSpace(c));
+            bool hasNewCoverFiles = NewCovers != null && NewCovers.Any(f => f != null && f.Length > 0);
+            int coversToDeleteCount = CoversToDelete != null ? CoversToDelete.Count : 0;
+            int existingCoversAfterDeletion = (ExistingCoverPaths != null ? ExistingCoverPaths.Count : 0) - coversToDeleteCount;
 
-            if (!hasExistingCovers && !hasNewCoverFiles)
+
+            if (existingCoversAfterDeletion <= 0 && !hasNewCoverFiles)
             {
                 yield return new ValidationResult(
-                    "Новелла должна иметь хотя бы одну обложку. Пожалуйста, загрузите новую или убедитесь, что существующая обложка не удалена.",
-                    new string[] { });
+                   "Новелла должна иметь хотя бы одну обложку. Пожалуйста, загрузите новую или убедитесь, что не все существующие обложки помечены на удаление.",
+                   new[] { nameof(ExistingCoverPaths), nameof(NewCovers), nameof(CoversToDelete) });
             }
         }
     }

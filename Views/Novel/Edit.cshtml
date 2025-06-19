@@ -51,28 +51,28 @@
                 </div>
 
                 <div class="form-group mb-3">
-                    <label asp-for="NewCoverFiles" class="control-label">Добавить новые обложки</label>
-                    <input asp-for="NewCoverFiles" type="file" multiple class="form-control" id="NewCoverFiles" />
-                    <span asp-validation-for="NewCoverFiles" class="text-danger"></span>
+                    <label asp-for="NewCovers" class="control-label">Добавить новые обложки</label>
+                    <input asp-for="NewCovers" type="file" multiple class="form-control" id="NewCovers" />
+                    <span asp-validation-for="NewCovers" class="text-danger"></span>
                     <small class="form-text text-muted">Выберите один или несколько файлов. Новые обложки будут добавлены к существующим. Вы можете удалить отдельные текущие обложки с помощью кнопки (×).</small>
                 </div>
 
                 <div class="form-group mb-3">
                     <label class="control-label">Текущие обложки</label>
                     <div id="currentCoversContainer" class="mt-2 d-flex flex-wrap" style="display: flex; flex-wrap: wrap; flex-direction: row;">
-                        @if (Model.KeptCovers != null && Model.KeptCovers.Any())
+                        @if (Model.ExistingCoverPaths != null && Model.ExistingCoverPaths.Any())
 
                         {
 
-                            for (int i = 0; i < Model.KeptCovers.Count; i++)
+                            for (int i = 0; i < Model.ExistingCoverPaths.Count; i++)
 
                             {
 
-                                var coverPath = Model.KeptCovers[i];
+                                var coverPath = Model.ExistingCoverPaths[i];
                                 <div class="current-cover-item me-2 mb-2" style="position: relative; border: 1px solid #ddd; padding: 5px; width: 112px; height: 162px;">
                                     <img src="@Url.Content(coverPath)" alt="Обложка" style="width: 100px; height: 150px; display: block; object-fit: cover;" />
                                     <button type="button" class="btn btn-danger btn-sm remove-cover-btn" data-cover-path="@coverPath" style="position: absolute; top: 0px; right: 0px; padding: 1px 4px; line-height: 1;">&times;</button>
-                                    <input type="hidden" name="KeptCovers[@i]" value="@coverPath" class="kept-cover-input" />
+                                    <input type="hidden" name="ExistingCoverPaths[@i]" value="@coverPath" class="kept-cover-input" />
                                 </div>
                             }
 
@@ -84,7 +84,7 @@
                             <p>Нет загруженных обложек.</p>
                         }
                     </div>
-                    <span asp-validation-for="KeptCovers" class="text-danger"></span>
+                    <span asp-validation-for="ExistingCoverPaths" class="text-danger"></span>
                 </div>
 
                 <div class="form-group mb-3">
@@ -482,10 +482,10 @@
 
             // --- Cover Image Management & Form Submission ---
             const form = document.getElementById('novelEditForm');
-            const newCoverFilesInput = document.getElementById('NewCoverFiles');
+            const newCoverFilesInput = document.getElementById('NewCovers');
             let newSelectedFiles = []; // To keep track of files selected in the NewCoverFiles input
 
-            // Preview logic for NewCoverFiles (largely kept for UI, but won't be submitted with JSON)
+            // Preview logic for NewCovers (largely kept for UI, but won't be submitted with JSON)
             const newCoversPreviewContainer = document.createElement('div');
             newCoversPreviewContainer.id = 'newCoversPreviewContainer';
             newCoversPreviewContainer.className = 'mt-2 d-flex flex-wrap';
@@ -581,7 +581,7 @@
             // The user will be alerted about the new file upload process.
             if (newCoverFilesInput) { 
                 newCoverFilesInput.addEventListener('change', function (event) {
-                    console.log("DEBUG: Change event triggered on NewCoverFiles input.");
+                    console.log("DEBUG: Change event triggered on NewCovers input.");
                     newCoversPreviewContainer.innerHTML = '';
                     newSelectedFiles = [];
                     const files = event.target.files;
@@ -644,9 +644,9 @@
                     }
                     event.target.value = null;
                 });
-                console.log("DEBUG: Change event listener attached to NewCoverFiles input.");
+                console.log("DEBUG: Change event listener attached to NewCovers input.");
             } else {
-                console.error("DEBUG: NewCoverFiles input with ID 'NewCoverFiles' not found. Change event listener NOT attached.");
+                console.error("DEBUG: NewCovers input with ID 'NewCovers' not found. Change event listener NOT attached.");
             }
 
             const currentCoversContainer = document.getElementById('currentCoversContainer');

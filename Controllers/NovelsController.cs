@@ -98,32 +98,73 @@ namespace BulbaLib.Controllers
             };
 
             var tempCoverPaths = new List<string>();
-            if (model.NewCovers != null)
+
+            // Handle single CoverFile (main cover)
+            if (model.CoverFile != null && model.CoverFile.Length > 0)
             {
-                foreach (var coverFile in model.NewCovers)
+                var tempPath = await _fileService.SaveTempNovelCoverAsync(model.CoverFile);
+                if (!string.IsNullOrEmpty(tempPath))
                 {
-                    if (coverFile.Length > 0)
+                    tempCoverPaths.Add(tempPath);
+                }
+                else
+                {
+                    ModelState.AddModelError("CoverFile", "Не удалось сохранить основную обложку.");
+                    return View("~/Views/Novel/Create.cshtml", model);
+                }
+            }
+
+            // Handle NewCovers (additional/list of covers)
+            if (model.NewCovers != null && model.NewCovers.Any())
+            {
+                foreach (var coverFile_item in model.NewCovers)
+                {
+                    if (coverFile_item.Length > 0)
                     {
-                        var tempPath = await _fileService.SaveTempNovelCoverAsync(coverFile);
+                        var tempPath = await _fileService.SaveTempNovelCoverAsync(coverFile_item);
                         if (!string.IsNullOrEmpty(tempPath))
                         {
                             tempCoverPaths.Add(tempPath);
                         }
                         else
                         {
-                            ModelState.AddModelError("NewCovers", "Не удалось сохранить одну или несколько обложек.");
-                            // Potentially delete already saved temp files if one fails
-                            foreach (var savedTempPath in tempCoverPaths) await _fileService.DeleteCoverAsync(savedTempPath); // Use a generic delete for temp files
-                            return View("~/Views/Novel/Create.cshtml", model);
+                            // If one additional cover fails, add error and continue to collect other errors if any
+                            ModelState.AddModelError("NewCovers", "Не удалось сохранить одну или несколько дополнительных обложек.");
                         }
                     }
                 }
-                novel.Covers = JsonSerializer.Serialize(tempCoverPaths); // Store temp paths for now
+                // If any cover failed, and we had already saved some from CoverFile, clean them up.
+                if (!ModelState.IsValid && tempCoverPaths.Any())
+                {
+                    // Check if the failed files are among those already added to tempCoverPaths to avoid double deletion
+                    // This cleanup is tricky; ideally, SaveTempNovelCoverAsync doesn't leave partial state or returns specific errors.
+                    // For now, if model state is invalid and *any* temp paths were made, clean all.
+                    foreach (var savedTempPath in tempCoverPaths) { await _fileService.DeleteCoverAsync(savedTempPath); }
+                    return View("~/Views/Novel/Create.cshtml", model);
+                }
             }
+
+            if (!tempCoverPaths.Any())
+            {
+                // This check is if neither CoverFile nor NewCovers yielded any paths.
+                ModelState.AddModelError("", "Необходимо загрузить хотя бы одну обложку.");
+                return View("~/Views/Novel/Create.cshtml", model);
+            }
+            novel.Covers = JsonSerializer.Serialize(tempCoverPaths); // Store temp paths for now
+
+            // Set status based on IsDraft before Admin/Author specific logic
+            novel.Status = model.IsDraft ? NovelStatus.Draft : NovelStatus.PendingApproval;
 
             if (currentUser.Role == UserRole.Admin)
             {
-                novel.Status = NovelStatus.Approved;
+                // Admin might override the status or have a different flow
+                // For now, if an Admin creates, it could be directly approved or respect IsDraft.
+                // Let's assume Admin's draft is also a draft. If not draft, then approved.
+                if (!model.IsDraft) // If not a draft, Admin approves it.
+                {
+                    novel.Status = NovelStatus.Approved;
+                }
+                // If model.IsDraft is true, novel.Status is already NovelStatus.Draft from above.
                 int newNovelId = _mySqlService.CreateNovel(novel);
 
                 var finalCoverPaths = new List<string>();
@@ -149,7 +190,8 @@ namespace BulbaLib.Controllers
             }
             else // UserRole.Author
             {
-                novel.Status = model.IsDraft ? NovelStatus.Draft : NovelStatus.PendingApproval;
+                // novel.Status is already set based on model.IsDraft.
+                // The existing logic for Author drafts and pending approval submissions seems fine.
 
                 // If it's a draft, save it directly without moderation request for now
                 // OR create a moderation request with status Draft if that's the flow.
@@ -341,8 +383,18 @@ namespace BulbaLib.Controllers
                 existingNovel.ReleaseYear = model.ReleaseYear;
                 existingNovel.AlternativeTitles = model.AlternativeTitles;
                 existingNovel.RelatedNovelIds = model.RelatedNovelIds;
-                // Admin might change status directly, if UI allows. For now, keep existing.
-                // existingNovel.Status = model.IsDraft ? NovelStatus.Draft : existingNovel.Status; // Example if admin can change draft status
+
+                // Admin can change status using IsDraft
+                if (model.IsDraft)
+                {
+                    existingNovel.Status = NovelStatus.Draft;
+                }
+                else
+                {
+                    // If it was a Draft and IsDraft is now false, move to Approved.
+                    // If it was already Approved/Pending and IsDraft is false, it remains so (effectively Approved by Admin's edit).
+                    existingNovel.Status = NovelStatus.Approved;
+                }
 
                 // Commit new temp covers for Admin
                 var committedNewPaths = new List<string>();
