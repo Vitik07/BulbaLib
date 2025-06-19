@@ -201,47 +201,63 @@ namespace BulbaLib.Controllers
 
                 if (novel.Status == NovelStatus.Draft)
                 {
-                    // For drafts, we commit covers directly as they are not yet in a moderation flow
-                    // where admin would do the commit.
-                    int newNovelId = _mySqlService.CreateNovel(novel); // Creates with temp paths initially
-                    var finalCoverPaths = new List<string>();
-                    foreach (var tempPath in tempCoverPaths)
+                    // Author creating a draft
+                    if (model.IsDraft)
                     {
-                        var finalPath = await _fileService.CommitTempCoverAsync(tempPath, newNovelId);
-                        if (!string.IsNullOrEmpty(finalPath))
+                        novel.Status = NovelStatus.Draft;
+                        // Create novel in DB with temp paths first to get an ID
+                        int newNovelId = _mySqlService.CreateNovel(novel); // novel.Covers has temp paths
+
+                        var finalCoverPaths = new List<string>();
+                        if (tempCoverPaths.Any())
                         {
-                            finalCoverPaths.Add(finalPath);
+                            foreach (var tempPath in tempCoverPaths)
+                            {
+                                var finalPath = await _fileService.CommitTempCoverAsync(tempPath, newNovelId);
+                                if (!string.IsNullOrEmpty(finalPath))
+                                {
+                                    finalCoverPaths.Add(finalPath);
+                                }
+                                else
+                                {
+                                     _logger.LogWarning("Failed to commit cover {TempPath} for new draft novel {NewNovelId}", tempPath, newNovelId);
+                                     // Decide if this is a critical error. For now, we'll proceed with what we have.
+                                }
+                            }
                         }
-                        else { /* Log error */ }
+                        novel.Id = newNovelId; // Set ID for update
+                        novel.Covers = JsonSerializer.Serialize(finalCoverPaths); // Update with committed paths
+                        _mySqlService.UpdateNovel(novel);
+
+                        TempData["SuccessMessage"] = "Черновик новеллы успешно сохранен.";
+                        return RedirectToAction("Edit", new { id = newNovelId }); // Redirect to edit the draft
                     }
-                    novel.Id = newNovelId;
-                    novel.Covers = JsonSerializer.Serialize(finalCoverPaths);
-                    _mySqlService.UpdateNovel(novel);
-
-                    TempData["SuccessMessage"] = "Черновик новеллы успешно сохранен.";
-                    return RedirectToAction("Index", "Profile"); // Or a page showing author's drafts
-                }
-                else // PendingApproval
-                {
-                    // Novel object (with temp paths in novel.Covers) is serialized for moderation
-                    var requestDataJson = JsonSerializer.Serialize(novel);
-
-                    var moderationRequest = new ModerationRequest
+                    // Author submitting for moderation
+                    else
                     {
-                        RequestType = ModerationRequestType.AddNovel,
-                        UserId = currentUser.Id,
-                        RequestData = requestDataJson,
-                        Status = ModerationStatus.Pending,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    _mySqlService.CreateModerationRequest(moderationRequest);
+                        novel.Status = NovelStatus.PendingApproval;
+                        // novel.Covers already contains JsonSerializer.Serialize(tempCoverPaths) from earlier
+                        // The entire novel object with TEMPORARY cover paths is serialized for the moderation request.
+                        // Admin will handle committing these paths upon approval.
+                        var requestDataJson = JsonSerializer.Serialize(novel);
 
-                    // Notify admins (optional, as per spec)
-                    // _notificationService.NotifyAdmins("New novel for moderation", $"User {currentUser.Login} submitted a new novel '{novel.Title}' for moderation.");
+                        var moderationRequest = new ModerationRequest
+                        {
+                            RequestType = ModerationRequestType.AddNovel,
+                            UserId = currentUser.Id,
+                            RequestData = requestDataJson, // Contains novel with temp cover paths
+                            Status = ModerationStatus.Pending,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow,
+                            NovelId = null // NovelId is not known until admin approves and creates it.
+                                           // However, for AddNovel, the requestData *is* the novel.
+                                           // The admin processing will create the novel and then can update this request's NovelId.
+                        };
+                        _mySqlService.CreateModerationRequest(moderationRequest);
 
-                    TempData["SuccessMessage"] = "Ваш запрос на добавление новеллы отправлен на модерацию.";
-                    return RedirectToAction("Index", "CatalogView"); // Assuming CatalogView is the main catalog
+                        TempData["SuccessMessage"] = "Запрос на добавление новеллы отправлен на модерацию.";
+                        return RedirectToAction("Index", "CatalogView");
+                    }
                 }
             }
         }
@@ -416,40 +432,91 @@ namespace BulbaLib.Controllers
             }
             else // UserRole.Author
             {
-                // Authors submit changes for moderation.
-                // The NovelUpdateRequest should contain all proposed changes including new temp cover paths.
-                var novelUpdateRequest = new NovelUpdateRequest // Using the API DTO, but could be a specific ViewModel
+                // Author is editing their own draft
+                if (existingNovel.Status == NovelStatus.Draft && existingNovel.AuthorId == currentUser.Id)
                 {
-                    Title = model.Title,
-                    Description = model.Description,
-                    Genres = model.Genres,
-                    Tags = model.Tags,
-                    Type = model.Type,
-                    Format = model.Format,
-                    ReleaseYear = model.ReleaseYear,
-                    AlternativeTitles = model.AlternativeTitles,
-                    // RelatedNovelIds = model.RelatedNovelIds, // Assuming this is part of NovelUpdateRequest DTO
-                    Covers = updatedCoverListForRequest, // Includes existing kept paths + new temp paths
-                    // AuthorId is not part of request as author cannot change authorship
-                };
-                // Add RelatedNovelIds if it's part of NovelUpdateRequest or handle it
-                // For now, assuming it's implicitly part of the model being updated.
+                    existingNovel.Title = model.Title;
+                    existingNovel.Description = model.Description;
+                    existingNovel.Genres = model.Genres;
+                    existingNovel.Tags = model.Tags;
+                    existingNovel.Type = model.Type;
+                    existingNovel.Format = model.Format;
+                    existingNovel.ReleaseYear = model.ReleaseYear;
+                    existingNovel.AlternativeTitles = model.AlternativeTitles;
+                    existingNovel.RelatedNovelIds = model.RelatedNovelIds;
+                    // AuthorId does not change
 
-                var requestDataJson = JsonSerializer.Serialize(novelUpdateRequest);
-                var moderationRequest = new ModerationRequest
+                    // Covers were already handled: `finalCoverPathsForNovel` contains kept old paths.
+                    // New covers are in `newTempCoverPaths`. Commit them.
+                    foreach (var tempPath in newTempCoverPaths)
+                    {
+                        var finalPath = await _fileService.CommitTempCoverAsync(tempPath, existingNovel.Id);
+                        if (!string.IsNullOrEmpty(finalPath))
+                        {
+                            finalCoverPathsForNovel.Add(finalPath);
+                        }
+                        else { _logger.LogWarning("Failed to commit cover {TempPath} for draft novel {NovelId}", tempPath, existingNovel.Id); }
+                    }
+                    existingNovel.Covers = JsonSerializer.Serialize(finalCoverPathsForNovel.Distinct().ToList());
+
+                    // Author decides to send draft for moderation or keep as draft
+                    if (!model.IsDraft)
+                    {
+                        existingNovel.Status = NovelStatus.PendingApproval;
+                        _mySqlService.UpdateNovel(existingNovel); // Save changes with final cover paths
+
+                        // Serialize the *entire updated novel* for the moderation request.
+                        // This is treated as an "AddNovel" request type because it's the first time it's being submitted.
+                        var requestDataJson = JsonSerializer.Serialize(existingNovel);
+                        var moderationRequest = new ModerationRequest
+                        {
+                            RequestType = ModerationRequestType.AddNovel, // First submission is like adding a new novel
+                            UserId = currentUser.Id,
+                            NovelId = existingNovel.Id, // Link to existing novel ID
+                            RequestData = requestDataJson,
+                            Status = ModerationStatus.Pending,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+                        _mySqlService.CreateModerationRequest(moderationRequest);
+                        TempData["SuccessMessage"] = "Черновик отправлен на модерацию.";
+                    }
+                    else // Author continues to save as draft
+                    {
+                        existingNovel.Status = NovelStatus.Draft; // Ensure it remains draft
+                        _mySqlService.UpdateNovel(existingNovel);
+                        TempData["SuccessMessage"] = "Черновик успешно обновлен.";
+                    }
+                    return RedirectToAction("Edit", new { id = existingNovel.Id });
+                }
+                // Author is editing an already published/pending novel -> new moderation request for edit
+                else
                 {
-                    RequestType = ModerationRequestType.EditNovel,
-                    UserId = currentUser.Id,
-                    NovelId = existingNovel.Id,
-                    RequestData = requestDataJson,
-                    Status = ModerationStatus.Pending,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                _mySqlService.CreateModerationRequest(moderationRequest);
+                    // `updatedCoverListForRequest` contains kept existing final paths + new temporary paths.
+                    // This list is what the admin will see and process.
+                    var editDataForModeration = new {
+                        NovelId = existingNovel.Id,
+                        UpdatedFields = model, // NovelEditModel contains all editable fields by author
+                        KeptExistingCovers = finalCoverPathsForNovel.Distinct().ToList(), // Paths to covers that were kept (after deletion step)
+                        NewTempCoverPaths = newTempCoverPaths // Temporary paths to newly uploaded covers
+                    };
+                    var requestDataJson = JsonSerializer.Serialize(editDataForModeration);
 
-                TempData["SuccessMessage"] = "Ваш запрос на редактирование новеллы отправлен на модерацию.";
-                return RedirectToAction("Novel", "NovelView", new { id = existingNovel.Id });
+                    var moderationRequest = new ModerationRequest
+                    {
+                        RequestType = ModerationRequestType.EditNovel,
+                        UserId = currentUser.Id,
+                        NovelId = existingNovel.Id,
+                        RequestData = requestDataJson,
+                        Status = ModerationStatus.Pending,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _mySqlService.CreateModerationRequest(moderationRequest);
+
+                    TempData["SuccessMessage"] = "Запрос на редактирование новеллы отправлен на модерацию.";
+                    return RedirectToAction("Novel", "NovelView", new { id = existingNovel.Id });
+                }
             }
         }
 

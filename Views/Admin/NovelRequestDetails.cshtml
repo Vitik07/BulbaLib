@@ -1,178 +1,267 @@
-﻿@model BulbaLib.Models.ModerationRequest
+@model BulbaLib.Models.NovelModerationRequestViewModel
+@using BulbaLib.Models // For enums like ModerationRequestType
+@using System.Text.Json // For potential inline deserialization if needed, though most data should be pre-processed
+
 @{
-    ViewData["Title"] = $"Детали запроса ID: {Model.Id}";
-
-    Layout = "~/Views/Shared/_Layout.cshtml";
-
-    var requestedNovel = ViewData["RequestedNovel"] as Novel;
-
-    var existingNovel = ViewData["ExistingNovel"] as Novel;
-
-    var requester = ViewData["RequesterUser"] as User;
+    ViewData["Title"] = "Детали запроса на модерацию новеллы";
+    Layout = "~/Views/Shared/_Layout.cshtml"; // Assuming a layout that includes Bootstrap and FontAwesome
 }
 
-<h1>@ViewData["Title"]</h1>
-<hr />
+<div class="container mt-4">
+    <h2 class="mb-4">@ViewData["Title"]</h2>
 
-<div class="row">
-    <div class="col-md-6">
-        <h4>Информация о запросе</h4>
-        <dl class="row">
-            <dt class="col-sm-4">ID Запроса:</dt>
-            <dd class="col-sm-8">@Model.Id</dd>
-            <dt class="col-sm-4">Тип:</dt>
-            <dd class="col-sm-8">@Model.RequestType</dd>
-            <dt class="col-sm-4">Пользователь:</dt>
-            <dd class="col-sm-8">@(requester?.Login ?? Model.UserId.ToString()) (ID: @Model.UserId)</dd>
-            <dt class="col-sm-4">Дата запроса:</dt>
-            <dd class="col-sm-8">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</dd>
-            @if (Model.NovelId.HasValue)
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Запрос ID: @Model.RequestId - <span class="fw-normal">@Model.RequestActionDisplay</span></h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3 border-bottom pb-3">
+                <div class="col-md-3"><strong>Пользователь:</strong></div>
+                <div class="col-md-9">@Model.UserLogin</div>
+            </div>
+            <div class="row mb-3 border-bottom pb-3">
+                <div class="col-md-3"><strong>Дата запроса:</strong></div>
+                <div class="col-md-9">@Model.RequestedAt.ToString("dd.MM.yyyy HH:mm:ss")</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Статус запроса:</strong></div>
+                <div class="col-md-9"><span class="badge bg-warning text-dark">@Model.Status.ToString()</span></div>
+            </div>
+
+            <hr />
+
+            @if (Model.RequestType == ModerationRequestType.AddNovel)
             {
-                <dt class="col-sm-4">Novel ID:</dt>
-                <dd class="col-sm-8">@Model.NovelId.Value</dd>
+                <h4 class="mt-3 text-primary">Запрос на добавление: @(Model.ProposedNovelData?.Title ?? "N/A")</h4>
+                @if (Model.ProposedNovelData != null)
+                {
+                    var novel = Model.ProposedNovelData;
+                    <div class="row">
+                        <div class="col-md-8">
+                            <p><strong>Описание:</strong> <pre class="bg-white p-2 border rounded text-body" style="white-space: pre-wrap; word-wrap: break-word;">@novel.Description</pre></p>
+                            <p><strong>Жанры:</strong> @(novel.Genres ?? "N/A")</p>
+                            <p><strong>Теги:</strong> @(novel.Tags ?? "N/A")</p>
+                            <p><strong>Тип:</strong> @(novel.Type ?? "N/A")</p>
+                            <p><strong>Формат:</strong> @(novel.Format ?? "N/A")</p>
+                            <p><strong>Год релиза:</strong> @(novel.ReleaseYear?.ToString() ?? "N/A")</p>
+                            <p><strong>Альтернативные названия:</strong> <pre class="bg-white p-2 border rounded text-body" style="white-space: pre-wrap; word-wrap: break-word;">@novel.AlternativeTitles</pre></p>
+                            <p><strong>Связанные ID новелл:</strong> @(novel.RelatedNovelIds ?? "N/A")</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Предлагаемые обложки (временные):</h6>
+                            @if (Model.TempCoverPreviews != null && Model.TempCoverPreviews.Any())
+                            {
+                                foreach (var coverUrl in Model.TempCoverPreviews)
+                                {
+                                    <img src="@coverUrl" alt="Предлагаемая обложка" class="img-thumbnail mb-2" style="max-width: 150px; display: block;" />
+                                }
+                            }
+                            else if (novel.CoversList != null && novel.CoversList.Any()) // Fallback if TempCoverPreviews not populated but ProposedNovelData.CoversList is
+                            {
+                                 foreach (var coverUrl in novel.CoversList)
+                                {
+                                    <img src="@coverUrl" alt="Предлагаемая обложка (из CoversList)" class="img-thumbnail mb-2" style="max-width: 150px; display: block;" />
+                                }
+                            }
+                            else
+                            {
+                                <p class="text-muted">Нет предлагаемых обложек.</p>
+                            }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-danger">Данные для добавления новеллы не найдены в запросе.</p>
+                }
             }
-            <dt class="col-sm-4">Статус:</dt>
-            <dd class="col-sm-8">@Model.Status</dd>
-        </dl>
+            else if (Model.RequestType == ModerationRequestType.EditNovel)
+            {
+                <h4 class="mt-3 text-primary">Запрос на редактирование: @(Model.CurrentNovelData?.Title ?? Model.ProposedEditData?.UpdatedFields?.Title ?? "N/A")</h4>
+                <div class="row">
+                    <div class="col-md-6 border-end pe-3">
+                        <h5 class="text-secondary mb-3">Текущие данные:</h5>
+                        @if (Model.CurrentNovelData != null)
+                        {
+                            var current = Model.CurrentNovelData;
+                            <p><strong>ID Новеллы:</strong> @current.Id</p>
+                            <p><strong>Название:</strong> @current.Title</p>
+                            <p><strong>Описание:</strong> <pre class="bg-white p-2 border rounded text-body" style="white-space: pre-wrap; word-wrap: break-word; max-height:200px; overflow-y:auto;">@current.Description</pre></p>
+                            <p><strong>Жанры:</strong> @current.Genres</p>
+                            <p><strong>Теги:</strong> @current.Tags</p>
+                            <p><strong>Тип:</strong> @current.Type</p>
+                            <p><strong>Формат:</strong> @current.Format</p>
+                            <p><strong>Год:</strong> @current.ReleaseYear</p>
+                             <h6 class="mt-2">Текущие обложки:</h6>
+                            @if (current.CoversList != null && current.CoversList.Any())
+                            {
+                                foreach (var coverUrl in current.CoversList)
+                                {
+                                    <img src="@coverUrl" alt="Текущая обложка" class="img-thumbnail mb-2 me-1" style="max-width: 100px;" />
+                                }
+                            }
+                            else { <p class="text-muted fst-italic">Нет текущих обложек.</p> }
+                        }
+                        else { <p class="text-warning fst-italic">Текущие данные новеллы не найдены.</p> }
+                    </div>
+                    <div class="col-md-6 ps-3">
+                        <h5 class="text-success mb-3">Предлагаемые изменения:</h5>
+                        @if (Model.ProposedEditData?.UpdatedFields != null)
+                        {
+                            var updated = Model.ProposedEditData.UpdatedFields;
+                            <p><strong>Название:</strong> @updated.Title</p>
+                            <p><strong>Описание:</strong> <pre class="bg-white p-2 border rounded text-body" style="white-space: pre-wrap; word-wrap: break-word; max-height:200px; overflow-y:auto;">@updated.Description</pre></p>
+                            <p><strong>Жанры:</strong> @updated.Genres</p>
+                            <p><strong>Теги:</strong> @updated.Tags</p>
+                            <p><strong>Тип:</strong> @updated.Type</p>
+                            <p><strong>Формат:</strong> @updated.Format</p>
+                            <p><strong>Год:</strong> @updated.ReleaseYear</p>
+
+                            <h6 class="mt-2">Сохраненные обложки (которые остаются):</h6>
+                            @if (Model.ProposedEditData.KeptExistingCovers != null && Model.ProposedEditData.KeptExistingCovers.Any())
+                            {
+                                foreach (var coverUrl in Model.ProposedEditData.KeptExistingCovers)
+                                {
+                                    <img src="@coverUrl" alt="Сохраненная обложка" class="img-thumbnail mb-2 me-1" style="max-width: 100px;" />
+                                }
+                            }
+                            else { <p class="text-muted fst-italic">Нет сохраненных обложек.</p> }
+
+                            <h6 class="mt-2">Новые предлагаемые обложки (временные):</h6>
+                            @if (Model.TempCoverPreviews != null && Model.TempCoverPreviews.Any())
+                            {
+                                foreach (var coverUrl in Model.TempCoverPreviews)
+                                {
+                                    <img src="@coverUrl" alt="Новая предлагаемая обложка" class="img-thumbnail mb-2 me-1" style="max-width: 100px;" />
+                                }
+                            }
+                            else { <p class="text-muted fst-italic">Нет новых предлагаемых обложек.</p> }
+                        }
+                        else { <p class="text-warning fst-italic">Данные предлагаемых изменений не найдены.</p> }
+                    </div>
+                </div>
+            }
+            else if (Model.RequestType == ModerationRequestType.DeleteNovel)
+            {
+                <h4 class="mt-3 text-danger">Запрос на удаление: @(Model.CurrentNovelData?.Title ?? "N/A")</h4>
+                @if (Model.CurrentNovelData != null)
+                {
+                    var current = Model.CurrentNovelData;
+                    <p><strong>ID Новеллы:</strong> @current.Id</p>
+                    <p><strong>Описание:</strong> <pre class="bg-white p-2 border rounded text-body" style="white-space: pre-wrap; word-wrap: break-word;">@current.Description</pre></p>
+                    <h6 class="mt-2">Обложки (будут удалены вместе с новеллой):</h6>
+                     @if (current.CoversList != null && current.CoversList.Any())
+                    {
+                        foreach (var coverUrl in current.CoversList)
+                        {
+                            <img src="@coverUrl" alt="Обложка" class="img-thumbnail mb-2 me-1" style="max-width: 100px;" />
+                        }
+                    }
+                    else { <p class="text-muted fst-italic">Нет обложек.</p> }
+                }
+                else
+                {
+                     <p class="text-danger fst-italic">Данные удаляемой новеллы не найдены.</p>
+                }
+            }
+        </div>
+        <div class="card-footer text-center bg-light py-3">
+            <form asp-action="ApproveNovelRequest" asp-route-requestId="@Model.RequestId" method="post" class="d-inline me-2 novel-details-form-approve">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-lg btn-success"><i class="fas fa-check me-2"></i>Одобрить</button>
+            </form>
+            <button type="button" class="btn btn-lg btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModalNovelDetails">
+                <i class="fas fa-times me-2"></i>Отклонить
+            </button>
+            <a asp-action="Index" asp-fragment="novel-requests-tab" class="btn btn-lg btn-secondary float-sm-end mt-2 mt-sm-0">
+                <i class="fas fa-arrow-left me-2"></i>Назад к списку
+            </a>
+        </div>
     </div>
 </div>
 
-@if (Model.RequestType == ModerationRequestType.AddNovel && requestedNovel != null)
-
-{
-    <h4>Предлагаемая новая новелла:</h4>
-    <partial name="_NovelDisplayPartial" model="requestedNovel" />
-}
-
-else if (Model.RequestType == ModerationRequestType.EditNovel)
-
-{
-    <div class="row mt-4">
-        @if (existingNovel != null)
-
-        {
-            <div class="col-md-6">
-                <h4>Существующая новелла (ID: @existingNovel.Id):</h4>
-                <partial name="_NovelDisplayPartial" model="existingNovel" />
-            </div>
-        }
-        @if (requestedNovel != null) // This contains the proposed changes mapped to a Novel object
-
-        {
-            <div class="col-md-6">
-                <h4>Предлагаемые изменения:</h4>
-                <partial name="_NovelDisplayPartial" model="requestedNovel" />
-            </div>
-        }
-
-        else if (!string.IsNullOrEmpty(Model.RequestData))
-
-        {
-            <div class="col-md-6">
-                <h4>JSON с изменениями:</h4>
-                <pre style="max-height: 400px; overflow:auto; border:1px solid #ccc; padding:10px;">@Model.RequestData</pre>
-            </div>
-        }
+<!-- Modal for Rejection -->
+<div class="modal fade" id="rejectModalNovelDetails" tabindex="-1" aria-labelledby="rejectModalLabelNovelDetails" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form asp-action="RejectNovelRequest" asp-route-requestId="@Model.RequestId" method="post" id="formRejectNovelDetails">
+                @Html.AntiForgeryToken()
+                 <input type="hidden" name="requestId" value="@Model.RequestId" />
+                <div class="modal-header">
+                    <h5 class="modal-title" id="rejectModalLabelNovelDetails">Отклонить запрос ID: @Model.RequestId</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Вы уверены, что хотите отклонить запрос (@Model.RequestActionDisplay) для новеллы <br>
+                       "<strong>@Model.NovelTitle</strong>"?</p>
+                    <div class="mb-3">
+                        <label for="moderationCommentNovelDetails" class="form-label">Причина отклонения (необязательно):</label>
+                        <textarea name="reason" id="moderationCommentNovelDetails" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger">Отклонить запрос</button>
+                </div>
+            </form>
+        </div>
     </div>
-}
-
-else if (Model.RequestType == ModerationRequestType.DeleteNovel && existingNovel != null)
-
-{
-    <h4>Новелла к удалению:</h4>
-    <partial name="_NovelDisplayPartial" model="existingNovel" />
-}
-
-@if (Model.Status == ModerationStatus.Pending)
-
-{
-    <div class="mt-4">
-        <h4>Обработка запроса:</h4>
-        <form id="processNovelRequestForm" method="post">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="requestId" value="@Model.Id" />
-            <div class="form-group mb-3">
-                <label for="moderationCommentNovel" class="form-label">Комментарий модератора (причина отклонения, если есть):</label>
-                <textarea id="moderationCommentNovel" name="moderationComment" class="form-control" rows="3"></textarea>
-            </div>
-            <div class="form-group">
-                <button type="button" class="btn btn-success btn-process-novel-request" data-approve="true"><i class="fas fa-check"></i> Одобрить</button>
-                <button type="button" class="btn btn-danger btn-process-novel-request" data-approve="false"><i class="fas fa-times"></i> Отклонить</button>
-                <a href="@Url.Action("Index", "Admin")#novel-requests-tab" class="btn btn-secondary">Назад к списку</a>
-            </div>
-        </form>
-    </div>
-}
-
-else
-
-{
-    <div class="mt-4 alert alert-info">
-        <p><strong>Модератор:</strong> @(ViewData["ModeratorUserLogin"]?.ToString() ?? (Model.ModeratorId.HasValue ? Model.ModeratorId.Value.ToString() : "N/A"))</p>
-        <p><strong>Дата обработки:</strong> @Model.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss")</p>
-        @if (!string.IsNullOrEmpty(Model.ModerationComment))
-
-        {
-            <p><strong>Комментарий модератора:</strong> @Model.ModerationComment</p>
-        }
-        <a href="@Url.Action("Index", "Admin")#novel-requests-tab" class="btn btn-outline-secondary mt-2">Назад к списку запросов</a>
-    </div>
-}
-
-<div class="mt-3">
-    @if (Model.Status != ModerationStatus.Pending) // Show this link only if already processed
-
-    {
-        <a href="@Url.Action("Index", "Admin")#novel-requests-tab" class="btn btn-outline-secondary">Назад к списку запросов</a>
-    }
 </div>
 
 @section Scripts {
-    <script>
-        $(document).ready(function () {
-            $('.btn-process-novel-request').click(function () {
-                var approve = $(this).data('approve') === true;
-                var requestId = $('#processNovelRequestForm input[name="requestId"]').val();
-                var moderationComment = $('#moderationCommentNovel').val();
-                var token = $('#processNovelRequestForm input[name="__RequestVerificationToken"]').val();
-                var button = $(this);
-                var originalButtonText = button.text();
+<script>
+    $(function () {
+        // AJAX for approving novel request from details page
+        $('.novel-details-form-approve').submit(function (e) {
+            e.preventDefault();
+            var form = $(this);
+            if (!confirm('Вы уверены, что хотите одобрить этот запрос по новелле?')) return;
 
-                // Disable both buttons
-                $('.btn-process-novel-request').prop('disabled', true).text('Обработка...');
-
-                $.ajax({
-                    url: '@Url.Action("ProcessNovelRequest", "Admin")',
-                    type: 'POST',
-                    data: {
-                        __RequestVerificationToken: token,
-                        requestId: requestId,
-                        approve: approve,
-                        moderationComment: moderationComment
-                    },
-                    success: function (response) {
-                        if (response.success) {
-                            alert(response.message);
-                            window.location.href = '@Url.Action("Index", "Admin")#novel-requests-tab';
-                        } else {
-                            alert('Ошибка: ' + response.message);
-                            // Re-enable buttons on error
-                            $('.btn-process-novel-request').prop('disabled', false);
-                            // Restore specific button text if needed, or a generic one
-                            button.text(originalButtonText);
-                            if (approve) { $('.btn-process-novel-request[data-approve="false"]').text('Отклонить'); }
-                            else { $('.btn-process-novel-request[data-approve="true"]').text('Одобрить'); }
-                        }
-                    },
-                    error: function (xhr) {
-                        alert('Произошла ошибка: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Неизвестная ошибка.'));
-                        $('.btn-process-novel-request').prop('disabled', false);
-                        button.text(originalButtonText);
-                        if (approve) { $('.btn-process-novel-request[data-approve="false"]').text('Отклонить'); }
-                        else { $('.btn-process-novel-request[data-approve="true"]').text('Одобрить'); }
+            $.ajax({
+                type: form.attr('method'),
+                url: form.attr('action'),
+                data: form.serialize(),
+                success: function (response) {
+                    if (response.success) {
+                        alert(response.message); // Replace with a nicer toast
+                        window.location.href = '@Url.Action("Index", "Admin")#novel-requests-tab';
+                    } else {
+                        alert('Ошибка: ' + response.message);
                     }
-                });
+                },
+                error: function () {
+                    alert('Произошла ошибка при отправке запроса на одобрение новеллы.');
+                }
             });
         });
-    </script>
+
+        // AJAX for rejecting novel request from details page (modal)
+        $('#formRejectNovelDetails').submit(function (e) {
+            e.preventDefault();
+            var form = $(this);
+            var modalElement = $('#rejectModalNovelDetails');
+
+            if (!confirm('Вы уверены, что хотите отклонить этот запрос по новелле?')) return;
+
+            $.ajax({
+                type: form.attr('method'),
+                url: form.attr('action'),
+                data: form.serialize(), // includes 'reason' from textarea
+                success: function (response) {
+                    if (response.success) {
+                        alert(response.message); // Replace with a nicer toast
+                        var modalInstance = bootstrap.Modal.getInstance(modalElement[0]);
+                        if (modalInstance) modalInstance.hide();
+                        window.location.href = '@Url.Action("Index", "Admin")#novel-requests-tab';
+                    } else {
+                        alert('Ошибка: ' + response.message);
+                    }
+                },
+                error: function () {
+                    alert('Произошла ошибка при отправке запроса на отклонение новеллы.');
+                }
+            });
+        });
+    });
+</script>
 }
