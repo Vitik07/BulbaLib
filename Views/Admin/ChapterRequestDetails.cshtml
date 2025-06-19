@@ -22,7 +22,7 @@
             @if (Model.NovelId.HasValue)
             {
                 <dt class="col-sm-4">Новелла:</dt>
-                <dd class="col-sm-8"><a asp-controller="NovelView" asp-action="Novel" asp-route-id="@Model.NovelId.Value" target="_blank">@Model.NovelTitle (ID: @Model.NovelId.Value)</a></dd>
+                <dd class="col-sm-8"><a asp-controller="NovelView" asp-action="Details" asp-route-id="@Model.NovelId.Value" target="_blank">@Model.NovelTitle (ID: @Model.NovelId.Value)</a></dd>
             }
             @if (Model.ChapterId.HasValue && Model.RequestType != ModerationRequestType.AddChapter)
             {
@@ -51,7 +51,9 @@ else if (Model.RequestType == ModerationRequestType.EditChapter)
         {
             <div class="col-md-6">
                 <h4>Существующая глава (ID: @Model.ExistingChapterData.Id):</h4>
-                @{ Model.ExistingChapterData.Content = Model.ExistingContent; }
+                @{ 
+                    Model.ExistingChapterData.Content = Model.ExistingContent; 
+                }
                 <partial name="_ChapterDisplayPartial" model="Model.ExistingChapterData" />
             </div>
         }
@@ -59,7 +61,9 @@ else if (Model.RequestType == ModerationRequestType.EditChapter)
         {
             <div class="col-md-6">
                 <h4>Предлагаемые изменения:</h4>
-                @{ Model.ProposedChapterData.Content = Model.ProposedContent; }
+                @{ 
+                    Model.ProposedChapterData.Content = Model.ProposedContent; 
+                }
                 <partial name="_ChapterDisplayPartial" model="Model.ProposedChapterData" />
             </div>
         }
@@ -68,7 +72,9 @@ else if (Model.RequestType == ModerationRequestType.EditChapter)
 else if (Model.RequestType == ModerationRequestType.DeleteChapter && Model.ExistingChapterData != null)
 {
     <h4 class="mt-4">Глава к удалению:</h4>
-    @{ Model.ExistingChapterData.Content = Model.ExistingContent; }
+    @{ 
+        Model.ExistingChapterData.Content = Model.ExistingContent; 
+    }
     <partial name="_ChapterDisplayPartial" model="Model.ExistingChapterData" />
 }
 else if (!string.IsNullOrEmpty(Model.RequestDataJson) && Model.ProposedChapterData == null && Model.ExistingChapterData == null)
@@ -100,27 +106,10 @@ else if (!string.IsNullOrEmpty(Model.RequestDataJson) && Model.ProposedChapterDa
 else
 {
     @{
-        // Declare variables in a scope accessible by later HTML
-        string? modComment = null;
-        DateTime? updatedAt = null;
-        string moderatorLogin = ViewData["ModeratorUserLogin"]?.ToString() ?? "N/A";
-
-        // Logic to populate modComment and updatedAt
-        var moderationRequestModel = Model.GetType().GetProperty("ModerationRequest")?.GetValue(Model) as ModerationRequest ??
-                                     (Context.Items["ModerationRequestObject"] as ModerationRequest); // Fallback if needed
-        
-        // Try to get initial values from the Model itself first
-        modComment = Model.GetType().GetProperty("ModerationComment")?.GetValue(Model) as string;
-        updatedAt = Model.GetType().GetProperty("UpdatedAt")?.GetValue(Model) as DateTime?;
-
-        if (moderationRequestModel != null) // Prefer data from a full ModerationRequest if available
-        {
-             if (moderationRequestModel.ModeratorId.HasValue && moderatorLogin == "N/A") {
-                // Logic to set moderatorLogin if it wasn't in ViewData should be in controller
-             }
-             modComment = moderationRequestModel.ModerationComment; // Override if available in request model
-             updatedAt = moderationRequestModel.UpdatedAt;     // Override if available in request model
-        }
+        string? modComment = Model.ModerationComment; // Directly access from Model
+        DateTime? updatedAt = Model.UpdatedAt; // Directly access from Model
+        // ModeratorLogin is expected to be in ViewData, set by the controller.
+        string moderatorLogin = ViewData["ModeratorUserLogin"]?.ToString() ?? "N/A"; 
     }
     <div class="mt-4 alert alert-info">
         <p><strong>Модератор:</strong> @moderatorLogin</p>
@@ -142,7 +131,7 @@ else
             var moderationComment = $('#moderationCommentChapter').val();
             var token = $('#processChapterRequestForm input[name="__RequestVerificationToken"]').val();
             var button = $(this);
-            var originalButtonText = button.text();
+            // var originalButtonText = button.text(); // Not used currently
             
             $('.btn-process-chapter-request').prop('disabled', true).text('Обработка...');
 
@@ -165,7 +154,6 @@ else
                     } else {
                         alert('Ошибка: ' + response.message);
                         $('.btn-process-chapter-request').prop('disabled', false);
-                        // Restore specific button text
                         $('.btn-process-chapter-request[data-approve="true"]').text('Одобрить');
                         $('.btn-process-chapter-request[data-approve="false"]').text('Отклонить');
                     }

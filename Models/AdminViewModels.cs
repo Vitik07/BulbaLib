@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using BulbaLib.Models; // For Novel, Chapter, ModerationRequestType
+// Ensure BulbaLib.Models is referenced if Novel, Chapter etc. are in that base namespace.
+// If they are in BulbaLib.Models.ViewModels, this using might not be strictly necessary
+// but doesn't harm. Given the other files, they seem to be in BulbaLib.Models.
+using BulbaLib.Models;
 
-// It's better to have these in BulbaLib.Models or a sub-namespace like BulbaLib.Models.ViewModels
-
+// The namespace for these ViewModels should ideally be consistent.
+// If other models are in BulbaLib.Models, then BulbaLib.Models or BulbaLib.Models.ViewModels is fine.
 namespace BulbaLib.Models // Or BulbaLib.Models.ViewModels
 {
     public class NovelModerationRequestViewModel
@@ -21,7 +24,7 @@ namespace BulbaLib.Models // Or BulbaLib.Models.ViewModels
 
         public Novel ProposedNovelData { get; set; }
         public Novel ExistingNovelData { get; set; }
-        public NovelUpdateRequest? ProposedNovelChanges { get; set; } // Uncommented and made nullable
+        public NovelUpdateRequest? ProposedNovelChanges { get; set; }
 
         private static string GetFriendlyRequestTypeName(ModerationRequestType requestType)
         {
@@ -38,10 +41,10 @@ namespace BulbaLib.Models // Or BulbaLib.Models.ViewModels
         }
     }
 
-    public class ChapterModerationRequestViewModel
+    public class ChapterModerationRequestViewModel // This is the single definition
     {
         public int RequestId { get; set; }
-        public ModerationRequestType RequestType { get; set; }
+        public ModerationRequestType RequestType { get; set; } // This was line 43 from the error
         public string RequestTypeFriendlyName => GetFriendlyRequestTypeName(RequestType);
         public int UserId { get; set; }
         public string RequesterLogin { get; set; }
@@ -55,13 +58,15 @@ namespace BulbaLib.Models // Or BulbaLib.Models.ViewModels
         public string RequestDataJson { get; set; }
 
         public Chapter ProposedChapterData { get; set; }
-        public string ProposedContent { get; set; } // Extracted from ProposedChapterData.Content for convenience
+        public string ProposedContent { get; set; }
         public Chapter ExistingChapterData { get; set; }
-        public string ExistingContent { get; set; } // Loaded from file for convenience
+        public string ExistingContent { get; set; }
+
+        public string? ModerationComment { get; set; }
+        public DateTime? UpdatedAt { get; set; }
 
         private static string GetFriendlyRequestTypeName(ModerationRequestType requestType)
         {
-            // Consider moving to a shared helper if used in multiple ViewModels
             switch (requestType)
             {
                 case ModerationRequestType.AddNovel: return "Добавление новеллы";

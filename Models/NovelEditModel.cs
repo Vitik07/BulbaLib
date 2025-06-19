@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System;
-using Microsoft.AspNetCore.Http; // Added for IFormFile
+using Microsoft.AspNetCore.Http;
 
 namespace BulbaLib.Models
 {
@@ -18,16 +18,17 @@ namespace BulbaLib.Models
         [DataType(DataType.MultilineText)]
         public string Description { get; set; }
 
-        public List<string> KeptCovers { get; set; } = new List<string>(); // Renamed from Covers
+        public List<string> KeptCovers { get; set; } = new List<string>();
 
         [Microsoft.AspNetCore.Mvc.ModelBinding.Validation.ValidateNever]
         [Display(Name = "Загрузить новые обложки")]
         public List<IFormFile>? NewCoverFiles { get; set; }
 
         [Display(Name = "Жанры")]
-        public string Genres { get; set; } // Comma-separated or JSON string
+        public string Genres { get; set; }
+
         [Display(Name = "Теги")]
-        public string Tags { get; set; }   // Comma-separated or JSON string
+        public string Tags { get; set; }
 
         [Required(ErrorMessage = "Пожалуйста, выберите тип новеллы.")]
         [Display(Name = "Тип")]
@@ -41,20 +42,18 @@ namespace BulbaLib.Models
 
         [Required(ErrorMessage = "Пожалуйста, укажите год релиза.")]
         [Display(Name = "Год релиза")]
-        [Range(1900, 2099, ErrorMessage = "Год релиза должен быть между 1900 и 2099.")] // Обновленный статический диапазон
+        [Range(1900, 2099, ErrorMessage = "Год релиза должен быть между 1900 и 2099.")]
         [RegularExpression(@"^\d{4}$", ErrorMessage = "Год релиза должен состоять из 4 цифр.")]
         public int? ReleaseYear { get; set; }
 
         [Display(Name = "Альтернативные названия")]
         [DataType(DataType.MultilineText)]
-        public string AlternativeTitles { get; set; } // Comma-separated
-        public string RelatedNovelIds { get; set; }   // Comma-separated IDs
+        public string AlternativeTitles { get; set; }
+        public string RelatedNovelIds { get; set; }
 
-        // To show who the original author is, not editable by Author role in this form.
-        // Admin might be able to change it if UI/logic supports it.
         [Display(Name = "Автор")]
         public int? AuthorId { get; set; }
-        public string? AuthorLogin { get; set; } // For display purposes
+        public string? AuthorLogin { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
@@ -65,20 +64,14 @@ namespace BulbaLib.Models
                     new[] { nameof(ReleaseYear) });
             }
 
-            // Check for at least one cover
-            bool hasExistingCovers = KeptCovers != null && KeptCovers.Any(c => !string.IsNullOrWhiteSpace(c)); // Updated to KeptCovers
+            bool hasExistingCovers = KeptCovers != null && KeptCovers.Any(c => !string.IsNullOrWhiteSpace(c));
             bool hasNewCoverFiles = NewCoverFiles != null && NewCoverFiles.Any(f => f != null && f.Length > 0);
 
             if (!hasExistingCovers && !hasNewCoverFiles)
             {
-                // Attempt to add the error to a specific member if possible,
-                // or as a model-level error.
-                // For covers, it might relate to NewCoverFiles or a general model error.
-                // Let's try to associate it with NewCoverFiles for UI display,
-                // though it's a combined condition.
                 yield return new ValidationResult(
                     "Новелла должна иметь хотя бы одну обложку. Пожалуйста, загрузите новую или убедитесь, что существующая обложка не удалена.",
-                    new string[] { }); // Or use an empty array for model-level error: new string[] { }
+                    new string[] { });
             }
         }
     }
