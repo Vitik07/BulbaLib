@@ -37,57 +37,75 @@ namespace BulbaLib.Models
         }
     }
 
-    // Overwriting ChapterModerationRequestViewModel as per the new subtask's specific requirements
     public class ChapterModerationRequestViewModel
     {
+        // Base Properties
         public int RequestId { get; set; }
         public ModerationRequestType RequestType { get; set; }
-        public string UserLogin { get; set; } // Changed from RequesterLogin
+        public string RequestDataJson { get; set; }
+        public string Status { get; set; }
         public int NovelId { get; set; }
         public string NovelTitle { get; set; }
-        public string NovelCoverImageUrl { get; set; } // Added
-        public int? ChapterId { get; set; } // For Edit/Delete existing chapter
-        public string CurrentChapterNumber { get; set; } // For Edit/Delete, from existing chapter
-        public string CurrentChapterTitle { get; set; } // For Edit/Delete, from existing chapter
-        public string ProposedChapterNumber { get; set; } // For Add/Edit, from RequestData
-        public string ProposedChapterTitle { get; set; } // For Add/Edit, from RequestData
-        public DateTime RequestedAt { get; set; } // Changed from CreatedAt for consistency with prompt
+        public string NovelCoverImageUrl { get; set; }
+        public int? ChapterId { get; set; }
 
-        public string RequestActionDisplay // Property for display string
+        // User Related
+        public int UserId { get; set; }
+        public string UserLogin { get; set; }       // Added back
+        public string RequesterLogin { get; set; }  // Kept
+
+        // Date Related
+        public DateTime CreatedAt { get; set; }     // Kept
+        public DateTime RequestedAt { get; set; }   // Added back
+
+        // Chapter Data (General)
+        public string ChapterNumber { get; set; }   // Kept
+        public string ChapterTitle { get; set; }    // Kept
+
+        // Existing/Current Chapter Data
+        public Chapter ExistingChapterData { get; set; }    // Kept
+        public string CurrentChapterNumber { get; set; }    // Added back
+        public string CurrentChapterTitle { get; set; }     // Added back
+        public string CurrentChapterContent { get; set; }   // Added back
+        public string ExistingContent { get; set; }         // Kept
+
+        // Proposed Chapter Data
+        public Chapter ProposedChapterData { get; set; }    // Kept
+        public string ProposedChapterNumber { get; set; }   // Added back
+        public string ProposedChapterTitle { get; set; }    // Added back
+        public string ProposedChapterContent { get; set; }  // Added back
+        public string ProposedContent { get; set; }         // Kept
+
+        // Display Properties (Calculated)
+        public string RequestTypeFriendlyName => GetFriendlyRequestTypeName(RequestType, "friendly");
+        public string RequestActionDisplay => GetFriendlyRequestTypeName(RequestType, "action"); // Added back
+
+        // Helper method for display names.
+        // The 'context' parameter is illustrative; if strings are identical, it's not needed.
+        // For now, using the existing helper from NovelModerationRequestViewModel as a reference.
+        // The actual string values might need adjustment based on specific UI requirements.
+        private static string GetFriendlyRequestTypeName(ModerationRequestType requestType, string context = "friendly") // context can be "friendly" or "action"
         {
-            get
-            {
-                return RequestType switch
-                {
-                    ModerationRequestType.AddChapter => "Добавление главы",
-                    ModerationRequestType.EditChapter => "Редактирование главы",
-                    ModerationRequestType.DeleteChapter => "Удаление главы",
-                    _ => RequestType.ToString(),
-                };
-            }
-        }
-
-        // These fields were in the original prompt's version of ChapterModerationRequestViewModel.
-        // They might be populated by the service or could be derived if RequestData is also exposed.
-        // For now, including them as they were part of the target definition.
-        // public string ParsedRequestDataChapterTitle { get; set; } // Replaced by ProposedChapterTitle
-        // public string ParsedRequestDataChapterNumber { get; set; } // Replaced by ProposedChapterNumber
-        public string ProposedChapterContent { get; set; } // For Add/Edit
-        public string CurrentChapterContent { get; set; } // For Edit/Delete
-
-        // Retaining this helper method if it's used by other view models or if it's a general utility.
-        // If RequestActionDisplay replaces its usage for this VM, it could be removed if not used elsewhere.
-        private static string GetFriendlyRequestTypeName(ModerationRequestType requestType)
-        {
+            // If "action" display needs to be shorter, e.g., "Добавление" vs "Добавление главы"
+            // This is a placeholder, real logic might differ if strings need to be distinct.
+            // For now, assume they might be the same for simplicity of this step,
+            // focusing on having the property available.
             switch (requestType)
             {
-                case ModerationRequestType.AddNovel: return "Добавление новеллы";
-                case ModerationRequestType.EditNovel: return "Редактирование новеллы";
-                case ModerationRequestType.DeleteNovel: return "Удаление новеллы";
-                case ModerationRequestType.AddChapter: return "Добавление главы";
-                case ModerationRequestType.EditChapter: return "Редактирование главы";
-                case ModerationRequestType.DeleteChapter: return "Удаление главы";
-                default: return requestType.ToString();
+                case ModerationRequestType.AddNovel:
+                    return context == "action" ? "Добавление (Новелла)" : "Добавление новеллы";
+                case ModerationRequestType.EditNovel:
+                    return context == "action" ? "Редактирование (Новелла)" : "Редактирование новеллы";
+                case ModerationRequestType.DeleteNovel:
+                    return context == "action" ? "Удаление (Новелла)" : "Удаление новеллы";
+                case ModerationRequestType.AddChapter:
+                    return context == "action" ? "Добавление (Глава)" : "Добавление главы";
+                case ModerationRequestType.EditChapter:
+                    return context == "action" ? "Редактирование (Глава)" : "Редактирование главы";
+                case ModerationRequestType.DeleteChapter:
+                    return context == "action" ? "Удаление (Глава)" : "Удаление главы";
+                default:
+                    return requestType.ToString();
             }
         }
     }

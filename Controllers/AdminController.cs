@@ -284,7 +284,7 @@ namespace BulbaLib.Controllers
                 UserId = request.UserId,
                 RequesterLogin = requesterUser?.Login ?? "N/A",
                 CreatedAt = request.CreatedAt,
-                NovelId = request.NovelId,
+                NovelId = request.NovelId ?? 0, // Safely handle nullable NovelId
                 NovelTitle = parentNovel?.Title ?? "N/A",
                 ChapterId = request.ChapterId,
                 RequestDataJson = request.RequestData,
@@ -345,8 +345,6 @@ namespace BulbaLib.Controllers
             return $"/uploads/content/{novelId}/{finalFileName}";
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ApproveChapterRequest(int requestId)

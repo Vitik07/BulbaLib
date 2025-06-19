@@ -392,5 +392,27 @@ namespace BulbaLib.Services
             // await Task.Run(() => File.Delete(fullPath)); 
             // However, for this operation, the overhead of Task.Run might not be worth it unless contention is high.
         }
+
+        public bool ChapterFileExists(string relativeFilePath)
+        {
+            if (string.IsNullOrEmpty(relativeFilePath))
+            {
+                _logger.LogWarning("[ChapterFileExists] Relative file path is null or empty.");
+                return false;
+            }
+
+            // Ensure relativeFilePath does not lead to path traversal issues by normalizing.
+            // Path.Combine correctly handles combining paths, and TrimStart('/') ensures it's treated as relative to WebRootPath.
+            var safeRelativePath = relativeFilePath.TrimStart('/');
+            // Further checks can be added here if paths are user-generated and complex. For now, assume it's system-generated or validated elsewhere.
+
+            var fullPath = Path.Combine(_webHostEnvironment.WebRootPath, safeRelativePath);
+            _logger.LogInformation("[ChapterFileExists] Checking for file existence at physical path: {FullPath}", fullPath);
+
+            bool exists = File.Exists(fullPath);
+            _logger.LogInformation("[ChapterFileExists] File at {FullPath} exists: {Exists}", fullPath, exists);
+
+            return exists;
+        }
     }
 }

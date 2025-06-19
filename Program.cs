@@ -1,14 +1,19 @@
 using BulbaLib.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.Configuration; // Added for IConfiguration
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
 
-builder.Services.AddSingleton(new MySqlService(
-    builder.Configuration.GetConnectionString("DefaultConnection")!
-));
+builder.Services.AddScoped<MySqlService>(serviceProvider =>
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var fileService = serviceProvider.GetRequiredService<FileService>();
+    var connectionString = configuration.GetConnectionString("DefaultConnection")!;
+    return new MySqlService(connectionString, fileService);
+});
 
 builder.Services.AddCors(options =>
 {
