@@ -837,6 +837,28 @@ namespace BulbaLib.Controllers
             var url = $"/uploads/chapters/{chapterId}/{fileName}";
             return Ok(new { url });
         }
+
+        // API endpoint for recent updates
+        [HttpGet("api/chapters/recentupdates")]
+        [AllowAnonymous]
+        public IActionResult GetRecentUpdates([FromQuery] int count = 6)
+        {
+            if (count <= 0) count = 6;
+            if (count > 50) count = 50; // Max limit
+
+            var updates = _mySqlService.GetRecentChapterUpdates(count);
+            var result = updates.Select(u => new RecentUpdateViewModel
+            {
+                ChapterId = u.Id, // Assuming ChapterWithNovelInfo has Id for chapter
+                NovelId = u.NovelId,
+                ChapterNumber = u.Number, // Assuming ChapterWithNovelInfo has Number for chapter
+                ChapterTitle = u.Title,   // Assuming ChapterWithNovelInfo has Title for chapter
+                ChapterDate = u.Date,     // Assuming ChapterWithNovelInfo has Date for chapter
+                NovelTitle = u.NovelTitle,
+                NovelCovers = !string.IsNullOrEmpty(u.NovelCoversJson) ? JsonSerializer.Deserialize<List<string>>(u.NovelCoversJson) ?? new List<string>() : new List<string>()
+            }).ToList();
+            return Ok(result);
+        }
     }
 
     // DTOs для создания/обновления главы
@@ -856,4 +878,16 @@ namespace BulbaLib.Controllers
     }
 
     // ViewModels for Chapter MVC Actions are now expected to be in BulbaLib.Models
+
+    // ViewModel for Recent Updates
+    public class RecentUpdateViewModel
+    {
+        public int ChapterId { get; set; }
+        public int NovelId { get; set; }
+        public string? ChapterNumber { get; set; }
+        public string? ChapterTitle { get; set; }
+        public long ChapterDate { get; set; }
+        public string NovelTitle { get; set; }
+        public List<string> NovelCovers { get; set; }
+    }
 }

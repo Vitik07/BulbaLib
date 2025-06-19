@@ -333,7 +333,23 @@
 
             // Заголовки и описание
             document.querySelector('.novel-page-title').textContent = novelFromApi.title || '';
-            document.querySelector('.novel-alt-title').textContent = novelFromApi.altTitle || '';
+            // document.querySelector('.novel-alt-title').textContent = novelFromApi.altTitle || ''; // Old line
+            let altTitlesText = '';
+            if (novelFromApi.alternativeTitles) {
+                try {
+                    const altTitlesArray = JSON.parse(novelFromApi.alternativeTitles);
+                    if (Array.isArray(altTitlesArray)) {
+                        altTitlesText = altTitlesArray.join(', ');
+                    } else {
+                        // If it's not a JSON array string but a plain string, use it directly
+                        altTitlesText = novelFromApi.alternativeTitles;
+                    }
+                } catch (e) {
+                    // If JSON.parse fails, assume it's a plain string
+                    altTitlesText = novelFromApi.alternativeTitles;
+                }
+            }
+            document.querySelector('.novel-alt-title').textContent = altTitlesText;
             const descBlock = document.getElementById('novel-description');
             const fullDescription = novelFromApi.description || '';
             const shortDesc = fullDescription.slice(0, 400);
@@ -387,15 +403,8 @@
             renderChaptersWithBookmark(chapterViewModels);
 
             // --- вкладка связанное ---
-            let relatedIds = [];
-            if (novelFromApi.relatedNovelIds) {
-                if (Array.isArray(novelFromApi.relatedNovelIds)) {
-                    relatedIds = novelFromApi.relatedNovelIds;
-                } else if (typeof novelFromApi.relatedNovelIds === "string") {
-                    relatedIds = novelFromApi.relatedNovelIds.split(',').map(x => x.trim()).filter(Boolean);
-                }
-            }
-            renderRelatedNovels(relatedIds);
+            // The parsing of relatedNovelIds is now handled within renderRelatedNovels
+            renderRelatedNovels(novelFromApi.relatedNovelIds);
 
             // --- Обработка кнопки "Читать" с учетом закладки ---
             const readBtnText = document.getElementById('read-btn-text');
@@ -495,33 +504,76 @@
             return d.toLocaleDateString('ru-RU');
         }
 
-        function renderRelatedNovels(relatedIds) {
+        async function renderRelatedNovels(relatedNovelIdsString) { // Assuming input is a string "1,2,3" or JSON array string "\[1,2,3]"
             const relatedList = document.getElementById('related-list');
             relatedList.innerHTML = '';
-            if (!relatedIds || !relatedIds.length) {
+            let idsArray = [];
+
+            if (relatedNovelIdsString) {
+                try {
+                    // Попытка распарсить как JSON массив
+                    const parsed = JSON.parse(relatedNovelIdsString);
+                    if (Array.isArray(parsed)) {
+                        idsArray = parsed.map(id => parseInt(id, 10)).filter(id => !isNaN(id) && id > 0);
+                    } else {
+                        // Если это не массив, но JSON (например, просто число как строка "1"), попробуем как CSV
+                        // Либо, если parsed это число, то idsArray = [parsed]
+                        if (!isNaN(parseInt(parsed,10))) { // if it's a single number string like "1"
+                             idsArray = [parseInt(parsed,10)].filter(id => !isNaN(id) && id > 0);
+                        } else {
+                             console.warn("RelatedNovelIds JSON parsed but is not an array or a single number string:", parsed);
+                        }
+                    }
+                } catch (e) {
+                    // Если не JSON, попробовать как CSV
+                    idsArray = relatedNovelIdsString.split(',')
+                        .map(idStr => parseInt(idStr.trim(), 10))
+                        .filter(id => !isNaN(id) && id > 0);
+                }
+            }
+
+            if (!idsArray || !idsArray.length) {
                 relatedList.innerHTML = '<div style="color:#888;">Нет связанных новелл</div>';
                 return;
             }
-            Promise.all(relatedIds.map(id =>
-                fetch(`${baseUrl}/api/novels/${id}`).then(res => res.ok ? res.json() : null)
-            )).then(novels => {
+
+            try {
+                const idString = idsArray.join(',');
+                const response = await fetch(`${baseUrl}/api/Novels/detailsByIds?ids=${idString}`);
+                if (!response.ok) {
+                    // Если API возвращает ошибку (например, 404, если ни один ID не найден, или 500)
+                    throw new Error(`Failed to fetch related novels, status: ${response.status}`);
+                }
+                const novels = await response.json();
+
+                if (!novels || !novels.length) {
+                    relatedList.innerHTML = '<div style="color:#888;">Связанные новеллы не найдены.</div>';
+                    return;
+                }
+
                 for (const novel of novels) {
-                    if (!novel) continue;
+                    if (!novel) continue; // На случай, если в массиве есть null элементы
                     const card = document.createElement('div');
                     card.className = 'related-card';
+                    // Используем novel.firstCoverUrl которое должно приходить от API /api/Novels/detailsByIds
+                    const coverUrl = novel.firstCoverUrl || '/img/no-cover.png'; // Стандартная заглушка
                     card.innerHTML = `
-                                            <a href="/novel/${novel.id}" style="text-decoration:none;">
-                                                <img class="related-cover" src="${(novel.covers && novel.covers.length) ? novel.covers[novel.covers.length - 1] : '/img/no-cover.png'}" alt="">
-                                                <div class="related-title">${novel.title || 'Без названия'}</div>
-                                                <div class="related-type">${novel.type || ''}</div>
-                                            </a>
-                                        `;
+                        <a href="/novel/${novel.id}" style="text-decoration:none;">
+                            <img class="related-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="Обложка ${novel.title || ''}">
+                            <div class="related-title">${novel.title || 'Без названия'}</div>
+                            // Тип новеллы не приходит от detailsByIds, так что его убираем или модифицируем API
+                            // <div class="related-type">${novel.type || ''}</div>
+                        </a>
+                    `;
                     relatedList.appendChild(card);
                 }
-                if (!relatedList.children.length) {
-                    relatedList.innerHTML = '<div style="color:#888;">Нет связанных новелл</div>';
+                if (!relatedList.children.length) { // Дополнительная проверка, если все novel были null
+                    relatedList.innerHTML = '<div style="color:#888;">Нет связанных новелл для отображения.</div>';
                 }
-            });
+            } catch (error) {
+                console.error("Error rendering related novels:", error);
+                relatedList.innerHTML = '<div style="color:red;">Ошибка загрузки связанных новелл.</div>';
+            }
         }
 
         // === МАППИНГ СТАТУСОВ ===

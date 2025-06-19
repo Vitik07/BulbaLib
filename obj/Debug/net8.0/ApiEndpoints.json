@@ -250,6 +250,11 @@
         "Name": "nameQuery",
         "Type": "System.String",
         "IsRequired": false
+      },
+      {
+        "Name": "limit",
+        "Type": "System.Int32",
+        "IsRequired": false
       }
     ],
     "ReturnTypes": []

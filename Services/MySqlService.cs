@@ -1790,5 +1790,39 @@ namespace BulbaLib.Services
             cmd.Parameters.AddWithValue("@id", chapterId);
             await cmd.ExecuteNonQueryAsync();
         }
+
+        public List<ChapterWithNovelInfo> GetRecentChapterUpdates(int count)
+        {
+            var result = new List<ChapterWithNovelInfo>();
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT
+                    c.Id, c.NovelId, c.Number, c.Title AS ChapterTitle, c.Date AS ChapterDate, c.ContentFilePath, c.CreatorId,
+                    n.Title AS NovelTitle, n.Covers AS NovelCoversJson
+                FROM Chapters c
+                JOIN Novels n ON c.NovelId = n.Id
+                ORDER BY c.Date DESC
+                LIMIT @count;";
+            cmd.Parameters.AddWithValue("@count", count);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                result.Add(new ChapterWithNovelInfo
+                {
+                    Id = reader.GetInt32("Id"),
+                    NovelId = reader.GetInt32("NovelId"),
+                    Number = reader.IsDBNull(reader.GetOrdinal("Number")) ? null : reader.GetString("Number"),
+                    Title = reader.IsDBNull(reader.GetOrdinal("ChapterTitle")) ? null : reader.GetString("ChapterTitle"),
+                    Date = reader.GetInt64("ChapterDate"),
+                    ContentFilePath = reader.IsDBNull(reader.GetOrdinal("ContentFilePath")) ? null : reader.GetString("ContentFilePath"),
+                    CreatorId = reader.IsDBNull(reader.GetOrdinal("CreatorId")) ? (int?)null : reader.GetInt32("CreatorId"),
+                    NovelTitle = reader.GetString("NovelTitle"),
+                    NovelCoversJson = reader.IsDBNull(reader.GetOrdinal("NovelCoversJson")) ? null : reader.GetString("NovelCoversJson")
+                });
+            }
+            return result;
+        }
     }
 }

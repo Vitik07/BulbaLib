@@ -1,5 +1,6 @@
-﻿﻿﻿@{
+﻿﻿﻿﻿@{
     ViewData["Title"] = "BulbaLib";
+
     Layout = null;
 }
 <!DOCTYPE html>
@@ -253,9 +254,9 @@
                 const card = document.createElement('div');
                 card.className = 'search-novel-card';
                 card.innerHTML = `
-                                                    <img src="${getCover(novel)}" alt="${novel.title}">
-                                                    <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
-                                                `;
+                                                            <img src="${getCover(novel)}" alt="${novel.title}">
+                                                            <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
+                                                        `;
                 card.onclick = () => window.location.href = `/novel/${novel.id}`;
                 searchResultsList.appendChild(card);
             }
@@ -302,9 +303,9 @@
                     const card = document.createElement('div');
                     card.className = 'recent-novel-card';
                     card.innerHTML = `
-                                                <img src="${getCover(novel)}" alt="${novel.title}">
-                                                <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
-                                            `;
+                                                        <img src="${getCover(novel)}" alt="${novel.title}">
+                                                        <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
+                                                    `;
                     card.onclick = () => window.location.href = `/novel/${novel.id}`;
                     recentlyReadList.appendChild(card);
                 }
@@ -316,42 +317,45 @@
 
         async function updateUpdatesList() {
             const updatesList = document.getElementById('updatesList');
-            updatesList.innerHTML = '';
+            updatesList.innerHTML = ''; // Очищаем старый список
             try {
-                const res = await fetch(`${baseUrl}/api/chapters?all=1`);
-                const chapters = (await res.json()).chapters || [];
-                let sorted = chapters.filter(ch => ch.date && ch.date > 0)
-                    .sort((a, b) => b.date - a.date || a.title.localeCompare(b.title, 'ru'));
-                const uniqueNovelIds = new Set();
-                const updates = [];
-                for (let ch of sorted) {
-                    if (!uniqueNovelIds.has(ch.novelId)) {
-                        uniqueNovelIds.add(ch.novelId);
-                        updates.push(ch);
-                    }
-                    if (updates.length >= 6) break;
+                // Запрос к новому API
+                const res = await fetch(`${baseUrl}/api/chapters/recentupdates?count=6`); // Используем count=6 или другое значение
+                if (!res.ok) throw new Error(`API request failed with status ${res.status}`);
+                const updates = await res.json(); // Получаем уже готовые данные
+
+                if (!updates || updates.length === 0) {
+                    updatesList.innerHTML = '<span>нет обновлений</span>';
+                    return;
                 }
-                for (let ch of updates) {
-                    const novel = allNovels.find(n => n.id === ch.novelId);
-                    if (!novel) continue;
+
+                for (let upd of updates) { // upd теперь содержит RecentUpdateViewModel
                     const item = document.createElement('div');
                     item.className = 'update-item';
+                    // Используем поля из RecentUpdateViewModel
+                    // novelCovers is a list, use the first one or a default.
+                    // Ensure path is correct (e.g., if it's relative, prepend server/base path if needed, but usually full paths or client-handleable relative paths are sent)
+                    const coverUrl = (upd.novelCovers && upd.novelCovers.length > 0 && upd.novelCovers[0])
+                        ? upd.novelCovers[0]
+                        : '/Resource/default.jpg'; // Default image
+
                     item.innerHTML = `
-                                                        <img class="update-cover" src="${getCover(novel)}" alt="${novel.title}">
-                                                        <div class="update-info">
-                                                            <div class="update-title">${novel.title}</div>
-                                                            <div class="update-chapter">${ch.number ? ch.number + " " : ""}${ch.title}</div>
-                                                            <div class="update-date">${formatRelativeTime(ch.date)}</div>
-                                                        </div>
-                                                    `;
-                    item.onclick = () => window.location.href = `/novel/${novel.id}?chapter=${ch.id}`;
+                                <img class="update-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="${upd.novelTitle}">
+                                <div class="update-info">
+                                    <div class="update-title">${upd.novelTitle}</div>
+                                    <div class="update-chapter">${upd.chapterNumber ? upd.chapterNumber + " " : ""}${upd.chapterTitle || 'Без названия'}</div>
+                                    <div class="update-date">${formatRelativeTime(upd.chapterDate)}</div>
+                                </div>
+                            `;
+                    // Переход на страницу новеллы и попытка проскроллить к главе (если такой функционал нужен)
+                    // или просто на страницу новеллы /novel/${upd.novelId}
+                    // или на страницу главы /chapter/${upd.chapterId}
+                    item.onclick = () => window.location.href = `/novel/${upd.novelId}?chapter=${upd.chapterId}`; // Or simply /novel/${upd.novelId} or /chapter/${upd.chapterId}
                     updatesList.appendChild(item);
                 }
-                if (updates.length === 0) {
-                    updatesList.innerHTML = '<span>нет обновлений</span>';
-                }
-            } catch {
-                updatesList.innerHTML = '<span>нет обновлений</span>';
+            } catch (error) {
+                console.error("Error fetching recent updates:", error);
+                updatesList.innerHTML = '<span>ошибка загрузки обновлений</span>';
             }
         }
 
@@ -366,9 +370,9 @@
                     const card = document.createElement('div');
                     card.className = 'novelty-card';
                     card.innerHTML = `
-                                                <img src="${getCover(novel)}" alt="${novel.title}">
-                                                <div class="novelty-title" title="${novel.title}">${novel.title}</div>
-                                            `;
+                                                        <img src="${getCover(novel)}" alt="${novel.title}">
+                                                        <div class="novelty-title" title="${novel.title}">${novel.title}</div>
+                                                    `;
                     card.onclick = () => window.location.href = `/novel/${novel.id}`;
                     noveltiesList.appendChild(card);
                 }
@@ -470,9 +474,9 @@
                 const card = document.createElement('div');
                 card.className = 'slider-novel-card';
                 card.innerHTML = `
-                                    <img src="${getCover(novel)}" alt="${novel.title}">
-                                    <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
-                                `;
+                                            <img src="${getCover(novel)}" alt="${novel.title}">
+                                            <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
+                                        `;
                 card.onclick = () => window.location.href = `/novel/${novel.id}`;
                 mainSlider.appendChild(card);
             }

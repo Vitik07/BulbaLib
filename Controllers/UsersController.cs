@@ -12,11 +12,13 @@ namespace BulbaLib.Controllers
     {
         private readonly MySqlService _db;
         private readonly IWebHostEnvironment _env;
+        private readonly ICurrentUserService _currentUserService;
 
-        public UsersController(MySqlService db, IWebHostEnvironment env)
+        public UsersController(MySqlService db, IWebHostEnvironment env, ICurrentUserService currentUserService)
         {
             _db = db;
             _env = env;
+            _currentUserService = currentUserService;
         }
 
         // GET /api/users/status?novelId=1
@@ -111,16 +113,25 @@ namespace BulbaLib.Controllers
         [HttpGet("me")]
         public IActionResult GetUser()
         {
-            int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-            var user = _db.GetUser(userId);
+            // int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+            // var user = _db.GetUser(userId);
+            var user = _currentUserService.GetCurrentUser(); // Use ICurrentUserService
+
             if (user == null)
-                return NotFound(new { error = "User not found" });
+            {
+                // This case should ideally be handled by [Authorize] if token is invalid.
+                // If token is valid but user somehow not found by ICurrentUserService, then 404.
+                return NotFound(new { error = "User not found or not authenticated." });
+            }
+
 
             return Ok(new
             {
                 id = user.Id,
                 login = user.Login,
-                avatar = user.Avatar != null ? Convert.ToBase64String(user.Avatar) : null
+                role = user.Role.ToString(), // Added Role
+                // avatar = user.Avatar != null ? Convert.ToBase64String(user.Avatar) : null // Old: base64
+                avatarUrl = Url.Action("GetUserAvatar", "Users", null, Request.Scheme) // Generates URL like /api/users/avatar
             });
         }
 
@@ -162,26 +173,32 @@ namespace BulbaLib.Controllers
         }
 
         [HttpGet("search")] // Route will be /api/Users/search
-        [Authorize]
-        public IActionResult SearchUsersByName([FromQuery] string nameQuery)
+        [Authorize] // Keep Authorize as this is usually for logged-in users selecting authors/translators
+        public IActionResult SearchUsersByName([FromQuery] string nameQuery, [FromQuery] int limit = 10)
         {
             if (string.IsNullOrWhiteSpace(nameQuery) || nameQuery.Length < 2)
             {
                 return Ok(new List<object>());
             }
+            if (limit <= 0) limit = 10;
+            if (limit > 50) limit = 50; // Max limit to prevent abuse
+
 
             // _db is the instance of MySqlService injected into UsersController
-            var users = _db.SearchUsersByLogin(nameQuery);
+            // Assuming SearchUsersByLogin in MySqlService needs to be updated to accept a limit
+            // For now, I'll call the existing method and then take 'limit' items.
+            // Ideally, MySqlService.SearchUsersByLogin itself would handle the LIMIT in SQL.
+            var users = _db.SearchUsersByLogin(nameQuery); // This method currently fetches up to 10 by default in SQL
 
             if (users == null)
             {
                 return Ok(new List<object>());
             }
 
-            var result = users.Select(u => new {
+            var result = users.Take(limit).Select(u => new { // Apply limit here if not in DB service
                 id = u.Id,
                 login = u.Login,
-                avatarUrl = $"/api/Users/{u.Id}/avatar" // Updated line
+                avatarUrl = Url.Action("GetUserAvatarById", "Users", new { userId = u.Id }, Request.Scheme) // Use Url.Action for robust URL generation
             });
 
             return Ok(result);

@@ -632,6 +632,7 @@ namespace BulbaLib.Controllers
             }
 
             var author = novel.AuthorId.HasValue ? _mySqlService.GetUser(novel.AuthorId.Value) : null;
+            var translators = _mySqlService.GetTranslatorsForNovel(id); // novel.Id is the same as id passed to GetNovel
 
             var chaptersResult = chapters.Select(ch => new {
                 id = ch.Id,
@@ -656,6 +657,7 @@ namespace BulbaLib.Controllers
                 releaseYear = novel.ReleaseYear,
                 chapterCount,
                 author = author != null ? new { id = author.Id, login = author.Login } : null,
+                translators = translators.Select(t => new { id = t.Id, login = t.Login }).ToList(),
                 alternativeTitles = novel.AlternativeTitles,
                 chapters = chaptersResult,
                 relatedNovelIds = novel.RelatedNovelIds,

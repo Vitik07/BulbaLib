@@ -104,8 +104,8 @@ namespace BulbaLib.Controllers
             {
                 return RedirectToAction("AccessDenied", "AuthView");
             }
-            ViewData["AllGenres"] = AllGenres;
-            ViewData["AllTags"] = AllTags;
+            ViewData["AllGenres"] = _mySqlService.GetAllGenres();
+            ViewData["AllTags"] = _mySqlService.GetAllTags();
 
             var model = new NovelCreateModel();
             if (currentUser.Role == UserRole.Author)
@@ -386,8 +386,8 @@ namespace BulbaLib.Controllers
                 var authorUser = _mySqlService.GetUser(novel.AuthorId.Value);
                 novelEditModel.AuthorLogin = authorUser?.Login;
             }
-            ViewData["AllGenres"] = AllGenres;
-            ViewData["AllTags"] = AllTags;
+            ViewData["AllGenres"] = _mySqlService.GetAllGenres();
+            ViewData["AllTags"] = _mySqlService.GetAllTags();
             return View("~/Views/Novel/Edit.cshtml", novelEditModel);
         }
 
