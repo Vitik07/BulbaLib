@@ -11,5 +11,6 @@ namespace BulbaLib.Models
         public string Content { get; set; }
         public long Date { get; set; }
         public int? CreatorId { get; set; } // Nullable int, т.к. старые главы могут его не иметь или создатель неизвестен
+        public string ContentFilePath { get; set; }
     }
 }

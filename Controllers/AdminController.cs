@@ -240,43 +240,33 @@ namespace BulbaLib.Controllers
             }
         }
 
-        public IActionResult ChapterRequestsPartial(int page = 1, int pageSize = 10)
+        public IActionResult ChapterRequestsPartial(int page = 1, int pageSize = 10) // pageSize can be used for pagination if needed later
         {
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null || !_permissionService.CanModerateChapterRequests(currentUser))
-            { return PartialView("~/Views/Shared/_AccessDeniedPartial.cshtml"); }
-            var chapterRequestTypes = new List<ModerationRequestType> { ModerationRequestType.AddChapter, ModerationRequestType.EditChapter, ModerationRequestType.DeleteChapter };
-            List<ModerationRequest> rawRequests = _mySqlService.GetPendingModerationRequestsByType(chapterRequestTypes, pageSize, (page - 1) * pageSize);
-            var viewModels = rawRequests.Select(r => {
-                var user = _mySqlService.GetUser(r.UserId); var novel = r.NovelId.HasValue ? _mySqlService.GetNovel(r.NovelId.Value) : null;
-                Chapter pCD = null; Chapter eCD = r.ChapterId.HasValue ? _mySqlService.GetChapter(r.ChapterId.Value) : null;
-                string cT = eCD?.Title; string cN = eCD?.Number;
-                if (r.RequestType == ModerationRequestType.AddChapter && !string.IsNullOrEmpty(r.RequestData)) { try { pCD = JsonSerializer.Deserialize<Chapter>(r.RequestData); cT = pCD?.Title ?? cT; cN = pCD?.Number ?? cN; } catch (JsonException ex) { _logger.LogError(ex, "CRP: AddChapter Deser Error ID {Rid}", r.Id); } }
-                else if (r.RequestType == ModerationRequestType.EditChapter && !string.IsNullOrEmpty(r.RequestData)) { try { var pC = JsonSerializer.Deserialize<Chapter>(r.RequestData); if (!string.IsNullOrEmpty(pC?.Title)) cT = pC.Title; if (!string.IsNullOrEmpty(pC?.Number)) cN = pC.Number; pCD = pC; } catch (JsonException ex) { _logger.LogError(ex, "CRP: EditChapter Deser Error ID {Rid}", r.Id); } }
-                else if (r.RequestType == ModerationRequestType.DeleteChapter) { if (eCD == null && !string.IsNullOrEmpty(r.RequestData)) { try { var pD = JsonDocument.Parse(r.RequestData).RootElement; if (pD.TryGetProperty("Title", out var tP)) cT = tP.GetString(); if (pD.TryGetProperty("Number", out var nP)) cN = nP.GetString(); } catch { } } }
-                return new ChapterModerationRequestViewModel
-                {
-                    RequestId = r.Id,
-                    RequestType = r.RequestType,
-                    UserId = r.UserId,
-                    RequesterLogin = user?.Login ?? "N/A",
-                    CreatedAt = r.CreatedAt,
-                    NovelId = r.NovelId,
-                    NovelTitle = novel?.Title ?? "N/A",
-                    ChapterId = r.ChapterId,
-                    ChapterNumber = string.IsNullOrWhiteSpace(cN) ? (eCD?.Number ?? "N/A") : cN,
-                    ChapterTitle = string.IsNullOrWhiteSpace(cT) ? (eCD?.Title ?? "N/A") : cT,
-                    RequestDataJson = r.RequestData,
-                    Status = r.Status.ToString(),
-                    ProposedChapterData = pCD,
-                    ExistingChapterData = eCD
-                };
-            }).ToList();
-            int totalReqs = _mySqlService.CountPendingModerationRequestsByType(chapterRequestTypes);
-            ViewData["TotalPages"] = (int)Math.Ceiling((double)totalReqs / pageSize); ViewData["CurrentPage"] = page; ViewData["PageSize"] = pageSize;
-            return PartialView("~/Views/Admin/_ChapterRequestsPartial.cshtml", viewModels);
+            {
+                return PartialView("~/Views/Shared/_AccessDeniedPartial.cshtml");
+            }
+
+            // Fetch data using the new service method
+            // The new service method doesn't support pagination directly yet, so we fetch all and then paginate in memory if needed,
+            // or modify the service method later. For now, let's assume we get all relevant requests.
+            List<ChapterModerationRequestViewModel> viewModels = _mySqlService.GetPendingChapterModerationRequestsWithDetails();
+
+            // Manual pagination (if service doesn't support it)
+            int totalReqs = viewModels.Count;
+            var paginatedViewModels = viewModels.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+            ViewData["TotalPages"] = (int)Math.Ceiling((double)totalReqs / pageSize);
+            ViewData["CurrentPage"] = page;
+            ViewData["PageSize"] = pageSize; // For pagination controls in the partial view
+
+            // Pass the paginated list to the partial view
+            return PartialView("~/Views/Admin/_ChapterRequestsPartial.cshtml", paginatedViewModels);
         }
 
+        // Corrected the typo from MySqlService (proposed_Title to proposedTitle) in the view model mapping within MySqlService.
+        // This controller method will call the updated MySqlService method.
         public async Task<IActionResult> ChapterRequestDetails(int requestId)
         {
             var currentUser = _currentUserService.GetCurrentUser();
@@ -323,10 +313,17 @@ namespace BulbaLib.Controllers
             }
             if (string.IsNullOrEmpty(viewModel.ChapterNumber)) viewModel.ChapterNumber = viewModel.ExistingChapterData?.Number ?? "N/A";
             if (string.IsNullOrEmpty(viewModel.ChapterTitle)) viewModel.ChapterTitle = viewModel.ExistingChapterData?.Title ?? "N/A";
+            // The MySqlService method GetChapterModerationRequestDetailsByIdAsync now populates ProposedChapterContent and CurrentChapterContent.
+            // So, no need to manually read file content here.
 
             return View("~/Views/Admin/ChapterRequestDetails.cshtml", viewModel);
         }
 
+        // This method might still be used by Approve/Reject logic if it needs to reconstruct paths for deletion
+        // for chapters that might not have had ContentFilePath populated during moderation request creation (older data).
+        // However, with ContentFilePath now part of Chapter model and MySqlService, direct use of stored paths is preferred.
+        // For ApproveChapterRequest, the ContentFilePath from existingChapter (for Edit/Delete) or newly saved (for Add) should be used.
+        // For RejectChapterRequest, no file operations are typically needed beyond what FileService might do for temp files if any.
         private string ReconstructChapterFilePath(int novelId, string chapterNumber, string chapterTitle)
         {
             string invalidCharsRegex = string.Format(@"([{0}]*\.+$)|([{0}]+)", Regex.Escape(new string(Path.GetInvalidFileNameChars())));
@@ -350,93 +347,164 @@ namespace BulbaLib.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ApproveChapterRequest(int requestId)
-        { return await HandleProcessChapterRequest(requestId, true, string.Empty); }
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RejectChapterRequest(int requestId, string moderationComment)
-        { return await HandleProcessChapterRequest(requestId, false, moderationComment); }
-
-        private async Task<IActionResult> HandleProcessChapterRequest(int requestId, bool approve, string moderationComment)
+        public async Task<IActionResult> ApproveChapterRequest(int requestId)
         {
             var currentAdminUser = _currentUserService.GetCurrentUser();
-            if (currentAdminUser == null || !_permissionService.CanModerateChapterRequests(currentAdminUser)) { return Json(new { success = false, message = "Недостаточно прав." }); }
-            ModerationRequest request = _mySqlService.GetModerationRequestById(requestId);
-            if (request == null) return Json(new { success = false, message = "Запрос не найден." });
-            if (request.Status != ModerationStatus.Pending) return Json(new { success = false, message = "Запрос уже обработан." });
-            request.ModeratorId = currentAdminUser.Id; request.ModerationComment = moderationComment; request.UpdatedAt = DateTime.UtcNow;
-            Chapter chapterForNotif = null; string novelTForNotif = (request.NovelId.HasValue ? _mySqlService.GetNovel(request.NovelId.Value)?.Title : null) ?? "?";
-            if (approve)
+            if (currentAdminUser == null || !_permissionService.CanModerateChapterRequests(currentAdminUser))
             {
-                request.Status = ModerationStatus.Approved;
-                try
-                {
-                    switch (request.RequestType)
-                    {
-                        case ModerationRequestType.AddChapter:
-                            var createData = JsonSerializer.Deserialize<Chapter>(request.RequestData); if (createData == null) throw new JsonException("Null AddChapter data");
-                            chapterForNotif = createData; int aNID_Add = request.NovelId ?? createData.NovelId; if (aNID_Add == 0) throw new Exception("NovelId missing");
-                            createData.NovelId = aNID_Add; createData.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(); createData.CreatorId = request.UserId;
-                            string nCFP = await _fileService.SaveChapterContentAsync(createData.NovelId, createData.Number, createData.Title, createData.Content);
-                            if (string.IsNullOrEmpty(nCFP)) throw new Exception("Failed to save chapter content");
-                            _mySqlService.CreateChapter(createData);
-                            var trAdd = _mySqlService.GetTranslatorsForNovel(aNID_Add); if (!trAdd.Any(t => t.Id == request.UserId)) { _mySqlService.AddNovelTranslator(aNID_Add, request.UserId); }
-                            break;
-                        case ModerationRequestType.EditChapter:
-                            var updateData = JsonSerializer.Deserialize<Chapter>(request.RequestData); if (updateData == null) throw new JsonException("Null EditChapter data");
-                            chapterForNotif = updateData; var chapTU = _mySqlService.GetChapter(request.ChapterId.Value); if (chapTU == null) throw new Exception("Chapter to update not found");
-                            chapTU.Number = updateData.Number ?? chapTU.Number; chapTU.Title = updateData.Title ?? chapTU.Title; chapTU.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                            string uCFP = await _fileService.SaveChapterContentAsync(chapTU.NovelId, chapTU.Number, chapTU.Title, updateData.Content);
-                            if (string.IsNullOrEmpty(uCFP)) throw new Exception("Failed to save updated content");
-                            _mySqlService.UpdateChapter(chapTU);
-                            break;
-                        case ModerationRequestType.DeleteChapter:
-                            if (!request.ChapterId.HasValue) throw new Exception("ChapterId missing"); var chapTD = _mySqlService.GetChapter(request.ChapterId.Value);
-                            if (chapTD != null)
-                            {
-                                chapterForNotif = new Chapter { Title = chapTD.Title, Number = chapTD.Number, CreatorId = chapTD.CreatorId, NovelId = chapTD.NovelId };
-                                string pTD = ReconstructChapterFilePath(chapTD.NovelId, chapTD.Number, chapTD.Title);
-                                bool fD = await _fileService.DeleteChapterContentAsync(pTD); if (!fD) _logger.LogWarning("Could not del file {pTD}", pTD);
-                                _mySqlService.DeleteChapter(request.ChapterId.Value);
-                                if (chapTD.CreatorId.HasValue)
-                                {
-                                    var remC = _mySqlService.GetChaptersByNovel(chapTD.NovelId).Count(c => c.CreatorId == chapTD.CreatorId.Value);
-                                    if (remC == 0) { var trDel = _mySqlService.GetTranslatorsForNovel(chapTD.NovelId); if (trDel.Any(t => t.Id == chapTD.CreatorId.Value)) { _mySqlService.RemoveNovelTranslator(chapTD.NovelId, chapTD.CreatorId.Value); } }
-                                }
-                            }
-                            else { _logger.LogWarning("Chapter {Cid} for del not found", request.ChapterId.Value); }
-                            break;
-                        default: throw new InvalidOperationException("Unsupported chapter req type");
-                    }
-                    _mySqlService.UpdateModerationRequest(request);
-                    string appCT = chapterForNotif?.Title ?? "?";
-                    var appMsg = $"Запрос '{request.RequestType}' для главы '{appCT}' (новелла '{novelTForNotif}') одобрен.";
-                    int? eIdN = (request.RequestType == ModerationRequestType.AddChapter) ? (_mySqlService.GetChaptersByNovel(chapterForNotif.NovelId).FirstOrDefault(c => c.Number == chapterForNotif.Number && c.Title == chapterForNotif.Title && c.CreatorId == request.UserId)?.Id) : request.ChapterId;
-                    _notificationService.CreateNotification(request.UserId, NotificationType.ModerationApproved, appMsg, eIdN ?? request.NovelId, RelatedItemType.Chapter);
-                    if (request.RequestType == ModerationRequestType.AddChapter && request.NovelId.HasValue && chapterForNotif != null)
-                    {
-                        var nCFS = _mySqlService.GetChaptersByNovel(request.NovelId.Value).FirstOrDefault(c => c.Number == chapterForNotif.Number && c.Title == chapterForNotif.Title && c.CreatorId == request.UserId);
-                        if (nCFS != null)
-                        {
-                            var subs = _mySqlService.GetUserIdsSubscribedToNovel(request.NovelId.Value, new List<string> { "reading", "favorites" });
-                            var nCMsg = $"Новая глава '{nCFS.Number} - {nCFS.Title}' добавлена к новелле '{novelTForNotif}'.";
-                            foreach (var sId in subs) { if (sId != request.UserId) { _notificationService.CreateNotification(sId, NotificationType.NewChapter, nCMsg, nCFS.Id, RelatedItemType.Chapter); } }
-                        }
-                    }
-                    return Json(new { success = true, message = $"Запрос главы ID {requestId} ({request.RequestType}) одобрен." });
-                }
-                catch (Exception ex) { _logger.LogError(ex, "Error approving chapter req ID {Rid}", requestId); return Json(new { success = false, message = "Ошибка одобрения запроса главы" }); }
+                return Json(new { success = false, message = "Недостаточно прав." });
             }
-            else
+
+            ModerationRequest request = await _mySqlService.GetModerationRequestByIdAsync(requestId);
+            if (request == null)
             {
-                request.Status = ModerationStatus.Rejected; _mySqlService.UpdateModerationRequest(request);
-                string rejCT = "?"; if (request.RequestType == ModerationRequestType.AddChapter && !string.IsNullOrEmpty(request.RequestData)) { try { var ch = JsonSerializer.Deserialize<Chapter>(request.RequestData); rejCT = ch?.Title ?? rejCT; } catch { } }
-                else if (request.ChapterId.HasValue) { var eC = _mySqlService.GetChapter(request.ChapterId.Value); rejCT = eC?.Title ?? rejCT; }
-                else if (!string.IsNullOrEmpty(request.RequestData)) { try { rejCT = JsonDocument.Parse(request.RequestData).RootElement.GetProperty("Title").GetString() ?? rejCT; } catch { } }
-                var rejMsg = $"Запрос '{request.RequestType}' для главы '{rejCT}' (новелла '{novelTForNotif}') был отклонен."; if (!string.IsNullOrWhiteSpace(moderationComment)) rejMsg += $" Причина: {moderationComment}";
-                _notificationService.CreateNotification(request.UserId, NotificationType.ModerationRejected, rejMsg, request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
-                return Json(new { success = true, message = $"Запрос главы ID {requestId} ({request.RequestType}) отклонен." });
+                return Json(new { success = false, message = "Запрос не найден." });
+            }
+            if (request.Status != ModerationStatus.Pending)
+            {
+                return Json(new { success = false, message = "Запрос уже обработан." });
+            }
+
+            try
+            {
+                switch (request.RequestType)
+                {
+                    case ModerationRequestType.AddChapter:
+                        var chapterData = JsonSerializer.Deserialize<Chapter>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (chapterData == null) throw new JsonException("Не удалось десериализовать данные для AddChapter.");
+                        if (!request.NovelId.HasValue) throw new InvalidOperationException("NovelId отсутствует в запросе на добавление главы.");
+
+                        string filePath = await _fileService.SaveChapterContentAsync(request.NovelId.Value, chapterData.Number, chapterData.Title, chapterData.Content);
+                        if (string.IsNullOrEmpty(filePath)) throw new Exception("Ошибка сохранения файла главы.");
+
+                        chapterData.NovelId = request.NovelId.Value;
+                        chapterData.ContentFilePath = filePath;
+                        chapterData.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                        chapterData.CreatorId = request.UserId;
+                        await _mySqlService.CreateChapterAsync(chapterData); // chapterData.Id will be updated by this call
+                        await _mySqlService.AddNovelTranslatorIfNotExistsAsync(request.NovelId.Value, request.UserId);
+                        // Notification for chapter author handled below
+                        // Notification for novel subscribers
+                        var novelForAdd = _mySqlService.GetNovel(request.NovelId.Value); // Sync call, consider async if performance is an issue
+                        var subscribersForAdd = _mySqlService.GetUserIdsSubscribedToNovel(request.NovelId.Value, new List<string> { "reading", "favorites" });
+                        var newChapterMsg = $"Новая глава '{chapterData.Number} - {chapterData.Title}' добавлена к новелле '{novelForAdd?.Title ?? "N/A"}'.";
+                        foreach (var subId in subscribersForAdd) { if (subId != request.UserId) { _notificationService.CreateNotification(subId, NotificationType.NewChapter, newChapterMsg, chapterData.Id, RelatedItemType.Chapter); } }
+                        break;
+
+                    case ModerationRequestType.EditChapter:
+                        var proposedChanges = JsonSerializer.Deserialize<Chapter>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (proposedChanges == null) throw new JsonException("Не удалось десериализовать данные для EditChapter.");
+                        if (!request.ChapterId.HasValue) throw new InvalidOperationException("ChapterId отсутствует в запросе на редактирование главы.");
+
+                        Chapter existingChapter = await _mySqlService.GetChapterAsync(request.ChapterId.Value);
+                        if (existingChapter == null) throw new Exception("Редактируемая глава не найдена.");
+
+                        string oldFilePath = existingChapter.ContentFilePath;
+                        string newFilePath = await _fileService.SaveChapterContentAsync(existingChapter.NovelId, proposedChanges.Number, proposedChanges.Title, proposedChanges.Content);
+                        if (string.IsNullOrEmpty(newFilePath)) throw new Exception("Ошибка сохранения файла обновленной главы.");
+
+                        existingChapter.Number = proposedChanges.Number ?? existingChapter.Number;
+                        existingChapter.Title = proposedChanges.Title ?? existingChapter.Title;
+                        existingChapter.ContentFilePath = newFilePath;
+                        // existingChapter.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(); // Optionally update date on edit
+                        await _mySqlService.UpdateChapterAsync(existingChapter);
+
+                        if (!string.IsNullOrEmpty(oldFilePath) && oldFilePath != newFilePath)
+                        {
+                            await _fileService.DeleteChapterContentAsync(oldFilePath);
+                        }
+                        break;
+
+                    case ModerationRequestType.DeleteChapter:
+                        if (!request.ChapterId.HasValue) throw new InvalidOperationException("ChapterId отсутствует в запросе на удаление главы.");
+
+                        Chapter chapterToDelete = await _mySqlService.GetChapterAsync(request.ChapterId.Value);
+                        if (chapterToDelete != null)
+                        {
+                            if (!string.IsNullOrEmpty(chapterToDelete.ContentFilePath))
+                            {
+                                await _fileService.DeleteChapterContentAsync(chapterToDelete.ContentFilePath);
+                            }
+                            await _mySqlService.DeleteChapterAsync(request.ChapterId.Value);
+                            if (chapterToDelete.CreatorId.HasValue && request.NovelId.HasValue)
+                            {
+                                await _mySqlService.RemoveTranslatorIfLastChapterAsync(request.NovelId.Value, chapterToDelete.CreatorId.Value);
+                            }
+                        }
+                        else { _logger.LogWarning("Глава {ChapterId} для удаления не найдена.", request.ChapterId.Value); }
+                        break;
+                    default:
+                        throw new InvalidOperationException("Неподдерживаемый тип запроса на модерацию главы.");
+                }
+
+                await _mySqlService.UpdateModerationRequestStatusAsync(requestId, ModerationStatus.Approved, currentAdminUser.Id);
+
+                // Generic notification for the user who made the request
+                var novelForNotification = request.NovelId.HasValue ? _mySqlService.GetNovel(request.NovelId.Value) : null;
+                var chapterForNotification = request.ChapterId.HasValue ? await _mySqlService.GetChapterAsync(request.ChapterId.Value) : null;
+                string itemTitle = chapterForNotification?.Title ?? (JsonSerializer.Deserialize<Chapter>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })?.Title) ?? "N/A";
+                string novelTitleForNotification = novelForNotification?.Title ?? "N/A";
+                _notificationService.CreateNotification(request.UserId, NotificationType.ModerationApproved, $"Ваш запрос '{request.RequestType.ToString()}' для главы '{itemTitle}' (новелла '{novelTitleForNotification}') одобрен.", request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
+
+                return Json(new { success = true, message = "Запрос одобрен." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при одобрении запроса ID {RequestId} на модерацию главы.", requestId);
+                return Json(new { success = false, message = $"Внутренняя ошибка сервера: {ex.Message}" });
             }
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RejectChapterRequest(int requestId, string reason) // 'reason' from form
+        {
+            var currentAdminUser = _currentUserService.GetCurrentUser();
+            if (currentAdminUser == null || !_permissionService.CanModerateChapterRequests(currentAdminUser))
+            {
+                return Json(new { success = false, message = "Недостаточно прав." });
+            }
+
+            ModerationRequest request = await _mySqlService.GetModerationRequestByIdAsync(requestId);
+            if (request == null)
+            {
+                return Json(new { success = false, message = "Запрос не найден." });
+            }
+            if (request.Status != ModerationStatus.Pending)
+            {
+                return Json(new { success = false, message = "Запрос уже обработан." });
+            }
+
+            try
+            {
+                // The 'reason' parameter from the form is now 'moderationComment' for consistency with model
+                await _mySqlService.UpdateModerationRequestStatusAsync(requestId, ModerationStatus.Rejected, currentAdminUser.Id, reason);
+
+                // Notification
+                var novelForNotification = request.NovelId.HasValue ? _mySqlService.GetNovel(request.NovelId.Value) : null;
+                var chapterForNotification = request.ChapterId.HasValue ? await _mySqlService.GetChapterAsync(request.ChapterId.Value) : null;
+                string itemTitle = chapterForNotification?.Title ?? (JsonSerializer.Deserialize<Chapter>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })?.Title) ?? "N/A";
+                string novelTitleForNotification = novelForNotification?.Title ?? "N/A";
+                string notificationMsg = $"Ваш запрос '{request.RequestType.ToString()}' для главы '{itemTitle}' (новелла '{novelTitleForNotification}') отклонен.";
+                if (!string.IsNullOrWhiteSpace(reason)) notificationMsg += $" Причина: {reason}";
+                _notificationService.CreateNotification(request.UserId, NotificationType.ModerationRejected, notificationMsg, request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
+
+
+                return Json(new { success = true, message = "Запрос отклонен." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при отклонении запроса ID {RequestId} на модерацию главы.", requestId);
+                return Json(new { success = false, message = $"Внутренняя ошибка сервера: {ex.Message}" });
+            }
+        }
+
+        // The HandleProcessChapterRequest method is now replaced by specific ApproveChapterRequest and RejectChapterRequest.
+        // private async Task<IActionResult> HandleProcessChapterRequest(int requestId, bool approve, string moderationComment)
+        // {
+        // ... (old combined logic removed)
+        // }
     }
 }

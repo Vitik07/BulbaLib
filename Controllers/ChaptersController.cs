@@ -15,6 +15,7 @@ using BulbaLib.Services; // Replaced BulbaLib.Interfaces
 // Ensure FileService is in BulbaLib.Services
 // using Microsoft.AspNetCore.Hosting; // Not directly needed if FileService handles it
 using System.ComponentModel.DataAnnotations; // Added for ViewModels
+using System.Text.RegularExpressions; // Added for Regex
 
 namespace BulbaLib.Controllers
 {
@@ -48,6 +49,87 @@ namespace BulbaLib.Controllers
         private User GetCurrentUser()
         {
             return _currentUserService.GetCurrentUser();
+        }
+
+        // Helper method for path construction (can be private in controller or moved to FileService if more generic)
+        private string ConstructChapterPath(Chapter chapter)
+        {
+            // This logic should ideally mirror exactly how FileService *saves* paths if ContentFilePath is missing.
+            // This is a replication of the logic from previous version of Edit GET.
+            // Regex for sanitizing parts of path, removing potentially problematic characters or sequences.
+            // Allowing: letters, numbers, spaces, dots, hyphens, underscores. Replacing others with underscore.
+            // This is a simplified version. Consider a more robust path sanitization/generation within FileService.
+            string invalidPathCharsPattern = @"[^\w\s\.\-_]"; // \w includes letters, numbers, underscore
+
+            string sanitizedNumber = string.IsNullOrWhiteSpace(chapter.Number) ? "Chapter" : Regex.Replace(chapter.Number, invalidPathCharsPattern, "_", RegexOptions.None, TimeSpan.FromMilliseconds(100));
+            string sanitizedTitle = string.IsNullOrWhiteSpace(chapter.Title) ? "Untitled" : Regex.Replace(chapter.Title, invalidPathCharsPattern, "_", RegexOptions.None, TimeSpan.FromMilliseconds(100));
+
+            // Further trim and ensure not overly long
+            sanitizedNumber = sanitizedNumber.Length > 50 ? sanitizedNumber.Substring(0, 50).Trim('_') : sanitizedNumber.Trim('_');
+            sanitizedTitle = sanitizedTitle.Length > 50 ? sanitizedTitle.Substring(0, 50).Trim('_') : sanitizedTitle.Trim('_');
+
+            // Replace common path problematic chars that might have slipped through or formed by replacements
+            char[] generalInvalidChars = Path.GetInvalidFileNameChars();
+            sanitizedNumber = string.Join("_", sanitizedNumber.Split(generalInvalidChars, StringSplitOptions.RemoveEmptyEntries)).Trim('_');
+            sanitizedTitle = string.Join("_", sanitizedTitle.Split(generalInvalidChars, StringSplitOptions.RemoveEmptyEntries)).Trim('_');
+
+            string fileName;
+            bool numIsEmpty = string.IsNullOrWhiteSpace(sanitizedNumber) || sanitizedNumber == "_" || string.Equals(sanitizedNumber, "Chapter", StringComparison.OrdinalIgnoreCase);
+            bool titleIsEmpty = string.IsNullOrWhiteSpace(sanitizedTitle) || sanitizedTitle == "_" || string.Equals(sanitizedTitle, "Untitled", StringComparison.OrdinalIgnoreCase);
+
+            if (numIsEmpty && titleIsEmpty) fileName = "Глава_без_номера_и_названия"; // Ensure filename is valid
+            else if (titleIsEmpty) fileName = $"{sanitizedNumber}";
+            else if (numIsEmpty) fileName = $"{sanitizedTitle}";
+            else fileName = $"{sanitizedNumber}-{sanitizedTitle}"; // Using hyphen as separator
+
+            // Final sanitization for the filename itself (again, to be safe)
+            fileName = string.Join("_", fileName.Split(generalInvalidChars, StringSplitOptions.RemoveEmptyEntries)).Trim('_');
+
+            if (string.IsNullOrWhiteSpace(fileName)) fileName = "DefaultChapterName";
+
+            fileName += ".txt";
+
+            // Path.Combine is good for platform-agnostic paths.
+            // The FileService should handle the root path (e.g., wwwroot) internally.
+            // This relative path is what would be stored or used by FileService.
+            string relativePath = Path.Combine("uploads", "content", chapter.NovelId.ToString(), fileName);
+
+            // Ensure it's a relative path starting with / if that's the convention used by FileService
+            // However, FileService methods like ReadChapterContentAsync should ideally handle joining with base path correctly.
+            // If FileService expects paths starting with "/", this ensures it.
+            // if (!relativePath.StartsWith("/") && !Path.IsPathRooted(relativePath)) relativePath = "/" + relativePath;
+            // For now, returning the combined path directly, assuming FileService handles it.
+            return relativePath;
+        }
+
+        // GET: Chapter/Create
+        [HttpGet]
+        [Authorize(Roles = "Translator,Admin")]
+        public IActionResult Create(int novelId)
+        {
+            var novel = _mySqlService.GetNovel(novelId);
+            if (novel == null)
+            {
+                TempData["ErrorMessage"] = "Новелла не найдена.";
+                return RedirectToAction("Index", "CatalogView"); // Or other appropriate redirect
+            }
+
+            var currentUser = _currentUserService.GetCurrentUser(); // Assuming GetCurrentUser() is more appropriate than User.FindFirstValue
+            if (currentUser == null)
+            {
+                TempData["ErrorMessage"] = "Пожалуйста, войдите в систему.";
+                return RedirectToAction("Login", "AuthView");
+            }
+
+            if (!_permissionService.CanCreateChapter(currentUser, novel))
+            {
+                TempData["ErrorMessage"] = "У вас нет прав на добавление главы к этой новелле.";
+                // Consider RedirectToAction to an error page or the novel page itself
+                return Forbid();
+            }
+
+            var model = new ChapterCreateModel { NovelId = novelId, NovelTitle = novel.Title };
+            return View("~/Views/Chapter/Create.cshtml", model);
         }
 
         [HttpPost]
@@ -101,7 +183,7 @@ namespace BulbaLib.Controllers
                     return View("~/Views/Chapter/Create.cshtml", model);
                 }
                 // chapter.ContentFilePath = filePath; // If Chapter model has this field
-
+                chapter.ContentFilePath = filePath; // Assign the path
                 _mySqlService.CreateChapter(chapter);
 
                 var translators = _mySqlService.GetTranslatorsForNovel(novel.Id);
@@ -207,17 +289,59 @@ namespace BulbaLib.Controllers
             //    currentContent = await _fileService.ReadChapterContentAsync(chapter.ContentFilePath) ?? string.Empty;
             // }
 
+            // --- Start of new code for Edit GET ---
+            string chapterContent = string.Empty;
+            // Construct file path logic from FileService.SaveChapterContentAsync
+            // This is a simplified replication. Ideally, FileService would provide a method to get the path.
+            // --- Start of new code for Edit GET ---
+            if (!string.IsNullOrEmpty(chapter.ContentFilePath))
+            {
+                if (_fileService.ChapterFileExists(chapter.ContentFilePath)) // Check if file actually exists at the stored path
+                {
+                    chapterContent = await _fileService.ReadChapterContentAsync(chapter.ContentFilePath) ?? string.Empty;
+                }
+                else
+                {
+                    _logger.LogWarning("ContentFilePath is set for chapter {ChapterId} to {Path}, but file not found. Attempting to construct path as fallback.", chapter.Id, chapter.ContentFilePath);
+                    // Fallback logic (or remove if strict reliance on ContentFilePath is desired)
+                    // For now, keeping fallback might be safer for older data.
+                    string constructedPath = ConstructChapterPath(chapter); // Extracted to a helper or use existing logic inline
+                    if (_fileService.ChapterFileExists(constructedPath))
+                    {
+                        chapterContent = await _fileService.ReadChapterContentAsync(constructedPath) ?? string.Empty;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Fallback path construction for chapter {ChapterId} also failed to find file at {Path}.", chapter.Id, constructedPath);
+                    }
+                }
+            }
+            else
+            {
+                _logger.LogWarning("ContentFilePath is missing for chapter {ChapterId}. Attempting to construct path.", chapter.Id);
+                // Fallback logic
+                string constructedPath = ConstructChapterPath(chapter); // Extracted to a helper or use existing logic inline
+                if (_fileService.ChapterFileExists(constructedPath))
+                {
+                    chapterContent = await _fileService.ReadChapterContentAsync(constructedPath) ?? string.Empty;
+                }
+                else
+                {
+                    _logger.LogWarning("Fallback path construction for chapter {ChapterId} failed to find file at {Path}.", chapter.Id, constructedPath);
+                }
+            }
+            // --- End of new code for Edit GET ---
 
             var model = new ChapterEditModel
             {
                 Id = chapter.Id,
                 NovelId = chapter.NovelId,
-                // NovelTitle = novel.Title, // Removed
+                NovelTitle = novel.Title, // Added NovelTitle to model
                 Number = chapter.Number,
                 Title = chapter.Title,
-                Content = currentContent // Content will be empty for now, or loaded if ContentFilePath was available
+                Content = chapterContent // Use content read from file
             };
-            ViewData["NovelTitle"] = novel.Title;
+            // ViewData["NovelTitle"] = novel.Title; // No longer primary way if model has it
 
             return View("~/Views/Chapter/Edit.cshtml", model);
         }
@@ -275,19 +399,33 @@ namespace BulbaLib.Controllers
                 // or creates a new file if path components (number/title) change.
                 // Deleting the "old" file when its name components change is not straightforward here.
 
+                string oldFilePath = existingChapter.ContentFilePath; // Get existing path BEFORE updating chapter details
+
                 string newFilePath = await _fileService.SaveChapterContentAsync(existingChapter.NovelId, model.Number, model.Title, model.Content);
                 if (string.IsNullOrEmpty(newFilePath))
                 {
                     ModelState.AddModelError(string.Empty, "Ошибка сохранения содержимого главы.");
+                    // Must repopulate NovelTitle for the view model if returning
+                    model.NovelTitle = novel.Title; // Or ViewData["NovelTitle"] = novel.Title;
                     return View("~/Views/Chapter/Edit.cshtml", model);
                 }
 
                 existingChapter.Number = model.Number;
                 existingChapter.Title = model.Title;
-                // existingChapter.ContentFilePath = newFilePath; // If storing path
+                existingChapter.ContentFilePath = newFilePath; // If storing path
                 // Content itself is not stored in existingChapter for DB
 
                 _mySqlService.UpdateChapter(existingChapter);
+
+                // Delete old file if path changed and old path existed
+                if (!string.IsNullOrEmpty(oldFilePath) && oldFilePath != newFilePath)
+                {
+                    // Ensure the path is relative to wwwroot or however FileService expects it.
+                    // FileService.DeleteChapterContentAsync should handle the actual deletion from the filesystem.
+                    // The path stored in ContentFilePath should be the same format that DeleteChapterContentAsync expects.
+                    await _fileService.DeleteChapterContentAsync(oldFilePath);
+                }
+
                 TempData["SuccessMessage"] = "Глава успешно обновлена.";
                 return RedirectToAction("Novel", "NovelView", new { id = existingChapter.NovelId });
             }
@@ -368,8 +506,17 @@ namespace BulbaLib.Controllers
                 // await _fileService.DeleteChapterContentAsync(presumedFilePath);
                 // This is risky if names change or have special characters not handled identically.
                 // For now, we'll log that file deletion should occur.
-                _logger.LogInformation("Admin deleting chapter. File content for chapter {ChapterId} (Novel {NovelId}) should be manually reviewed or deleted if path is not stored.", id, chapterToDelete.NovelId);
-
+                // _logger.LogInformation("Admin deleting chapter. File content for chapter {ChapterId} (Novel {NovelId}) should be manually reviewed or deleted if path is not stored.", id, chapterToDelete.NovelId);
+                // With ContentFilePath, we can attempt to delete it.
+                if (!string.IsNullOrEmpty(chapterToDelete.ContentFilePath))
+                {
+                    await _fileService.DeleteChapterContentAsync(chapterToDelete.ContentFilePath);
+                    _logger.LogInformation("Attempted to delete content file {FilePath} for chapter {ChapterId}", chapterToDelete.ContentFilePath, id);
+                }
+                else
+                {
+                    _logger.LogWarning("ContentFilePath not found for chapter {ChapterId}. File not deleted.", id);
+                }
 
                 _mySqlService.DeleteChapter(id);
 

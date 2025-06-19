@@ -15,5 +15,6 @@ namespace BulbaLib.Models
         public int? ModeratorId { get; set; } // Кто обработал
         public string ModerationComment { get; set; }
         public DateTime UpdatedAt { get; set; }
+        public string RejectionReason { get; set; } // Added for storing rejection reason separately
     }
 }

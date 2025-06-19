@@ -2,8 +2,6 @@
 @{
     Layout = null;
 
-
-
     ViewData["Title"] = "Редактировать новеллу";
 
     var genresToSerialize = (ViewData["AllGenres"] as List<string>) ?? new List<string>();
@@ -24,7 +22,7 @@
     <div class="container">
         <main role="main" class="pb-3">
             <h2>@ViewData["Title"]: @Model.Title</h2>
-            <form asp-controller="NovelView" asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" id="novelEditForm">
+            <form asp-controller="Novels" asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" id="novelEditForm">
                 @Html.AntiForgeryToken()
                 <input type="hidden" asp-for="Id" />
                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>

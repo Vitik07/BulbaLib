@@ -1,14 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-// Ensure BulbaLib.Models is referenced if Novel, Chapter etc. are in that base namespace.
-// If they are in BulbaLib.Models.ViewModels, this using might not be strictly necessary
-// but doesn't harm. Given the other files, they seem to be in BulbaLib.Models.
-using BulbaLib.Models;
+using BulbaLib.Models; // For ModerationRequestType and potentially Chapter related models
 
-// The namespace for these ViewModels should ideally be consistent.
-// If other models are in BulbaLib.Models, then BulbaLib.Models or BulbaLib.Models.ViewModels is fine.
-namespace BulbaLib.Models // Or BulbaLib.Models.ViewModels
+namespace BulbaLib.Models
 {
+    // Existing NovelModerationRequestViewModel - keeping it as is
     public class NovelModerationRequestViewModel
     {
         public int RequestId { get; set; }
@@ -41,30 +37,46 @@ namespace BulbaLib.Models // Or BulbaLib.Models.ViewModels
         }
     }
 
-    public class ChapterModerationRequestViewModel // This is the single definition
+    // Overwriting ChapterModerationRequestViewModel as per the new subtask's specific requirements
+    public class ChapterModerationRequestViewModel
     {
         public int RequestId { get; set; }
-        public ModerationRequestType RequestType { get; set; } // This was line 43 from the error
-        public string RequestTypeFriendlyName => GetFriendlyRequestTypeName(RequestType);
-        public int UserId { get; set; }
-        public string RequesterLogin { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public int? NovelId { get; set; }
+        public ModerationRequestType RequestType { get; set; }
+        public string UserLogin { get; set; } // Changed from RequesterLogin
+        public int NovelId { get; set; }
         public string NovelTitle { get; set; }
-        public int? ChapterId { get; set; }
-        public string ChapterNumber { get; set; }
-        public string ChapterTitle { get; set; }
-        public string Status { get; set; }
-        public string RequestDataJson { get; set; }
+        public string NovelCoverImageUrl { get; set; } // Added
+        public int? ChapterId { get; set; } // For Edit/Delete existing chapter
+        public string CurrentChapterNumber { get; set; } // For Edit/Delete, from existing chapter
+        public string CurrentChapterTitle { get; set; } // For Edit/Delete, from existing chapter
+        public string ProposedChapterNumber { get; set; } // For Add/Edit, from RequestData
+        public string ProposedChapterTitle { get; set; } // For Add/Edit, from RequestData
+        public DateTime RequestedAt { get; set; } // Changed from CreatedAt for consistency with prompt
 
-        public Chapter ProposedChapterData { get; set; }
-        public string ProposedContent { get; set; }
-        public Chapter ExistingChapterData { get; set; }
-        public string ExistingContent { get; set; }
+        public string RequestActionDisplay // Property for display string
+        {
+            get
+            {
+                return RequestType switch
+                {
+                    ModerationRequestType.AddChapter => "Добавление главы",
+                    ModerationRequestType.EditChapter => "Редактирование главы",
+                    ModerationRequestType.DeleteChapter => "Удаление главы",
+                    _ => RequestType.ToString(),
+                };
+            }
+        }
 
-        public string? ModerationComment { get; set; }
-        public DateTime? UpdatedAt { get; set; }
+        // These fields were in the original prompt's version of ChapterModerationRequestViewModel.
+        // They might be populated by the service or could be derived if RequestData is also exposed.
+        // For now, including them as they were part of the target definition.
+        // public string ParsedRequestDataChapterTitle { get; set; } // Replaced by ProposedChapterTitle
+        // public string ParsedRequestDataChapterNumber { get; set; } // Replaced by ProposedChapterNumber
+        public string ProposedChapterContent { get; set; } // For Add/Edit
+        public string CurrentChapterContent { get; set; } // For Edit/Delete
 
+        // Retaining this helper method if it's used by other view models or if it's a general utility.
+        // If RequestActionDisplay replaces its usage for this VM, it could be removed if not used elsewhere.
         private static string GetFriendlyRequestTypeName(ModerationRequestType requestType)
         {
             switch (requestType)

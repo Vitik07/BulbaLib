@@ -12,10 +12,12 @@ namespace BulbaLib.Services
     public partial class MySqlService // Consider making this partial if GetUserIdsSubscribedToNovel is in a separate file
     {
         private readonly string _connectionString;
+        private readonly FileService _fileService; // Added FileService
 
-        public MySqlService(string connectionString)
+        public MySqlService(string connectionString, FileService fileService) // Modified constructor
         {
             _connectionString = connectionString;
+            _fileService = fileService; // Initialize FileService
             InitializeDatabaseSchema();
         }
 
@@ -70,11 +72,24 @@ namespace BulbaLib.Services
                         );";
                     cmdCreateTable.ExecuteNonQuery();
                 }
+                else // Table exists, check for RejectionReason column
+                {
+                    using var cmdCheckColumn = conn.CreateCommand();
+                    cmdCheckColumn.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ModerationRequests' AND COLUMN_NAME = 'RejectionReason'";
+                    var rejectionReasonColumnExists = Convert.ToInt32(cmdCheckColumn.ExecuteScalar()) > 0;
+                    if (!rejectionReasonColumnExists)
+                    {
+                        using var cmdAlterTable = conn.CreateCommand();
+                        cmdAlterTable.CommandText = "ALTER TABLE ModerationRequests ADD COLUMN RejectionReason TEXT NULL";
+                        cmdAlterTable.ExecuteNonQuery();
+                        Console.WriteLine("Successfully added RejectionReason column to ModerationRequests table.");
+                    }
+                }
             }
             catch (MySqlException ex)
             {
                 // Log or handle exception
-                Console.WriteLine($"Error creating ModerationRequests table: {ex.Message}");
+                Console.WriteLine($"Error creating or altering ModerationRequests table: {ex.Message}");
             }
 
             // Check and create Notifications table
@@ -215,6 +230,25 @@ namespace BulbaLib.Services
             catch (MySqlException ex)
             {
                 Console.WriteLine($"Error checking/altering Chapters table for Content column: {ex.Message}");
+            }
+
+            // Check and add ContentFilePath column to Chapters table
+            try
+            {
+                using var cmdCheckChapterFilePathColumn = conn.CreateCommand();
+                cmdCheckChapterFilePathColumn.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Chapters' AND COLUMN_NAME = 'ContentFilePath'";
+                var filePathColumnExists = Convert.ToInt32(cmdCheckChapterFilePathColumn.ExecuteScalar()) > 0;
+                if (!filePathColumnExists)
+                {
+                    using var cmdAlterChapterFilePath = conn.CreateCommand();
+                    cmdAlterChapterFilePath.CommandText = "ALTER TABLE Chapters ADD COLUMN ContentFilePath VARCHAR(512) NULL";
+                    cmdAlterChapterFilePath.ExecuteNonQuery();
+                    Console.WriteLine("Successfully added ContentFilePath column to Chapters table.");
+                }
+            }
+            catch (MySqlException ex)
+            {
+                Console.WriteLine($"Error checking/altering Chapters table for ContentFilePath column: {ex.Message}");
             }
         }
 
@@ -640,8 +674,8 @@ namespace BulbaLib.Services
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            // Removed Content from SELECT
-            cmd.CommandText = "SELECT Id, NovelId, Number, Title, Date, CreatorId FROM Chapters WHERE NovelId = @novelId";
+            // Removed Content from SELECT, Added ContentFilePath
+            cmd.CommandText = "SELECT Id, NovelId, Number, Title, Date, CreatorId, ContentFilePath FROM Chapters WHERE NovelId = @novelId";
             cmd.Parameters.AddWithValue("@novelId", novelId);
 
             var chapters = new List<Chapter>();
@@ -656,7 +690,8 @@ namespace BulbaLib.Services
                     Title = reader.GetString("Title"),
                     // Content = reader.GetString("Content"), // Removed
                     Date = reader.IsDBNull("Date") ? 0 : reader.GetInt64("Date"),
-                    CreatorId = reader.IsDBNull("CreatorId") ? (int?)null : reader.GetInt32("CreatorId")
+                    CreatorId = reader.IsDBNull("CreatorId") ? (int?)null : reader.GetInt32("CreatorId"),
+                    ContentFilePath = reader.IsDBNull("ContentFilePath") ? null : reader.GetString("ContentFilePath")
                 });
             }
             chapters = chapters
@@ -692,8 +727,8 @@ namespace BulbaLib.Services
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            // Removed Content from SELECT
-            cmd.CommandText = "SELECT Id, NovelId, Number, Title, Date, CreatorId FROM Chapters WHERE Id = @id";
+            // Removed Content from SELECT, Added ContentFilePath
+            cmd.CommandText = "SELECT Id, NovelId, Number, Title, Date, CreatorId, ContentFilePath FROM Chapters WHERE Id = @id";
             cmd.Parameters.AddWithValue("@id", chapterId);
             using var reader = cmd.ExecuteReader();
             if (reader.Read())
@@ -706,7 +741,8 @@ namespace BulbaLib.Services
                     Title = reader.GetString("Title"),
                     // Content = reader.GetString("Content"), // Removed
                     Date = reader.IsDBNull("Date") ? 0 : reader.GetInt64("Date"),
-                    CreatorId = reader.IsDBNull("CreatorId") ? (int?)null : reader.GetInt32("CreatorId")
+                    CreatorId = reader.IsDBNull("CreatorId") ? (int?)null : reader.GetInt32("CreatorId"),
+                    ContentFilePath = reader.IsDBNull("ContentFilePath") ? null : reader.GetString("ContentFilePath")
                 };
             }
             return null;
@@ -716,26 +752,28 @@ namespace BulbaLib.Services
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            // Removed Content from INSERT
-            cmd.CommandText = "INSERT INTO Chapters (NovelId, Number, Title, Date, CreatorId) VALUES (@novelId, @number, @title, @date, @creatorId)";
+            // Added ContentFilePath to INSERT
+            cmd.CommandText = "INSERT INTO Chapters (NovelId, Number, Title, Date, CreatorId, ContentFilePath) VALUES (@novelId, @number, @title, @date, @creatorId, @contentFilePath); SELECT LAST_INSERT_ID();";
             cmd.Parameters.AddWithValue("@novelId", chapter.NovelId);
             cmd.Parameters.AddWithValue("@number", chapter.Number ?? "");
             cmd.Parameters.AddWithValue("@title", chapter.Title);
-            // cmd.Parameters.AddWithValue("@content", chapter.Content ?? ""); // Removed
             cmd.Parameters.AddWithValue("@date", chapter.Date);
             cmd.Parameters.AddWithValue("@creatorId", chapter.CreatorId.HasValue ? (object)chapter.CreatorId.Value : DBNull.Value);
-            cmd.ExecuteNonQuery();
+            cmd.Parameters.AddWithValue("@contentFilePath", (object)chapter.ContentFilePath ?? DBNull.Value);
+            chapter.Id = Convert.ToInt32(cmd.ExecuteScalar()); // Get new chapter ID
         }
 
         public void UpdateChapter(Chapter chapter)
         {
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            // Removed Content from UPDATE
-            cmd.CommandText = "UPDATE Chapters SET Number=@number, Title=@title WHERE Id=@id";
+            // Added ContentFilePath to UPDATE
+            cmd.CommandText = "UPDATE Chapters SET Number=@number, Title=@title, Date=@date, CreatorId=@creatorId, ContentFilePath=@contentFilePath WHERE Id=@id";
             cmd.Parameters.AddWithValue("@number", chapter.Number ?? "");
             cmd.Parameters.AddWithValue("@title", chapter.Title);
-            // cmd.Parameters.AddWithValue("@content", chapter.Content ?? ""); // Removed
+            cmd.Parameters.AddWithValue("@date", chapter.Date);
+            cmd.Parameters.AddWithValue("@creatorId", chapter.CreatorId.HasValue ? (object)chapter.CreatorId.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@contentFilePath", (object)chapter.ContentFilePath ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@id", chapter.Id);
             cmd.ExecuteNonQuery();
         }
@@ -1333,6 +1371,371 @@ namespace BulbaLib.Services
                 IsRead = reader.GetBoolean("IsRead"),
                 CreatedAt = reader.GetDateTime("CreatedAt")
             };
+        }
+
+        public List<ChapterModerationRequestViewModel> GetPendingChapterModerationRequestsWithDetails()
+        {
+            var requests = new List<ChapterModerationRequestViewModel>();
+            using var conn = GetConnection();
+            // Added N.Covers for NovelCoverImageUrl
+            // Added C.Number as CurrentChapterNumber, C.Title as CurrentChapterTitle
+            var query = @"
+                SELECT 
+                    mr.Id AS RequestId, 
+                    mr.RequestType, 
+                    u.Login AS UserLogin, 
+                    mr.NovelId, 
+                    N.Title AS NovelTitle, 
+                    N.Covers AS NovelCovers,  -- Assuming Covers field stores JSON array with first image being primary
+                    mr.ChapterId, 
+                    C.Number AS CurrentChapterNumber, 
+                    C.Title AS CurrentChapterTitle, 
+                    mr.RequestData, 
+                    mr.CreatedAt AS RequestedAt
+                FROM ModerationRequests mr
+                JOIN Users u ON mr.UserId = u.Id
+                LEFT JOIN Novels N ON mr.NovelId = N.Id
+                LEFT JOIN Chapters C ON mr.ChapterId = C.Id
+                WHERE mr.Status = @Status AND mr.RequestType IN (@AddChapter, @EditChapter, @DeleteChapter)
+                ORDER BY mr.CreatedAt DESC;
+            ";
+
+            using var cmd = new MySqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@Status", ModerationStatus.Pending.ToString());
+            cmd.Parameters.AddWithValue("@AddChapter", ModerationRequestType.AddChapter.ToString());
+            cmd.Parameters.AddWithValue("@EditChapter", ModerationRequestType.EditChapter.ToString());
+            cmd.Parameters.AddWithValue("@DeleteChapter", ModerationRequestType.DeleteChapter.ToString());
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var requestType = Enum.Parse<ModerationRequestType>(reader.GetString("RequestType"));
+                string requestDataJson = reader.IsDBNull("RequestData") ? null : reader.GetString("RequestData");
+
+                string proposedNumber = null;
+                string proposedTitle = null;
+
+                if (!string.IsNullOrEmpty(requestDataJson) && (requestType == ModerationRequestType.AddChapter || requestType == ModerationRequestType.EditChapter))
+                {
+                    try
+                    {
+                        // For AddChapter, RequestData is Chapter (includes Number, Title, Content)
+                        // For EditChapter, RequestData is Chapter (includes Id, Number, Title, Content)
+                        // We only need Number and Title here for display.
+                        var chapterDetails = JsonSerializer.Deserialize<Chapter>(requestDataJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        proposedNumber = chapterDetails?.Number;
+                        proposedTitle = chapterDetails?.Title;
+                    }
+                    catch (JsonException ex)
+                    {
+                        // Log error or handle cases where RequestData might not be a valid Chapter JSON
+                        Console.WriteLine($"Error deserializing RequestData for RequestId {reader.GetInt32("RequestId")}: {ex.Message}");
+                        // For EditChapter, RequestData might also be ChapterEditModel in some older implementations,
+                        // but the prompt and current controller logic points to `Chapter` for `EditChapter` moderation data.
+                        // If it were ChapterEditModel or ChapterCreateModel, the deserialization target would change.
+                        // For now, assuming Chapter is the correct target for both Add and Edit based on typical flow.
+                    }
+                }
+
+
+                string novelCoversJson = reader.IsDBNull("NovelCovers") ? null : reader.GetString("NovelCovers");
+                string firstCoverUrl = null;
+                if (!string.IsNullOrEmpty(novelCoversJson))
+                {
+                    try
+                    {
+                        var covers = JsonSerializer.Deserialize<List<string>>(novelCoversJson);
+                        if (covers != null && covers.Count > 0)
+                        {
+                            firstCoverUrl = covers[0]; // Assuming the first cover is the primary one
+                            // Ensure it's a full URL or prepend base path if it's relative
+                            if (!string.IsNullOrWhiteSpace(firstCoverUrl) && !firstCoverUrl.StartsWith("http"))
+                            {
+                                // This might need configuration for base URL if not stored as full URLs
+                                // For now, assume it's either a full URL or a relative one that client can handle
+                            }
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+                        Console.WriteLine($"Error deserializing NovelCovers for RequestId {reader.GetInt32("RequestId")}: {ex.Message}");
+                    }
+                }
+
+
+                requests.Add(new ChapterModerationRequestViewModel
+                {
+                    RequestId = reader.GetInt32("RequestId"),
+                    RequestType = requestType,
+                    UserLogin = reader.GetString("UserLogin"),
+                    NovelId = reader.IsDBNull("NovelId") ? 0 : reader.GetInt32("NovelId"), // Ensure non-null if possible
+                    NovelTitle = reader.IsDBNull("NovelTitle") ? "N/A" : reader.GetString("NovelTitle"),
+                    NovelCoverImageUrl = firstCoverUrl,
+                    ChapterId = reader.IsDBNull("ChapterId") ? (int?)null : reader.GetInt32("ChapterId"),
+                    CurrentChapterNumber = reader.IsDBNull("CurrentChapterNumber") ? null : reader.GetString("CurrentChapterNumber"),
+                    CurrentChapterTitle = reader.IsDBNull("CurrentChapterTitle") ? null : reader.GetString("CurrentChapterTitle"),
+                    ProposedChapterNumber = proposedNumber,
+                    ProposedChapterTitle = proposedTitle,
+                    RequestedAt = reader.GetDateTime("RequestedAt"),
+                    // ParsedRequestDataChapterNumber and Title are covered by ProposedChapterNumber/Title
+                });
+            }
+            return requests;
+        }
+
+        public async Task<ModerationRequest> GetModerationRequestByIdAsync(int requestId)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand(); // Assuming GetConnection opens the connection
+            cmd.CommandText = "SELECT * FROM ModerationRequests WHERE Id = @id";
+            cmd.Parameters.AddWithValue("@id", requestId);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return MapReaderToModerationRequest(reader); // Existing helper method
+            }
+            return null;
+        }
+
+        public async Task<bool> UpdateModerationRequestStatusAsync(int requestId, ModerationStatus status, int moderatorId, string rejectionReason = null)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"UPDATE ModerationRequests SET 
+                                Status = @status, 
+                                ModeratorId = @moderatorId, 
+                                RejectionReason = @rejectionReason, 
+                                UpdatedAt = @updatedAt 
+                                WHERE Id = @id";
+
+            cmd.Parameters.AddWithValue("@status", status.ToString());
+            cmd.Parameters.AddWithValue("@moderatorId", moderatorId);
+            cmd.Parameters.AddWithValue("@rejectionReason", (object)rejectionReason ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@updatedAt", DateTime.UtcNow);
+            cmd.Parameters.AddWithValue("@id", requestId);
+
+            return await cmd.ExecuteNonQueryAsync() > 0;
+        }
+
+
+        public async Task<ChapterModerationRequestViewModel> GetChapterModerationRequestDetailsByIdAsync(int requestId)
+        {
+            ChapterModerationRequestViewModel requestDetails = null;
+            using var conn = GetConnection();
+            var query = @"
+                SELECT 
+                    mr.Id AS RequestId, 
+                    mr.RequestType, 
+                    u.Login AS UserLogin, 
+                    mr.NovelId, 
+                    N.Title AS NovelTitle, 
+                    N.Covers AS NovelCovers,
+                    mr.ChapterId, 
+                    C.Number AS CurrentChapterNumber, 
+                    C.Title AS CurrentChapterTitle,
+                    C.ContentFilePath AS CurrentChapterContentFilePath,
+                    mr.RequestData, 
+                    mr.CreatedAt AS RequestedAt
+                FROM ModerationRequests mr
+                JOIN Users u ON mr.UserId = u.Id
+                LEFT JOIN Novels N ON mr.NovelId = N.Id
+                LEFT JOIN Chapters C ON mr.ChapterId = C.Id
+                WHERE mr.Id = @RequestId;
+            ";
+
+            using var cmd = new MySqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@RequestId", requestId);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                var requestType = Enum.Parse<ModerationRequestType>(reader.GetString("RequestType"));
+                string requestDataJson = reader.IsDBNull("RequestData") ? null : reader.GetString("RequestData");
+
+                string proposedNumber = null;
+                string proposedTitle = null;
+                string proposedContent = null;
+
+                if (!string.IsNullOrEmpty(requestDataJson) && (requestType == ModerationRequestType.AddChapter || requestType == ModerationRequestType.EditChapter))
+                {
+                    try
+                    {
+                        var chapterDetails = JsonSerializer.Deserialize<Chapter>(requestDataJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        proposedNumber = chapterDetails?.Number;
+                        proposedTitle = chapterDetails?.Title;
+                        proposedContent = chapterDetails?.Content; // Content is part of Chapter model when serialized
+                    }
+                    catch (JsonException ex)
+                    {
+                        Console.WriteLine($"Error deserializing RequestData for RequestId {reader.GetInt32("RequestId")}: {ex.Message}");
+                    }
+                }
+
+                string currentChapterContent = null;
+                string currentContentFilePath = reader.IsDBNull("CurrentChapterContentFilePath") ? null : reader.GetString("CurrentChapterContentFilePath");
+                if (requestType == ModerationRequestType.EditChapter || requestType == ModerationRequestType.DeleteChapter)
+                {
+                    if (!string.IsNullOrEmpty(currentContentFilePath))
+                    {
+                        // Ensure _fileService is available here. This requires _fileService to be passed to MySqlService constructor.
+                        if (_fileService.ChapterFileExists(currentContentFilePath)) // Assuming ChapterFileExists takes a path relative to wwwroot or a full path
+                        {
+                            currentChapterContent = await _fileService.ReadChapterContentAsync(currentContentFilePath);
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Current chapter content file not found at: {currentContentFilePath} for request ID {requestId}");
+                        }
+                    }
+                    else if (requestType == ModerationRequestType.EditChapter && reader.IsDBNull("ChapterId")) // Edit request but no existing chapter (should not happen ideally)
+                    {
+                        Console.WriteLine($"Edit request {requestId} has no ChapterId, cannot fetch current content.");
+                    }
+                }
+
+                string novelCoversJson = reader.IsDBNull("NovelCovers") ? null : reader.GetString("NovelCovers");
+                string firstCoverUrl = null;
+                if (!string.IsNullOrEmpty(novelCoversJson))
+                {
+                    try
+                    {
+                        var covers = JsonSerializer.Deserialize<List<string>>(novelCoversJson);
+                        if (covers != null && covers.Count > 0) firstCoverUrl = covers[0];
+                    }
+                    catch (JsonException ex)
+                    {
+                        Console.WriteLine($"Error deserializing NovelCovers for RequestId {reader.GetInt32("RequestId")}: {ex.Message}");
+                    }
+                }
+
+                requestDetails = new ChapterModerationRequestViewModel
+                {
+                    RequestId = reader.GetInt32("RequestId"),
+                    RequestType = requestType,
+                    UserLogin = reader.GetString("UserLogin"),
+                    NovelId = reader.IsDBNull("NovelId") ? 0 : reader.GetInt32("NovelId"),
+                    NovelTitle = reader.IsDBNull("NovelTitle") ? "N/A" : reader.GetString("NovelTitle"),
+                    NovelCoverImageUrl = firstCoverUrl,
+                    ChapterId = reader.IsDBNull("ChapterId") ? (int?)null : reader.GetInt32("ChapterId"),
+                    CurrentChapterNumber = reader.IsDBNull("CurrentChapterNumber") ? null : reader.GetString("CurrentChapterNumber"),
+                    CurrentChapterTitle = reader.IsDBNull("CurrentChapterTitle") ? null : reader.GetString("CurrentChapterTitle"),
+                    ProposedChapterNumber = proposedNumber,
+                    ProposedChapterTitle = proposedTitle, // Corrected typo from proposed_Title
+                    RequestedAt = reader.GetDateTime("RequestedAt"),
+                    ProposedChapterContent = proposedContent,
+                    CurrentChapterContent = currentChapterContent
+                };
+            }
+            return requestDetails;
+        }
+
+        public async Task AddNovelTranslatorIfNotExistsAsync(int novelId, int userId)
+        {
+            using var conn = GetConnection();
+            // Check if already exists
+            using var checkCmd = conn.CreateCommand();
+            checkCmd.CommandText = "SELECT COUNT(*) FROM NovelTranslators WHERE NovelId = @novelId AND TranslatorId = @userId";
+            checkCmd.Parameters.AddWithValue("@novelId", novelId);
+            checkCmd.Parameters.AddWithValue("@userId", userId);
+            var exists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
+
+            if (!exists)
+            {
+                using var insertCmd = conn.CreateCommand();
+                insertCmd.CommandText = "INSERT INTO NovelTranslators (NovelId, TranslatorId) VALUES (@novelId, @userId)";
+                insertCmd.Parameters.AddWithValue("@novelId", novelId);
+                insertCmd.Parameters.AddWithValue("@userId", userId);
+                await insertCmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        public async Task RemoveTranslatorIfLastChapterAsync(int novelId, int creatorId)
+        {
+            using var conn = GetConnection();
+            // Check for other chapters by this creator for this novel
+            using var checkCmd = conn.CreateCommand();
+            checkCmd.CommandText = "SELECT COUNT(*) FROM Chapters WHERE NovelId = @novelId AND CreatorId = @creatorId";
+            checkCmd.Parameters.AddWithValue("@novelId", novelId);
+            checkCmd.Parameters.AddWithValue("@creatorId", creatorId);
+            // This count is checked *after* a chapter is potentially deleted by the calling code.
+            // So, if count is 0, it means the deleted chapter was the last one by this creator for this novel.
+            var remainingChaptersCount = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+
+            if (remainingChaptersCount == 0)
+            {
+                // No more chapters by this creator for this novel, remove from NovelTranslators
+                using var deleteCmd = conn.CreateCommand();
+                deleteCmd.CommandText = "DELETE FROM NovelTranslators WHERE NovelId = @novelId AND TranslatorId = @creatorId";
+                deleteCmd.Parameters.AddWithValue("@novelId", novelId);
+                deleteCmd.Parameters.AddWithValue("@creatorId", creatorId);
+                await deleteCmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        public async Task<Chapter> GetChapterAsync(int chapterId)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Id, NovelId, Number, Title, Date, CreatorId, ContentFilePath FROM Chapters WHERE Id = @id";
+            cmd.Parameters.AddWithValue("@id", chapterId);
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return new Chapter
+                {
+                    Id = reader.GetInt32("Id"),
+                    NovelId = reader.GetInt32("NovelId"),
+                    Number = reader.IsDBNull("Number") ? "" : reader.GetString("Number"),
+                    Title = reader.GetString("Title"),
+                    Date = reader.IsDBNull("Date") ? 0 : reader.GetInt64("Date"),
+                    CreatorId = reader.IsDBNull("CreatorId") ? (int?)null : reader.GetInt32("CreatorId"),
+                    ContentFilePath = reader.IsDBNull("ContentFilePath") ? null : reader.GetString("ContentFilePath")
+                };
+            }
+            return null;
+        }
+
+        public async Task CreateChapterAsync(Chapter chapter)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "INSERT INTO Chapters (NovelId, Number, Title, Date, CreatorId, ContentFilePath) VALUES (@novelId, @number, @title, @date, @creatorId, @contentFilePath); SELECT LAST_INSERT_ID();";
+            cmd.Parameters.AddWithValue("@novelId", chapter.NovelId);
+            cmd.Parameters.AddWithValue("@number", chapter.Number ?? "");
+            cmd.Parameters.AddWithValue("@title", chapter.Title);
+            cmd.Parameters.AddWithValue("@date", chapter.Date);
+            cmd.Parameters.AddWithValue("@creatorId", chapter.CreatorId.HasValue ? (object)chapter.CreatorId.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@contentFilePath", (object)chapter.ContentFilePath ?? DBNull.Value);
+            var newId = await cmd.ExecuteScalarAsync(); // Returns object, ensure it's not DBNull before converting
+            if (newId != null && newId != DBNull.Value)
+            {
+                chapter.Id = Convert.ToInt32(newId);
+            }
+        }
+
+        public async Task UpdateChapterAsync(Chapter chapter)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE Chapters SET NovelId=@novelId, Number=@number, Title=@title, Date=@date, CreatorId=@creatorId, ContentFilePath=@contentFilePath WHERE Id=@id";
+            cmd.Parameters.AddWithValue("@id", chapter.Id);
+            cmd.Parameters.AddWithValue("@novelId", chapter.NovelId);
+            cmd.Parameters.AddWithValue("@number", chapter.Number ?? "");
+            cmd.Parameters.AddWithValue("@title", chapter.Title);
+            cmd.Parameters.AddWithValue("@date", chapter.Date);
+            cmd.Parameters.AddWithValue("@creatorId", chapter.CreatorId.HasValue ? (object)chapter.CreatorId.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@contentFilePath", (object)chapter.ContentFilePath ?? DBNull.Value);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        public async Task DeleteChapterAsync(int chapterId)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM Chapters WHERE Id = @id";
+            cmd.Parameters.AddWithValue("@id", chapterId);
+            await cmd.ExecuteNonQueryAsync();
         }
     }
 }
