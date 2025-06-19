@@ -1,5 +1,4 @@
-﻿
-namespace BulbaLib.Models
+﻿namespace BulbaLib.Models
 {
     public class User
     {

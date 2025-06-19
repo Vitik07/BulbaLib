@@ -72,9 +72,7 @@ else if (Model.RequestType == ModerationRequestType.EditChapter)
 else if (Model.RequestType == ModerationRequestType.DeleteChapter && Model.ExistingChapterData != null)
 {
     <h4 class="mt-4">Глава к удалению:</h4>
-    @{ 
         Model.ExistingChapterData.Content = Model.ExistingContent; 
-    }
     <partial name="_ChapterDisplayPartial" model="Model.ExistingChapterData" />
 }
 else if (!string.IsNullOrEmpty(Model.RequestDataJson) && Model.ProposedChapterData == null && Model.ExistingChapterData == null)
@@ -105,12 +103,10 @@ else if (!string.IsNullOrEmpty(Model.RequestDataJson) && Model.ProposedChapterDa
 }
 else
 {
-    @{
         string? modComment = Model.ModerationComment; // Directly access from Model
         DateTime? updatedAt = Model.UpdatedAt; // Directly access from Model
         // ModeratorLogin is expected to be in ViewData, set by the controller.
         string moderatorLogin = ViewData["ModeratorUserLogin"]?.ToString() ?? "N/A"; 
-    }
     <div class="mt-4 alert alert-info">
         <p><strong>Модератор:</strong> @moderatorLogin</p>
         <p><strong>Дата обработки:</strong> @(updatedAt.HasValue ? updatedAt.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A")</p>

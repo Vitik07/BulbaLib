@@ -866,41 +866,4 @@ namespace BulbaLib.Controllers
         public int? AuthorId { get; set; }
         public string AlternativeTitles { get; set; }
     }
-
-    // ViewModels for MVC Actions
-    public class NovelCreateModel
-    {
-        [Required(ErrorMessage = "Название обязательно")]
-        [StringLength(200, MinimumLength = 1, ErrorMessage = "Название должно быть от 1 до 200 символов")]
-        public string Title { get; set; }
-
-        [DataType(DataType.MultilineText)]
-        public string Description { get; set; }
-
-        public string Genres { get; set; }
-        public string Tags { get; set; }
-
-        [StringLength(100)]
-        public string Type { get; set; }
-
-        [StringLength(100)]
-        public string Format { get; set; }
-
-        [Range(1900, 2100, ErrorMessage = "Год выпуска должен быть между 1900 и 2100")]
-        public int? ReleaseYear { get; set; }
-
-        public string AlternativeTitles { get; set; }
-        public string RelatedNovelIds { get; set; }
-
-        public List<IFormFile> NewCovers { get; set; } = new List<IFormFile>();
-
-        public bool IsDraft { get; set; }
-    }
-
-    public class NovelEditModel : NovelCreateModel
-    {
-        public int Id { get; set; }
-        public List<string> ExistingCoverPaths { get; set; } = new List<string>();
-        public List<string> CoversToDelete { get; set; } = new List<string>();
-    }
 }
