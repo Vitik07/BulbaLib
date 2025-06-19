@@ -1,10 +1,16 @@
-﻿@model List<BulbaLib.Controllers.NovelModerationRequestViewModel>
+﻿@model List<NovelModerationRequestViewModel>
 @{
     // Partial view, no layout
 
+
+
     var currentPage = ViewData["CurrentPage"] as int? ?? 1;
 
+
+
     var totalPages = ViewData["TotalPages"] as int? ?? 1;
+
+
 
     var pageSize = ViewData["PageSize"] as int? ?? 10;
 }
@@ -26,9 +32,9 @@
         <tbody>
             @if (Model == null || !Model.Any())
             {
-                <tr>
-                    <td colspan="8" class="text-center">Нет ожидающих запросов на модерацию новелл.</td>
-                </tr>
+                    <tr>
+                        <td colspan="8" class="text-center">Нет ожидающих запросов на модерацию новелл.</td>
+                    </tr>
             }
             else
             {
@@ -36,27 +42,30 @@
                 foreach (var req in Model)
 
                 {
-                    <tr>
-                        <td>@req.RequestId</td>
-                        <td>@req.RequestTypeFriendlyName</td>
-                        <td>@(req.NovelId.HasValue ? req.NovelId.Value.ToString() : "N/A")</td>
-                        <td>
+                            <tr>
+                                <td>@req.RequestId</td>
+                                <td>@req.RequestTypeFriendlyName</td>
+                                <td>@(req.NovelId.HasValue ? req.NovelId.Value.ToString() : "N/A")</td>
+                                <td>
                             @if (req.RequestType == ModerationRequestType.AddNovel)
+
                             {
                                 @(req.ProposedNovelData?.Title ?? req.NovelTitle ?? "Новая новелла")
                             }
+
                             else
+
                             {
                                 @(req.NovelTitle ?? "N/A")
                             }
-                        </td>
-                        <td>@req.RequesterLogin</td>
-                        <td>@req.CreatedAt.ToString("g")</td>
-                        <td><span class="badge bg-warning text-dark">@req.Status</span></td>
-                        <td>
-                            <a href="@Url.Action("NovelRequestDetails", "Admin", new { requestId = req.RequestId })" class="btn btn-sm btn-info">Детали</a>
-                        </td>
-                    </tr>
+                                </td>
+                                <td>@req.RequesterLogin</td>
+                                <td>@req.CreatedAt.ToString("g")</td>
+                                <td><span class="badge bg-warning text-dark">@req.Status</span></td>
+                                <td>
+                                    <a href="@Url.Action("NovelRequestDetails", "Admin", new { requestId = req.RequestId })" class="btn btn-sm btn-info">Детали</a>
+                                </td>
+                            </tr>
                 }
             }
         </tbody>
@@ -65,60 +74,76 @@
 
 @if (totalPages > 1)
 
+
+
 {
-    <nav aria-label="Page navigation">
-        <ul class="pagination justify-content-center">
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
             @if (currentPage > 1)
 
+
+
             {
-                <li class="page-item">
-                    <a class="page-link novel-request-page-link" href="#" data-page="@(currentPage - 1)" data-url="@Url.Action("NovelRequestsPartial", "Admin", new { page = currentPage - 1, pageSize = pageSize })">Предыдущая</a>
-                </li>
+                        <li class="page-item">
+                            <a class="page-link novel-request-page-link" href="#" data-page="@(currentPage - 1)" data-url="@Url.Action("NovelRequestsPartial", "Admin", new { page = currentPage - 1, pageSize = pageSize })">Предыдущая</a>
+                        </li>
             }
+
+
 
             else
 
+
+
             {
-                <li class="page-item disabled">
-                    <span class="page-link">Предыдущая</span>
-                </li>
+                        <li class="page-item disabled">
+                            <span class="page-link">Предыдущая</span>
+                        </li>
             }
 
             @for (int i = 1; i <= totalPages; i++)
 
+
+
             {
-                <li class="page-item @(i == currentPage ? "active" : "")">
+                        <li class="page-item @(i == currentPage ? "active" : "")">
                     @if (i == currentPage)
 
                     {
-                        <span class="page-link">@i <span class="sr-only">(current)</span></span>
+                                    <span class="page-link">@i <span class="sr-only">(current)</span></span>
                     }
 
                     else
 
                     {
-                        <a class="page-link novel-request-page-link" href="#" data-page="@i" data-url="@Url.Action("NovelRequestsPartial", "Admin", new { page = i, pageSize = pageSize })">@i</a>
+                                    <a class="page-link novel-request-page-link" href="#" data-page="@i" data-url="@Url.Action("NovelRequestsPartial", "Admin", new { page = i, pageSize = pageSize })">@i</a>
                     }
-                </li>
+                        </li>
             }
 
             @if (currentPage < totalPages)
 
+
+
             {
-                <li class="page-item">
-                    <a class="page-link novel-request-page-link" href="#" data-page="@(currentPage + 1)" data-url="@Url.Action("NovelRequestsPartial", "Admin", new { page = currentPage + 1, pageSize = pageSize })">Следующая</a>
-                </li>
+                        <li class="page-item">
+                            <a class="page-link novel-request-page-link" href="#" data-page="@(currentPage + 1)" data-url="@Url.Action("NovelRequestsPartial", "Admin", new { page = currentPage + 1, pageSize = pageSize })">Следующая</a>
+                        </li>
             }
+
+
 
             else
 
+
+
             {
-                <li class="page-item disabled">
-                    <span class="page-link">Следующая</span>
-                </li>
+                        <li class="page-item disabled">
+                            <span class="page-link">Следующая</span>
+                        </li>
             }
-        </ul>
-    </nav>
+            </ul>
+        </nav>
 }
 
 <script>

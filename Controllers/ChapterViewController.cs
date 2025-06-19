@@ -372,9 +372,9 @@ namespace BulbaLib.Controllers
                             var remainingChaptersByThisUser = _mySqlService.GetChaptersByNovel(novelIdForUpdate)
                                                                  .Any(c => c.CreatorId == creatorId);
 
-                            if (!remainingChaptersByThisUser && novelToUpdate.TranslatorIds != null && novelToUpdate.TranslatorIds.Contains(creatorId))
+                            if (!remainingChaptersByThisUser && novelToUpdate.TranslatorIds != null && novelToUpdate.TranslatorIds.Contains((char)creatorId))
                             {
-                                novelToUpdate.TranslatorIds.Remove(creatorId);
+                                novelToUpdate.TranslatorIds.Remove((char)creatorId);
                                 _mySqlService.UpdateNovel(novelToUpdate);
                                 // Optional: Log this removal or notify someone
                             }

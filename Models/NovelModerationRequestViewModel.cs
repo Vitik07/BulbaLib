@@ -23,39 +23,7 @@ namespace BulbaLib.Models
         public string? AlternativeTitles { get; set; }
     }
 
-    public class NovelModerationRequestViewModel
-    {
-        public int RequestId { get; set; }
-        public ModerationRequestType RequestType { get; set; }
-        // public string RequestTypeDisplay { get; set; } // Not assigned in controller
-        public string RequestTypeFriendlyName
-        {
-            get
-            {
-                switch (RequestType)
-                {
-                    case ModerationRequestType.AddNovel: return "Добавление новеллы";
-                    case ModerationRequestType.EditNovel: return "Редактирование новеллы";
-                    case ModerationRequestType.DeleteNovel: return "Удаление новеллы";
-                    default: return RequestType.ToString();
-                }
-            }
-        }
-        public int UserId { get; set; }
-        public string? RequesterLogin { get; set; }
-        public DateTime CreatedAt { get; set; }
-
-        public int? NovelId { get; set; }
-        public string? NovelTitle { get; set; }
-
-        public string? RequestDataJson { get; set; }
-        public Novel? ProposedNovelData { get; set; }
-        public NovelUpdateRequest? ProposedNovelChanges { get; set; } // Added this property
-
-        // public Novel ExistingNovelData { get; set; } // Not assigned in the relevant controller part
-
-        public string? Status { get; set; }
-
-        // public string ChangeSummary { get; set; } // Not assigned in controller
-    }
+    // The definition of NovelModerationRequestViewModel has been removed from this file
+    // to resolve CS0101, as it's also defined in Models/AdminViewModels.cs.
+    // The class NovelUpdateRequest remains here for now.
 }

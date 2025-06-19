@@ -21,10 +21,7 @@ namespace BulbaLib.Models // Or BulbaLib.Models.ViewModels
 
         public Novel ProposedNovelData { get; set; }
         public Novel ExistingNovelData { get; set; }
-        // This was specific to how NovelsController constructed edit requests.
-        // For admin panel, if RequestData for EditNovel is NovelUpdateRequest,
-        // the AdminController.NovelRequestDetails action will handle mapping this to ProposedNovelData (as type Novel) or specific fields.
-        // public NovelUpdateRequest ProposedNovelChanges { get; set; } 
+        public NovelUpdateRequest? ProposedNovelChanges { get; set; } // Uncommented and made nullable
 
         private static string GetFriendlyRequestTypeName(ModerationRequestType requestType)
         {

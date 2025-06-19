@@ -866,19 +866,6 @@ namespace BulbaLib.Controllers
         public int? AuthorId { get; set; }
         public string AlternativeTitles { get; set; }
     }
-    public class NovelUpdateRequest
-    {
-        public string Title { get; set; }
-        public string Description { get; set; }
-        public List<string> Covers { get; set; }
-        public string Genres { get; set; }
-        public string Tags { get; set; }
-        public string Type { get; set; }
-        public string Format { get; set; }
-        public int? ReleaseYear { get; set; }
-        public int? AuthorId { get; set; }
-        public string AlternativeTitles { get; set; }
-    }
 
     // ViewModels for MVC Actions
     public class NovelCreateModel
