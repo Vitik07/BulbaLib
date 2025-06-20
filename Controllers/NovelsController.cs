@@ -46,6 +46,19 @@ namespace BulbaLib.Controllers
             _env = env;
         }
 
+        private string SerializeTagsOrGenres(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return JsonSerializer.Serialize(new List<string>()); // Store as empty JSON array
+            }
+            var list = input.Split(',')
+                             .Select(s => s.Trim())
+                             .Where(s => !string.IsNullOrWhiteSpace(s))
+                             .ToList();
+            return JsonSerializer.Serialize(list);
+        }
+
         private User GetCurrentUser()
         {
             return _currentUserService.GetCurrentUser();
@@ -91,8 +104,8 @@ namespace BulbaLib.Controllers
             {
                 Title = model.Title,
                 Description = model.Description,
-                Genres = model.Genres,
-                Tags = model.Tags,
+                // Genres = model.Genres, // Will be processed
+                // Tags = model.Tags,     // Will be processed
                 Type = model.Type,
                 Format = model.Format,
                 ReleaseYear = model.ReleaseYear,
@@ -101,6 +114,9 @@ namespace BulbaLib.Controllers
                 AuthorId = currentUser.Id, // Default to current user, admin might change it later if UI allows
                 Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             };
+
+            novel.Genres = SerializeTagsOrGenres(model.Genres);
+            novel.Tags = SerializeTagsOrGenres(model.Tags);
 
             var tempCoverPaths = new List<string>();
 
@@ -435,8 +451,8 @@ namespace BulbaLib.Controllers
                 _logger.LogInformation("Admin editing novel Id: {NovelId}. Applying changes directly.", model.Id);
                 existingNovel.Title = model.Title;
                 existingNovel.Description = model.Description;
-                existingNovel.Genres = model.Genres;
-                existingNovel.Tags = model.Tags;
+                existingNovel.Genres = SerializeTagsOrGenres(model.Genres);
+                existingNovel.Tags = SerializeTagsOrGenres(model.Tags);
                 existingNovel.Type = model.Type;
                 existingNovel.Format = model.Format;
                 existingNovel.ReleaseYear = model.ReleaseYear;
@@ -485,8 +501,8 @@ namespace BulbaLib.Controllers
                 {
                     existingNovel.Title = model.Title;
                     existingNovel.Description = model.Description;
-                    existingNovel.Genres = model.Genres;
-                    existingNovel.Tags = model.Tags;
+                    existingNovel.Genres = SerializeTagsOrGenres(model.Genres);
+                    existingNovel.Tags = SerializeTagsOrGenres(model.Tags);
                     existingNovel.Type = model.Type;
                     existingNovel.Format = model.Format;
                     existingNovel.ReleaseYear = model.ReleaseYear;
@@ -552,12 +568,36 @@ namespace BulbaLib.Controllers
                     _logger.LogInformation("Author submitting edit request for already published/pending novel Id: {NovelId}", existingNovel.Id);
                     // `updatedCoverListForRequest` contains kept existing final paths + new temporary paths.
                     // This list is what the admin will see and process.
+
+                    // For Author submitting moderation, process Genres and Tags from the model
+                    var processedGenresForModeration = SerializeTagsOrGenres(model.Genres);
+                    var processedTagsForModeration = SerializeTagsOrGenres(model.Tags);
+
+                    // Create a temporary object for UpdatedFields that has the processed genres/tags
+                    // This ensures the moderator sees the intended JSON structure for genres/tags.
+                    var updatedFieldsDataForModeration = new
+                    {
+                        model.Id, // Keep other fields from NovelEditModel as they are
+                        model.Title,
+                        model.Description,
+                        Genres = processedGenresForModeration, // Use processed string
+                        Tags = processedTagsForModeration,     // Use processed string
+                        model.Type,
+                        model.Format,
+                        model.ReleaseYear,
+                        model.AlternativeTitles,
+                        model.RelatedNovelIds,
+                        // Note: Covers are handled by KeptExistingCovers and NewTempCoverPaths, not directly in UpdatedFields here.
+                        // If Covers were part of NovelEditModel in a way that they should be in UpdatedFields,
+                        // they would need to be handled here as well (e.g., model.CoversList if it existed and was updated).
+                    };
+
                     var editDataForModeration = new
                     {
                         NovelId = existingNovel.Id,
-                        UpdatedFields = model, // NovelEditModel contains all editable fields by author
-                        KeptExistingCovers = finalCoverPathsForNovel.Distinct().ToList(), // Paths to covers that were kept (after deletion step)
-                        NewTempCoverPaths = newTempCoverPaths // Temporary paths to newly uploaded covers
+                        UpdatedFields = updatedFieldsDataForModeration, // Use the object with processed genres/tags
+                        KeptExistingCovers = finalCoverPathsForNovel.Distinct().ToList(),
+                        NewTempCoverPaths = newTempCoverPaths
                     };
                     var requestDataJson = JsonSerializer.Serialize(editDataForModeration);
 
@@ -793,13 +833,20 @@ namespace BulbaLib.Controllers
                     return Forbid("Authors are not allowed to submit novels for moderation based on current permissions.");
                 }
 
+                _logger.LogInformation("Author (Id: {UserId}) attempting to create novel. Creating moderation request.", currentUser.Id);
+                if (!_permissionService.CanSubmitNovelForModeration(currentUser))
+                {
+                    _logger.LogWarning("Author (Id: {UserId}) does not have permission to submit novel for moderation.", currentUser.Id);
+                    return Forbid("Authors are not allowed to submit novels for moderation based on current permissions.");
+                }
+
                 var novelDataForModeration = new Novel
                 {
                     Title = req.Title,
                     Description = req.Description,
                     CoversList = req.Covers,
-                    Genres = req.Genres,
-                    Tags = req.Tags,
+                    // Genres = req.Genres, // Will be processed
+                    // Tags = req.Tags,     // Will be processed
                     Type = req.Type,
                     Format = req.Format,
                     ReleaseYear = req.ReleaseYear,
@@ -807,6 +854,8 @@ namespace BulbaLib.Controllers
                     AlternativeTitles = req.AlternativeTitles,
                     Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 };
+                novelDataForModeration.Genres = SerializeTagsOrGenres(req.Genres);
+                novelDataForModeration.Tags = SerializeTagsOrGenres(req.Tags);
                 _logger.LogInformation("Novel data for moderation by Author (Id: {UserId}): {NovelData}", currentUser.Id, JsonSerializer.Serialize(novelDataForModeration));
 
                 var moderationRequest = new ModerationRequest
@@ -831,13 +880,19 @@ namespace BulbaLib.Controllers
                     _logger.LogWarning("Admin (Id: {UserId}) does not have permission to add novel directly.", currentUser.Id);
                     return Forbid("Admins are not allowed to add novels directly based on current permissions.");
                 }
+                _logger.LogInformation("Admin (Id: {UserId}) attempting to create novel directly.", currentUser.Id);
+                if (!_permissionService.CanAddNovelDirectly(currentUser)) // Check if admin actually has direct add permission
+                {
+                    _logger.LogWarning("Admin (Id: {UserId}) does not have permission to add novel directly.", currentUser.Id);
+                    return Forbid("Admins are not allowed to add novels directly based on current permissions.");
+                }
                 var novel = new Novel
                 {
                     Title = req.Title,
                     Description = req.Description,
                     CoversList = req.Covers,
-                    Genres = req.Genres,
-                    Tags = req.Tags,
+                    // Genres = req.Genres, // Will be processed
+                    // Tags = req.Tags,     // Will be processed
                     Type = req.Type,
                     Format = req.Format,
                     ReleaseYear = req.ReleaseYear,
@@ -845,6 +900,8 @@ namespace BulbaLib.Controllers
                     AlternativeTitles = req.AlternativeTitles,
                     Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 };
+                novel.Genres = SerializeTagsOrGenres(req.Genres);
+                novel.Tags = SerializeTagsOrGenres(req.Tags);
                 _logger.LogInformation("Novel data for direct creation by Admin (Id: {UserId}): {NovelData}", currentUser.Id, JsonSerializer.Serialize(novel));
                 _mySqlService.CreateNovel(novel);
                 _logger.LogInformation("Novel created directly by Admin (Id: {UserId}). New Novel Id likely {NovelId_placeholder}", currentUser.Id, novel.Id); // Novel.Id might not be populated until after CreateNovel returns it
@@ -892,12 +949,35 @@ namespace BulbaLib.Controllers
                     return Forbid("Authors are not allowed to submit novel updates for moderation based on current permissions.");
                 }
 
+                // Process Genres and Tags for moderation data
+                var processedApiUpdateGenres = SerializeTagsOrGenres(req.Genres);
+                var processedApiUpdateTags = SerializeTagsOrGenres(req.Tags);
+
+                // Create a new object for RequestData to ensure it contains processed genres/tags
+                // Assuming NovelUpdateRequest has similar fields to NovelCreateRequest.
+                // If NovelUpdateRequest is different, this object construction needs to match its structure.
+                var apiUpdateDataForModeration = new
+                {
+                    req.Title,
+                    req.Description,
+                    req.Covers, // Assuming Covers are List<string> as in NovelCreateRequest
+                    Genres = processedApiUpdateGenres,
+                    Tags = processedApiUpdateTags,
+                    req.Type,
+                    req.Format,
+                    req.ReleaseYear,
+                    req.AuthorId, // Assuming AuthorId can be part of the update request
+                    req.AlternativeTitles
+                    // Add any other fields present in NovelUpdateRequest
+                };
+
+                var requestDataJson = JsonSerializer.Serialize(apiUpdateDataForModeration);
                 var moderationRequest = new ModerationRequest
                 {
                     RequestType = ModerationRequestType.EditNovel,
                     UserId = currentUser.Id,
                     NovelId = id,
-                    RequestData = JsonSerializer.Serialize(req), // req is NovelUpdateRequest
+                    RequestData = requestDataJson, // Use the processed data
                     Status = ModerationStatus.Pending,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -917,8 +997,8 @@ namespace BulbaLib.Controllers
                 novel.Title = req.Title ?? novel.Title;
                 novel.Description = req.Description ?? novel.Description;
                 if (req.Covers != null) novel.CoversList = req.Covers;
-                novel.Genres = req.Genres ?? novel.Genres;
-                novel.Tags = req.Tags ?? novel.Tags;
+                novel.Genres = SerializeTagsOrGenres(req.Genres ?? novel.Genres); // Process if req.Genres is not null, else use existing (already processed)
+                novel.Tags = SerializeTagsOrGenres(req.Tags ?? novel.Tags);       // Process if req.Tags is not null, else use existing (already processed)
                 novel.Type = req.Type ?? novel.Type;
                 novel.Format = req.Format ?? novel.Format;
                 novel.ReleaseYear = req.ReleaseYear ?? novel.ReleaseYear;
