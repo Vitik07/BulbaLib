@@ -11,8 +11,9 @@ builder.Services.AddScoped<MySqlService>(serviceProvider =>
 {
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
     var fileService = serviceProvider.GetRequiredService<FileService>();
+    var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
     var connectionString = configuration.GetConnectionString("DefaultConnection")!;
-    return new MySqlService(connectionString, fileService);
+    return new MySqlService(connectionString, fileService, loggerFactory);
 });
 
 builder.Services.AddCors(options =>
