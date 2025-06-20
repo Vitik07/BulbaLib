@@ -560,7 +560,7 @@
                     card.innerHTML = `
                         <a href="/novel/${novel.id}" style="text-decoration:none;">
                             <img class="related-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="Обложка ${novel.title || ''}">
-                            <div class="related-title">${novel.title || 'Без названия'}</div>
+                            <div class="related-title">${novel.title ? novel.title : 'Название не найдено'}</div>
                             // Тип новеллы не приходит от detailsByIds, так что его убираем или модифицируем API
                             // <div class="related-type">${novel.type || ''}</div>
                         </a>

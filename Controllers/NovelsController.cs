@@ -595,7 +595,7 @@ namespace BulbaLib.Controllers
         }
 
         // GET /api/novels/{id}
-        [HttpGet("{id}")]
+        [HttpGet("api/novels/{id}")]
         [AllowAnonymous] // Explicitly allow anonymous access
         public IActionResult GetNovel(int id)
         {
@@ -667,7 +667,7 @@ namespace BulbaLib.Controllers
         }
 
         // POST /api/novels
-        [HttpPost]
+        [HttpPost("api/novels")]
         [Authorize(Roles = "Admin,Author")] // Require Admin or Author role
         public IActionResult CreateNovel([FromBody] NovelCreateRequest req)
         {
@@ -747,7 +747,7 @@ namespace BulbaLib.Controllers
         }
 
         // PUT /api/novels/{id}
-        [HttpPut("{id}")]
+        [HttpPut("api/novels/{id}")]
         [Authorize(Roles = "Admin,Author")] // Require Admin or Author role
         public IActionResult UpdateNovel(int id, [FromBody] NovelUpdateRequest req)
         {
@@ -814,7 +814,7 @@ namespace BulbaLib.Controllers
         }
 
         // DELETE /api/novels/{id}
-        [HttpDelete("{id}")]
+        [HttpDelete("api/novels/{id}")]
         [Authorize(Roles = "Admin,Author")] // Require Admin or Author role
         public IActionResult DeleteNovel(int id)
         {
@@ -887,7 +887,7 @@ namespace BulbaLib.Controllers
             }
         }
 
-        [HttpGet("search")] // Will be routed as /api/Novels/search
+        [HttpGet("api/novels/search")] // Will be routed as /api/Novels/search
         [AllowAnonymous]    // Assuming search should be public
         public IActionResult SearchNovelsApi([FromQuery] string query, [FromQuery] int limit = 5)
         {
@@ -913,7 +913,7 @@ namespace BulbaLib.Controllers
         // Add using System.Linq; if not already present
         // Add using BulbaLib.Models; if not already present
 
-        [HttpGet("detailsByIds")]
+        [HttpGet("api/novels/detailsByIds")]
         public IActionResult GetNovelDetailsByIds([FromQuery] string ids)
         {
             if (string.IsNullOrWhiteSpace(ids))
