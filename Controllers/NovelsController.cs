@@ -313,6 +313,31 @@ namespace BulbaLib.Controllers
                 // If novel.Status == NovelStatus.Draft, IsDraft could be true here.
                 IsDraft = (novel.Status == NovelStatus.Draft && novel.AuthorId == currentUser.Id)
             };
+
+            // Populate AuthorLogin
+            if (novel.AuthorId.HasValue)
+            {
+                _logger.LogInformation("Populating AuthorLogin for Edit action, NovelId: {NovelId}, AuthorId: {AuthorId}", id, novel.AuthorId.Value);
+                editModel.AuthorLogin = _mySqlService.GetUserLogin(novel.AuthorId.Value);
+                if (editModel.AuthorLogin == null)
+                {
+                    _logger.LogWarning("AuthorLogin not found for AuthorId: {AuthorId} while editing NovelId: {NovelId}", novel.AuthorId.Value, id);
+                }
+            }
+            else
+            {
+                _logger.LogInformation("NovelId: {NovelId} does not have an AuthorId. AuthorLogin will be null.", id);
+            }
+
+            // Fetch all genres and tags for dropdowns or similar UI elements
+            _logger.LogInformation("Fetching all genres and tags for Edit action, NovelId: {NovelId}", id);
+            ViewData["AllGenres"] = _mySqlService.GetAllGenres();
+            ViewData["AllTags"] = _mySqlService.GetAllTags();
+            _logger.LogInformation("Successfully fetched {GenreCount} genres and {TagCount} tags for NovelId: {NovelId}",
+                ((List<string>)ViewData["AllGenres"])?.Count ?? 0,
+                ((List<string>)ViewData["AllTags"])?.Count ?? 0,
+                id);
+
             _logger.LogInformation("Exiting MVC Edit (GET) method for novel Id: {NovelId}, returning view with edit model.", id);
             return View("~/Views/Novel/Edit.cshtml", editModel);
         }

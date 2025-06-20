@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using MySql.Data.MySqlClient;
@@ -416,6 +416,27 @@ namespace BulbaLib.Services
                 });
             }
             return users;
+        }
+
+        public string GetUserLogin(int userId)
+        {
+            _logger.LogInformation("Entering GetUserLogin method for UserId: {UserId}", userId);
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Login FROM Users WHERE Id = @userId";
+            cmd.Parameters.AddWithValue("@userId", userId);
+            using var reader = cmd.ExecuteReader();
+            if (reader.Read())
+            {
+                var login = reader.GetString("Login");
+                _logger.LogInformation("User found for UserId: {UserId}. Login: {Login}", userId, login);
+                return login;
+            }
+            else
+            {
+                _logger.LogWarning("User not found for UserId: {UserId}", userId);
+                return null;
+            }
         }
 
         // ---------- NOVEL TRANSLATORS ----------
@@ -1031,40 +1052,76 @@ namespace BulbaLib.Services
         // Получить все уникальные жанры
         public List<string> GetAllGenres()
         {
-            _logger.LogInformation("Entering GetAllGenres method.");
+            _logger.LogInformation("Entering GetAllGenres method to collect all unique genres from novels.");
             var novels = GetNovels(); // This already logs internally if GetNovels has logging
-            var genres = new HashSet<string>();
+            var uniqueGenres = new HashSet<string>();
             foreach (var n in novels)
             {
-                if (!string.IsNullOrWhiteSpace(n.Genres))
+                if (string.IsNullOrWhiteSpace(n.Genres))
                 {
-                    foreach (var g in n.Genres.Split(','))
-                        if (!string.IsNullOrWhiteSpace(g))
-                            genres.Add(g.Trim());
+                    // _logger.LogDebug("Novel Id {NovelId} has null or empty Genres string.", n.Id); // Optional: too verbose?
+                    continue;
+                }
+
+                try
+                {
+                    var genreList = JsonSerializer.Deserialize<List<string>>(n.Genres);
+                    if (genreList != null)
+                    {
+                        foreach (var g in genreList)
+                        {
+                            if (!string.IsNullOrWhiteSpace(g))
+                            {
+                                uniqueGenres.Add(g.Trim());
+                            }
+                        }
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning("Failed to deserialize Genres JSON for Novel Id {NovelId}. JSON: \"{GenreJson}\". Error: {ErrorMessage}", n.Id, n.Genres, ex.Message);
                 }
             }
-            var result = genres.OrderBy(g => g).ToList();
-            _logger.LogInformation("Found {GenreCount} unique genres.", result.Count);
+            var result = uniqueGenres.OrderBy(g => g).ToList();
+            _logger.LogInformation("Successfully collected {GenreCount} unique genres.", result.Count);
             return result;
         }
 
         // Получить все уникальные теги
         public List<string> GetAllTags()
         {
-            _logger.LogInformation("Entering GetAllTags method.");
+            _logger.LogInformation("Entering GetAllTags method to collect all unique tags from novels.");
             var novels = GetNovels(); // This already logs internally
-            var tags = new HashSet<string>();
+            var uniqueTags = new HashSet<string>();
             foreach (var n in novels)
             {
-                if (!string.IsNullOrWhiteSpace(n.Tags))
+                if (string.IsNullOrWhiteSpace(n.Tags))
                 {
-                    foreach (var t in n.Tags.Split(','))
-                        if (!string.IsNullOrWhiteSpace(t))
-                            tags.Add(t.Trim());
+                    // _logger.LogDebug("Novel Id {NovelId} has null or empty Tags string.", n.Id); // Optional: too verbose?
+                    continue;
+                }
+
+                try
+                {
+                    var tagList = JsonSerializer.Deserialize<List<string>>(n.Tags);
+                    if (tagList != null)
+                    {
+                        foreach (var t in tagList)
+                        {
+                            if (!string.IsNullOrWhiteSpace(t))
+                            {
+                                uniqueTags.Add(t.Trim());
+                            }
+                        }
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning("Failed to deserialize Tags JSON for Novel Id {NovelId}. JSON: \"{TagJson}\". Error: {ErrorMessage}", n.Id, n.Tags, ex.Message);
                 }
             }
-            var result = tags.OrderBy(t => t).ToList();
-            _logger.LogInformation("Found {TagCount} unique tags.", result.Count);
+            var result = uniqueTags.OrderBy(t => t).ToList();
+            _logger.LogInformation("Successfully collected {TagCount} unique tags.", result.Count);
             return result;
         }
 
