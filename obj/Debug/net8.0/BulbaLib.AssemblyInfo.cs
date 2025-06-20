@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BulbaLib")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8140302d16d306e57bcd6e8dc4e6edb6b24dc18d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+09682d14d3830166397100dfe5567519b4263ec3")]
 [assembly: System.Reflection.AssemblyProductAttribute("BulbaLib")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BulbaLib")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

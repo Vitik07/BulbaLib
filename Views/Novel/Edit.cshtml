@@ -189,7 +189,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            console.log("DEBUG: DOMContentLoaded event fired");
+            console.log("DOMContentLoaded: Start");
 
             function decodeHtmlEntities(text) {
                 if (text === null || typeof text === 'undefined') {
@@ -201,39 +201,59 @@
             }
 
             const allGenres = @Html.Raw(Json.Serialize(genresToSerialize));
+            console.log("DOMContentLoaded: allGenres from server:", allGenres);
             const allTags = @Html.Raw(Json.Serialize(tagsToSerialize));
+            console.log("DOMContentLoaded: allTags from server:", allTags);
             let selectedGenres = [];
             let selectedTags = [];
             const hiddenGenresInput = document.getElementById('Genres');
             const hiddenTagsInput = document.getElementById('Tags');
 
             function parseInitialItems(initialString) {
-                if (!initialString) return [];
+                console.log("parseInitialItems: Entering with initialString:", initialString);
+                if (!initialString) {
+                    console.log("parseInitialItems: initialString is empty, returning [].");
+                    return [];
+                }
                 const decodedString = decodeHtmlEntities(initialString);
+                let result = [];
                 try {
                     const jsonParsed = JSON.parse(decodedString);
                     if (Array.isArray(jsonParsed)) {
-                        return jsonParsed.map(item => decodeHtmlEntities(item.toString()));
+                        result = jsonParsed.map(item => decodeHtmlEntities(item.toString()));
+                    } else {
+                         // If not an array, try splitting by comma (for legacy single string format)
+                        result = decodedString.split(',')
+                            .map(item => item.trim())
+                            .filter(item => item)
+                            .map(item => decodeHtmlEntities(item));
                     }
                 } catch (e) {
-                    return decodedString.split(',')
+                     // If JSON parsing fails, assume comma-separated string
+                    console.warn("parseInitialItems: JSON.parse failed, falling back to comma-separated parsing. Error:", e);
+                    result = decodedString.split(',')
                         .map(item => item.trim())
                         .filter(item => item)
                         .map(item => decodeHtmlEntities(item));
                 }
-                return decodedString.split(',')
-                    .map(item => item.trim())
-                    .filter(item => item)
-                    .map(item => decodeHtmlEntities(item));
+                console.log("parseInitialItems: Exiting, parsed result:", result);
+                return result;
             }
             selectedGenres = parseInitialItems(@Html.Raw(Json.Serialize(Model.Genres)));
+            console.log("DOMContentLoaded: selectedGenres after parsing Model.Genres:", selectedGenres);
             selectedTags = parseInitialItems(@Html.Raw(Json.Serialize(Model.Tags)));
+            console.log("DOMContentLoaded: selectedTags after parsing Model.Tags:", selectedTags);
+
             if (hiddenGenresInput) hiddenGenresInput.value = JSON.stringify(selectedGenres);
             if (hiddenTagsInput) hiddenTagsInput.value = JSON.stringify(selectedTags);
 
             function renderSelectedItemsAsBadges(containerId, selectedArray, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef) {
+                console.log(`renderSelectedItemsAsBadges: Entering for containerId: ${containerId}, type: ${type}`, "selectedArray:", selectedArray);
                 const container = document.getElementById(containerId);
-                if (!container) return;
+                if (!container) {
+                    console.error(`renderSelectedItemsAsBadges: Container with ID ${containerId} not found.`);
+                    return;
+                }
                 container.innerHTML = '';
                 selectedArray.forEach(item => {
                     const badge = document.createElement('span');
@@ -244,21 +264,28 @@
                     removeBtn.className = 'ms-1 fw-bold';
                     removeBtn.style.cursor = 'pointer';
                     removeBtn.onclick = function () {
+                        console.log(`renderSelectedItemsAsBadges: Removing item: ${item} from type: ${type}`);
                         const index = globalSelectedArrayRef.indexOf(item);
                         if (index > -1) {
                             globalSelectedArrayRef.splice(index, 1);
                         }
                         if (hiddenInputElement) hiddenInputElement.value = JSON.stringify(globalSelectedArrayRef);
+                        console.log(`renderSelectedItemsAsBadges: Updated globalSelectedArrayRef for ${type}:`, globalSelectedArrayRef);
                         renderSelectedItemsAsBadges(containerId, globalSelectedArrayRef, hiddenInputElement, type, allItemsListRef, globalSelectedArrayRef);
                     };
                     badge.appendChild(removeBtn);
                     container.appendChild(badge);
                 });
+                console.log(`renderSelectedItemsAsBadges: Exiting for containerId: ${containerId}`);
             }
 
             function populateModalWithCheckboxes(containerId, items, selectedItemsArray, type) {
+                console.log(`populateModalWithCheckboxes: Entering for containerId: ${containerId}, type: ${type}`, "items:", items, "selectedItemsArray:", selectedItemsArray);
                 const container = document.getElementById(containerId);
-                if (!container) return;
+                if (!container) {
+                    console.error(`populateModalWithCheckboxes: Container with ID ${containerId} not found.`);
+                    return;
+                }
                 container.innerHTML = '';
                 items.forEach(item => {
                     const checkboxId = `${type}-${item.replace(/\s+/g, '-')}`;
@@ -269,12 +296,14 @@
                                 <label for="${checkboxId}">${item}</label>
                             </div>`;
                 });
+                console.log(`populateModalWithCheckboxes: Exiting for containerId: ${containerId}`);
             }
 
             const genreModal = document.getElementById('genreModal');
             const addGenreBtn = document.getElementById('addGenreBtn');
             const closeGenreModal = document.getElementById('closeGenreModal');
             if (addGenreBtn) addGenreBtn.onclick = function () {
+                console.log("addGenreBtn.onclick: Opening genre modal. Initializing with allGenres:", allGenres, "selectedGenres:", selectedGenres);
                 populateModalWithCheckboxes('genreListContainer', allGenres, selectedGenres, 'genre');
                 if (genreModal) genreModal.style.display = 'block';
             }
@@ -284,6 +313,7 @@
             const addTagBtn = document.getElementById('addTagBtn');
             const closeTagModal = document.getElementById('closeTagModal');
             if (addTagBtn) addTagBtn.onclick = function () {
+                console.log("addTagBtn.onclick: Opening tag modal. Initializing with allTags:", allTags, "selectedTags:", selectedTags);
                 populateModalWithCheckboxes('tagListContainer', allTags, selectedTags, 'tag');
                 if (tagModal) tagModal.style.display = 'block';
             }
@@ -291,22 +321,32 @@
 
             const saveGenreSelectionBtn = document.getElementById('saveGenreSelectionBtn');
             if (saveGenreSelectionBtn) saveGenreSelectionBtn.onclick = function () {
+                console.log("saveGenreSelectionBtn.onclick: Saving genre selection.");
                 selectedGenres = [];
                 document.querySelectorAll('#genreListContainer input[type="checkbox"]:checked').forEach(cb => {
                     selectedGenres.push(cb.value);
                 });
-                if (hiddenGenresInput) hiddenGenresInput.value = JSON.stringify(selectedGenres);
+                console.log("saveGenreSelectionBtn.onclick: Selected genres:", selectedGenres);
+                if (hiddenGenresInput) {
+                    hiddenGenresInput.value = JSON.stringify(selectedGenres);
+                    console.log("saveGenreSelectionBtn.onclick: Updated hiddenGenresInput value:", hiddenGenresInput.value);
+                }
                 if (genreModal) genreModal.style.display = 'none';
                 renderSelectedItemsAsBadges('selectedGenresContainer', selectedGenres, hiddenGenresInput, 'genre', allGenres, selectedGenres);
             }
 
             const saveTagSelectionBtn = document.getElementById('saveTagSelectionBtn');
             if (saveTagSelectionBtn) saveTagSelectionBtn.onclick = function () {
+                console.log("saveTagSelectionBtn.onclick: Saving tag selection.");
                 selectedTags = [];
                 document.querySelectorAll('#tagListContainer input[type="checkbox"]:checked').forEach(cb => {
                     selectedTags.push(cb.value);
                 });
-                if (hiddenTagsInput) hiddenTagsInput.value = JSON.stringify(selectedTags);
+                console.log("saveTagSelectionBtn.onclick: Selected tags:", selectedTags);
+                if (hiddenTagsInput) {
+                    hiddenTagsInput.value = JSON.stringify(selectedTags);
+                    console.log("saveTagSelectionBtn.onclick: Updated hiddenTagsInput value:", hiddenTagsInput.value);
+                }
                 if (tagModal) tagModal.style.display = 'none';
                 renderSelectedItemsAsBadges('selectedTagsContainer', selectedTags, hiddenTagsInput, 'tag', allTags, selectedTags);
             }
@@ -315,11 +355,14 @@
             const customGenreInput = document.getElementById('customGenreInput');
             if (addCustomGenreBtn && customGenreInput) addCustomGenreBtn.onclick = function () {
                 const newGenre = customGenreInput.value.trim();
+                console.log("addCustomGenreBtn.onclick: Adding custom genre:", newGenre);
                 if (newGenre && !allGenres.includes(newGenre)) {
                     allGenres.push(newGenre);
+                    console.log("addCustomGenreBtn.onclick: Updated allGenres:", allGenres);
                 }
                 if (newGenre && !selectedGenres.includes(newGenre)) {
                     selectedGenres.push(newGenre);
+                    console.log("addCustomGenreBtn.onclick: Updated selectedGenres:", selectedGenres);
                 }
                 populateModalWithCheckboxes('genreListContainer', allGenres, selectedGenres, 'genre');
                 if (customGenreInput) customGenreInput.value = '';
@@ -329,11 +372,14 @@
             const customTagInput = document.getElementById('customTagInput');
             if (addCustomTagBtn && customTagInput) addCustomTagBtn.onclick = function () {
                 const newTag = customTagInput.value.trim();
+                console.log("addCustomTagBtn.onclick: Adding custom tag:", newTag);
                 if (newTag && !allTags.includes(newTag)) {
                     allTags.push(newTag);
+                    console.log("addCustomTagBtn.onclick: Updated allTags:", allTags);
                 }
                 if (newTag && !selectedTags.includes(newTag)) {
                     selectedTags.push(newTag);
+                    console.log("addCustomTagBtn.onclick: Updated selectedTags:", selectedTags);
                 }
                 populateModalWithCheckboxes('tagListContainer', allTags, selectedTags, 'tag');
                 if (customTagInput) customTagInput.value = '';
@@ -357,15 +403,17 @@
             const suggestions = document.getElementById('authorSuggestionsContainer');
             authorNameInput.addEventListener('input', function () {
                 const query = this.value.trim();
-                authorIdInput.value = '';
+                console.log("authorNameInput event listener: Query:", query);
+                authorIdInput.value = ''; // Clear previous selection
                 if (query.length < 2) {
                     suggestions.style.display = 'none';
                     suggestions.innerHTML = '';
                     return;
                 }
                 fetch('/api/Users/search?nameQuery=' + encodeURIComponent(query) + '&limit=4')
-                    .then(res => res.ok ? res.json() : [])
+                    .then(res => res.ok ? res.json() : Promise.resolve([])) // Resolve with empty array on error to simplify
                     .then(users => {
+                        console.log("authorNameInput event listener: Received users from API:", users);
                         suggestions.innerHTML = '';
                         if (users && users.length > 0) {
                             users.forEach(u => {
@@ -375,6 +423,7 @@
                                         <span>${u.login}</span>`;
                                 div.addEventListener('mousedown', function (evt) {
                                     evt.preventDefault();
+                                    console.log("authorNameInput event listener: Selected user:", u);
                                     authorNameInput.value = u.login;
                                     authorIdInput.value = u.id;
                                     suggestions.style.display = 'none';
@@ -385,6 +434,11 @@
                         } else {
                             suggestions.style.display = 'none';
                         }
+                    })
+                    .catch(error => {
+                        console.error("authorNameInput event listener: Error fetching users:", error);
+                        suggestions.style.display = 'none';
+                        suggestions.innerHTML = '';
                     });
             });
             document.addEventListener('mousedown', function (e) {
@@ -409,63 +463,64 @@
             const hiddenRelatedNovelIdsInput = document.getElementById('RelatedNovelIds');
             let selectedNovelsData = [];
             const initialRelatedNovelIdsString = @Html.Raw(Json.Serialize(Model.RelatedNovelIds));
+            console.log("DOMContentLoaded: initialRelatedNovelIdsString from Model:", initialRelatedNovelIdsString);
+
             function fetchAndRenderInitialRelatedNovels() {
+                console.log("fetchAndRenderInitialRelatedNovels: Entering with initialRelatedNovelIdsString:", initialRelatedNovelIdsString);
                 if (initialRelatedNovelIdsString && hiddenRelatedNovelIdsInput) {
                     let initialIds = [];
                     try {
-                        // The @Html.Raw(Json.Serialize(Model.RelatedNovelIds)) correctly makes Model.RelatedNovelIds (server string)
-                        // a JavaScript string literal. If Model.RelatedNovelIds is "\[1,2,3]", initialRelatedNovelIdsString becomes "\[1,2,3]".
-                        // If Model.RelatedNovelIds is "1,2,3", initialRelatedNovelIdsString becomes "1,2,3".
-                        
                         const parsedJson = JSON.parse(initialRelatedNovelIdsString);
                         if (Array.isArray(parsedJson)) {
                             initialIds = parsedJson.map(id => parseInt(id, 10)).filter(id => !isNaN(id) && id > 0);
                         } else {
-                            // If parsed but not an array (e.g. Model.RelatedNovelIds was "1" which parses to number 1),
-                            // treat as error and fallback to ensure consistent handling for single IDs too.
-                            console.warn("Parsed RelatedNovelIds is not an array, falling back to comma-separated parsing.");
+                            console.warn("fetchAndRenderInitialRelatedNovels: Parsed RelatedNovelIds is not an array, falling back to comma-separated parsing.");
                             initialIds = initialRelatedNovelIdsString.split(',')
                                 .map(idStr => parseInt(idStr.trim(), 10))
                                 .filter(id => !isNaN(id) && id > 0);
                         }
                     } catch (e) {
-                        // Fallback to comma-separated if JSON parsing fails (e.g. it's "1,2,3")
-                        console.warn("JSON parsing of RelatedNovelIds failed, falling back to comma-separated parsing. Error:", e);
+                        console.warn("fetchAndRenderInitialRelatedNovels: JSON parsing of RelatedNovelIds failed, falling back to comma-separated parsing. Error:", e);
                         initialIds = initialRelatedNovelIdsString.split(',')
                             .map(idStr => parseInt(idStr.trim(), 10))
                             .filter(id => !isNaN(id) && id > 0);
                     }
+                    console.log("fetchAndRenderInitialRelatedNovels: Parsed initialIds:", initialIds);
 
                     if (initialIds.length > 0) {
                         selectedNovelsData = initialIds.map(id => ({ id: id, title: "ID: " + id + " (загрузка...)" }));
                         renderSelectedNovelsBadges();
-                        updateHiddenRelatedNovelIdsInput();
+                        updateHiddenRelatedNovelIdsInput(); // Log inside this function
 
                         fetch(`/api/Novels/detailsByIds?ids=${initialIds.join(',')}`)
                             .then(response => {
                                 if (!response.ok) {
+                                    console.error("fetchAndRenderInitialRelatedNovels: Error fetching novel details, status:", response.status);
                                     throw new Error(`HTTP error! status: ${response.status}`);
                                 }
                                 return response.json();
                             })
                             .then(novelsFromServer => {
+                                console.log("fetchAndRenderInitialRelatedNovels: Received novelsFromServer:", novelsFromServer);
                                 if (novelsFromServer && Array.isArray(novelsFromServer)) {
                                     selectedNovelsData = selectedNovelsData.map(selNovel => {
                                         const foundNovel = novelsFromServer.find(srvNovel => srvNovel.id === selNovel.id);
                                         return foundNovel ? { id: foundNovel.id, title: foundNovel.title, coverUrl: foundNovel.firstCoverUrl } : selNovel;
                                     });
-                                    renderSelectedNovelsBadges();
+                                    renderSelectedNovelsBadges(); // Log inside this function
                                 }
                             })
                             .catch(error => {
-                                console.error("Error fetching initial related novel details:", error);
+                                console.error("fetchAndRenderInitialRelatedNovels: Error fetching initial related novel details:", error);
                                 selectedNovelsData = selectedNovelsData.map(novel => ({ ...novel, title: `ID: ${novel.id} (ошибка)` }));
-                                renderSelectedNovelsBadges();
+                                renderSelectedNovelsBadges(); // Log inside this function
                             });
                     }
                 }
+                console.log("fetchAndRenderInitialRelatedNovels: Exiting.");
             }
             function createNovelBadge(novel) {
+                console.log("createNovelBadge: Creating badge for novel:", novel);
                 const badge = document.createElement('span');
                 badge.className = 'badge bg-info me-2 mb-2 d-flex align-items-center p-1';
                 let badgeContent = '';
@@ -477,7 +532,9 @@
                 removeBtn.style.cursor = 'pointer';
                 removeBtn.style.marginLeft = 'auto';
                 removeBtn.onclick = function () {
+                    console.log("createNovelBadge removeBtn.onclick: Removing novel:", novel, "Current selectedNovelsData:", selectedNovelsData);
                     selectedNovelsData = selectedNovelsData.filter(n => n.id !== novel.id);
+                    console.log("createNovelBadge removeBtn.onclick: Updated selectedNovelsData:", selectedNovelsData);
                     renderSelectedNovelsBadges();
                     updateHiddenRelatedNovelIdsInput();
                 };
@@ -485,19 +542,27 @@
                 return badge;
             }
             function renderSelectedNovelsBadges() {
-                if (!selectedRelatedNovelsContainer) return;
+                console.log("renderSelectedNovelsBadges: Rendering badges for selectedNovelsData:", selectedNovelsData);
+                if (!selectedRelatedNovelsContainer) {
+                    console.error("renderSelectedNovelsBadges: selectedRelatedNovelsContainer not found.");
+                    return;
+                }
                 selectedRelatedNovelsContainer.innerHTML = '';
                 selectedNovelsData.forEach(novel => {
-                    const badge = createNovelBadge(novel);
+                    const badge = createNovelBadge(novel); // Log inside createNovelBadge
                     selectedRelatedNovelsContainer.appendChild(badge);
                 });
             }
             function updateHiddenRelatedNovelIdsInput() {
                 if (hiddenRelatedNovelIdsInput) {
-                    hiddenRelatedNovelIdsInput.value = selectedNovelsData.map(n => n.id).join(',');
+                    const newValue = selectedNovelsData.map(n => n.id).join(',');
+                    hiddenRelatedNovelIdsInput.value = newValue;
+                    console.log("updateHiddenRelatedNovelIdsInput: Updated hiddenRelatedNovelIdsInput value to:", newValue);
+                } else {
+                    console.error("updateHiddenRelatedNovelIdsInput: hiddenRelatedNovelIdsInput not found.");
                 }
             }
-            fetchAndRenderInitialRelatedNovels();
+            fetchAndRenderInitialRelatedNovels(); // Logs inside the function
 
             // --- Cover Image Management & Form Submission ---
             const form = document.getElementById('novelEditForm');
@@ -523,12 +588,14 @@
             // Keep the existing preview and removal logic for NewCoverFiles for UI consistency,
             // even if files are not submitted via this specific JSON PUT.
             // The user will be alerted about the new file upload process.
-            if (newCoverFilesInput) { 
+            if (newCoverFilesInput) {
                 newCoverFilesInput.addEventListener('change', function (event) {
-                    console.log("DEBUG: Change event triggered on NewCovers input.");
+                    console.log("NewCovers change event: Files selected.");
                     newCoversPreviewContainer.innerHTML = '';
-                    newSelectedFiles = [];
+                    newSelectedFiles = []; // Reset newSelectedFiles array
                     const files = event.target.files;
+                    console.log("NewCovers change event: Number of files selected:", files.length, "Files:", Array.from(files).map(f => f.name));
+
 
                     if (files && files.length > 0) {
                         const titleLabel = document.createElement('p');
@@ -540,13 +607,13 @@
                     for (let i = 0; i < files.length; i++) {
                         const file = files[i];
                         if (file.type.startsWith('image/')) {
-                            newSelectedFiles.push(file);
+                            newSelectedFiles.push(file); // Add to our tracking array
                             const reader = new FileReader();
                             reader.onload = function (e) {
                                 const previewItem = document.createElement('div');
                                 previewItem.className = 'current-cover-item me-2 mb-2';
                                 previewItem.style.position = 'relative';
-                                previewItem.style.border = '1px solid #007bff';
+                                previewItem.style.border = '1px solid #007bff'; // Indicate it's a new preview
                                 previewItem.style.padding = '5px';
                                 previewItem.style.width = '112px';
                                 previewItem.style.height = '162px';
@@ -561,7 +628,7 @@
 
                                 const removeBtn = document.createElement('button');
                                 removeBtn.innerHTML = '&times;';
-                                removeBtn.type = 'button';
+                                removeBtn.type = 'button'; // Important for forms
                                 removeBtn.className = 'btn btn-danger btn-sm';
                                 removeBtn.style.position = 'absolute';
                                 removeBtn.style.top = '0px';
@@ -569,15 +636,19 @@
                                 removeBtn.style.padding = '1px 4px';
                                 removeBtn.style.lineHeight = '1';
                                 removeBtn.onclick = function () {
+                                    console.log("NewCovers preview removeBtn.onclick: Removing preview for file:", file.name);
                                     previewItem.remove();
+                                    // Remove from newSelectedFiles array
                                     newSelectedFiles = newSelectedFiles.filter(f => f !== file);
+                                    // Update the input's files collection
+                                    const dataTransfer = new DataTransfer();
+                                    newSelectedFiles.forEach(f => dataTransfer.items.add(f));
+                                    event.target.files = dataTransfer.files; // This effectively updates the FileList
+                                    console.log("NewCovers preview removeBtn.onclick: Updated newSelectedFiles:", newSelectedFiles.map(f=>f.name), "Input files count:", event.target.files.length);
                                     if (newCoversPreviewContainer.querySelectorAll('.current-cover-item').length === 0) {
                                         const existingTitle = newCoversPreviewContainer.querySelector('p');
                                         if (existingTitle) existingTitle.remove();
                                     }
-                                    const dataTransfer = new DataTransfer();
-                                    newSelectedFiles.forEach(f => dataTransfer.items.add(f));
-                                    event.target.files = dataTransfer.files;
                                 };
                                 previewItem.appendChild(img);
                                 previewItem.appendChild(removeBtn);
@@ -586,23 +657,34 @@
                             reader.readAsDataURL(file);
                         }
                     }
-                    event.target.value = null;
+                    // Don't reset event.target.value to null here if you want to keep the FileList for form submission
                 });
-                console.log("DEBUG: Change event listener attached to NewCovers input.");
             } else {
-                console.error("DEBUG: NewCovers input with ID 'NewCovers' not found. Change event listener NOT attached.");
+                console.error("NewCovers input with ID 'NewCovers' not found. Change event listener NOT attached.");
             }
 
             const currentCoversContainer = document.getElementById('currentCoversContainer');
             if (currentCoversContainer) {
                 currentCoversContainer.addEventListener('click', function (event) {
                     if (event.target.classList.contains('remove-cover-btn')) {
-                        console.log("DEBUG: Remove button clicked for existing cover.");
+                        const coverPath = event.target.dataset.coverPath;
+                        console.log("currentCoversContainer click: Remove button clicked for existing cover path:", coverPath);
                         const coverItemDiv = event.target.closest('.current-cover-item');
                         if (coverItemDiv) {
                             const hiddenInput = coverItemDiv.querySelector('.kept-cover-input');
-                            if (hiddenInput) { hiddenInput.remove(); }
-                            coverItemDiv.remove();
+                            if (hiddenInput) {
+                                hiddenInput.remove(); // Remove the hidden input that keeps this cover
+                                console.log("currentCoversContainer click: Removed hidden input for cover:", coverPath);
+                            }
+                            // Create a hidden input to mark this cover for deletion
+                            const deletionInput = document.createElement('input');
+                            deletionInput.type = 'hidden';
+                            deletionInput.name = 'CoversToDelete'; // Ensure your model binder can pick this up
+                            deletionInput.value = coverPath;
+                            form.appendChild(deletionInput); // Add to form to be submitted
+                            console.log("currentCoversContainer click: Added hidden input to delete cover:", coverPath);
+
+                            coverItemDiv.remove(); // Remove the visual representation
                             if (!currentCoversContainer.querySelector('.current-cover-item')) {
                                 const noCoversMsg = document.createElement('p');
                                 noCoversMsg.textContent = 'All covers removed.';
@@ -611,9 +693,8 @@
                         }
                     }
                 });
-                console.log("DEBUG: Event listener for removing current covers attached.");
             } else {
-                console.error("DEBUG: currentCoversContainer not found.");
+                console.error("currentCoversContainer not found.");
             }
 
             // --- Debounce for Related Novels ---
@@ -625,6 +706,7 @@
                 };
             }
             const debouncedFetchRelatedNovels = debounce(function (query) {
+                console.log("debouncedFetchRelatedNovels: Query:", query);
                 if (!relatedNovelSuggestionsContainer) return;
                 if (query.length < 2) {
                     relatedNovelSuggestionsContainer.style.display = 'none';
@@ -634,11 +716,12 @@
                 fetch('/api/Novels/search?query=' + encodeURIComponent(query) + '&limit=5')
                     .then(response => response.ok ? response.json() : Promise.reject('Failed to fetch'))
                     .then(novels => {
+                        console.log("debouncedFetchRelatedNovels: Received novels from API:", novels);
                         relatedNovelSuggestionsContainer.innerHTML = '';
                         if (novels && novels.length > 0) {
                             novels.forEach(novel => {
                                 if (selectedNovelsData.some(selected => selected.id === novel.id)) {
-                                    return;
+                                    return; // Skip if already selected
                                 }
                                 const suggestionDiv = document.createElement('div');
                                 suggestionDiv.className = 'author-suggestion-item';
@@ -648,8 +731,10 @@
                                         <img src="${imageUrl}" class="author-suggestion-avatar related-novel-suggestion-cover" alt="Cover">
                                         <span>${novel.title} (ID: ${novel.id})</span>`;
                                 suggestionDiv.addEventListener('click', function () {
+                                    console.log("debouncedFetchRelatedNovels suggestionDiv.click: Adding novel:", novel, "Current selectedNovelsData:", selectedNovelsData);
                                     if (!selectedNovelsData.some(selected => selected.id === novel.id)) {
                                         selectedNovelsData.push({ id: novel.id, title: novel.title, coverUrl: novel.firstCoverUrl });
+                                        console.log("debouncedFetchRelatedNovels suggestionDiv.click: Updated selectedNovelsData:", selectedNovelsData);
                                         renderSelectedNovelsBadges();
                                         updateHiddenRelatedNovelIdsInput();
                                     }
@@ -665,7 +750,7 @@
                         }
                     })
                     .catch(error => {
-                        console.error("Error fetching related novels:", error);
+                        console.error("debouncedFetchRelatedNovels: Error fetching related novels:", error);
                         if (relatedNovelSuggestionsContainer) relatedNovelSuggestionsContainer.style.display = 'none';
                     });
             }, 300);
@@ -683,11 +768,12 @@
                         const firstItem = relatedNovelSuggestionsContainer.querySelector('.author-suggestion-item');
                         if (firstItem) {
                             e.preventDefault();
-                            firstItem.dispatchEvent(new MouseEvent('click'));
+                            firstItem.dispatchEvent(new MouseEvent('click')); // Will trigger logs in its own handler
                         }
                     }
                 });
             }
+            console.log("DOMContentLoaded: End");
         });
     </script>
 </body>

@@ -2,8 +2,6 @@
 @{
     ViewData["Title"] = "Новелла";
 
-
-
     Layout = null;
 }
 <!DOCTYPE html>
@@ -241,8 +239,11 @@
         const baseUrl = window.location.origin;
 
         function getNovelIdFromUrl() {
+            console.log("Entering getNovelIdFromUrl");
             const match = window.location.pathname.match(/novel\/(\d+)/);
-            return match ? match[1] : '1';
+            const result = match ? match[1] : '1';
+            console.log("Exiting getNovelIdFromUrl, result:", result);
+            return result;
         }
         function goToMainMenu() {
             window.location.href = baseUrl + "/";
@@ -255,14 +256,18 @@
 
         // Функция для отображения мини-картинки (и обновления текущего индекса!)
         function setSidebarCover(idx) {
+            console.log("Entering setSidebarCover, idx:", idx, "covers:", covers);
             if (!covers.length) {
                 document.getElementById('novel-cover-img').src = '/img/no-cover.png';
                 currentCoverIdx = 0;
+                console.log("setSidebarCover: No covers, using default.");
             } else {
                 if (typeof idx === "undefined" || idx < 0 || idx >= covers.length) idx = covers.length - 1;
                 document.getElementById('novel-cover-img').src = covers[idx];
                 currentCoverIdx = idx;
+                console.log("setSidebarCover: Set cover to index", currentCoverIdx, "path:", covers[currentCoverIdx]);
             }
+            console.log("Exiting setSidebarCover");
         }
 
         // --- Модальное окно ---
@@ -293,13 +298,21 @@
         });
 
         function showModalCover(idx) {
-            document.getElementById('cover-modal-img').src = covers[idx];
+            console.log("Entering showModalCover, idx:", idx, "covers:", covers);
+            if (covers && covers[idx]) {
+                document.getElementById('cover-modal-img').src = covers[idx];
+                console.log("showModalCover: Displaying cover index", idx, "path:", covers[idx]);
+            } else {
+                console.warn("showModalCover: Invalid index or covers array empty.");
+            }
+            console.log("Exiting showModalCover");
         }
 
         // --- renderNovel с поддержкой нескольких обложек ---
         function renderNovel(novelFromApi) { // Renamed to avoid confusion with global 'novel' if any
+            console.log("Entering renderNovel, novelFromApi:", novelFromApi);
             covers = Array.isArray(novelFromApi.covers) ? novelFromApi.covers : [];
-            setSidebarCover(covers.length - 1);
+            setSidebarCover(covers.length - 1); // Log inside setSidebarCover
 
             currentCoverIdx = covers.length ? covers.length - 1 : 0;
 
@@ -316,6 +329,7 @@
             if (novelFromApi.author && novelFromApi.author.id && novelFromApi.author.login) {
                 authorSpan.innerHTML = `<a href="/profile/${novelFromApi.author.id}" class="novel-author-link">${novelFromApi.author.login}</a>`;
             } else {
+                console.log("renderNovel: Author data is missing or incomplete.", novelFromApi.author);
                 authorSpan.textContent = '-';
             }
 
@@ -328,6 +342,7 @@
                     .map(tr => `<a href="/profile/${tr.id}" class="novel-author-link">${tr.login}</a>`)
                     .join(', ');
             } else {
+                console.log("renderNovel: Translators data is missing or empty.", novelFromApi.translators);
                 translatorsSpan.textContent = '-';
             }
 
@@ -378,6 +393,7 @@
                     genresList = (novelFromApi.genres || '').split(',').filter(Boolean).map(g => g.trim());
                 }
             }
+            console.log("renderNovel: Parsed genresList:", genresList);
             genresBlock.innerHTML = genresList
                 .map(g => `<span class="novel-tag genre">${g}</span>`)
                 .join('');
@@ -396,11 +412,12 @@
                     tagsList = (novelFromApi.tags || '').split(',').filter(Boolean).map(t => t.trim());
                 }
             }
+            console.log("renderNovel: Parsed tagsList:", tagsList);
             tagsBlock.innerHTML = tagsList
                 .map(t => `<span class="novel-tag tag">#${t}</span>`)
                 .join('');
 
-            renderChaptersWithBookmark(chapterViewModels);
+            renderChaptersWithBookmark(chapterViewModels); // Log inside renderChaptersWithBookmark
 
             // --- вкладка связанное ---
             // The parsing of relatedNovelIds is now handled within renderRelatedNovels
@@ -421,9 +438,11 @@
                 readBtnText.textContent = 'Начать читать';
             }
             readBtn.dataset.chapterId = chapterIdToRead;
+            console.log("Exiting renderNovel");
         }
 
         function toggleDesc() {
+            console.log("Entering toggleDesc");
             var shortDesc = document.querySelector('.desc-short');
             var fullDesc = document.querySelector('.desc-full');
             var toggle = document.getElementById('desc-toggle');
@@ -431,26 +450,34 @@
                 shortDesc.style.display = 'none';
                 fullDesc.style.display = '';
                 toggle.textContent = "Свернуть";
+                console.log("toggleDesc: Switched to full description");
             } else {
                 shortDesc.style.display = '';
                 fullDesc.style.display = 'none';
                 toggle.textContent = "Подробнее...";
+                console.log("toggleDesc: Switched to short description");
             }
+            console.log("Exiting toggleDesc");
         }
 
         function showTab(tab) {
+            console.log("Entering showTab, tab:", tab);
             document.getElementById('tab-description').style.display = (tab === 'description') ? 'block' : 'none';
             document.getElementById('tab-chapters').style.display = (tab === 'chapters') ? 'block' : 'none';
             document.getElementById('tab-description-btn').classList.toggle('active', tab === 'description');
             document.getElementById('tab-chapters-btn').classList.toggle('active', tab === 'chapters');
+            console.log("Exiting showTab");
         }
 
         function renderChaptersWithBookmark(viewModels) {
+            console.log("Entering renderChaptersWithBookmark, viewModels:", viewModels);
             const list = document.getElementById('chapter-list');
             list.innerHTML = '';
 
             if (!viewModels || !viewModels.length) {
+                console.log("renderChaptersWithBookmark: No chapters to render.");
                 list.innerHTML = '<div style="color:#888;">Главы отсутствуют</div>';
+                console.log("Exiting renderChaptersWithBookmark (no chapters)");
                 return;
             }
 
@@ -496,15 +523,25 @@
                                     `;
                 list.appendChild(el);
             }
+            console.log("Exiting renderChaptersWithBookmark");
         }
 
         function formatChapterDate(unix) {
-            if (!unix) return '';
+            console.log("Entering formatChapterDate, unix:", unix);
+            if (!unix) {
+                console.log("formatChapterDate: No unix timestamp, returning empty string.");
+                console.log("Exiting formatChapterDate (no timestamp)");
+                return '';
+            }
             const d = new Date(unix * 1000);
-            return d.toLocaleDateString('ru-RU');
+            const formattedDate = d.toLocaleDateString('ru-RU');
+            console.log("formatChapterDate: Formatted date:", formattedDate);
+            console.log("Exiting formatChapterDate");
+            return formattedDate;
         }
 
         async function renderRelatedNovels(relatedNovelIdsString) { // Assuming input is a string "1,2,3" or JSON array string "\[1,2,3]"
+            console.log("Entering renderRelatedNovels, relatedNovelIdsString:", relatedNovelIdsString);
             const relatedList = document.getElementById('related-list');
             relatedList.innerHTML = '';
             let idsArray = [];
@@ -531,23 +568,32 @@
                         .filter(id => !isNaN(id) && id > 0);
                 }
             }
+            console.log("renderRelatedNovels: Parsed idsArray:", idsArray);
 
             if (!idsArray || !idsArray.length) {
                 relatedList.innerHTML = '<div style="color:#888;">Нет связанных новелл</div>';
+                console.log("renderRelatedNovels: No valid IDs found.");
+                console.log("Exiting renderRelatedNovels (no valid IDs)");
                 return;
             }
 
             try {
                 const idString = idsArray.join(',');
-                const response = await fetch(`${baseUrl}/api/Novels/detailsByIds?ids=${idString}`);
+                const requestUrl = `${baseUrl}/api/Novels/detailsByIds?ids=${idString}`;
+                console.log("renderRelatedNovels: Fetching related novels from URL:", requestUrl);
+                const response = await fetch(requestUrl);
                 if (!response.ok) {
                     // Если API возвращает ошибку (например, 404, если ни один ID не найден, или 500)
+                    console.error(`renderRelatedNovels: Failed to fetch related novels, status: ${response.status}, URL: ${requestUrl}`);
                     throw new Error(`Failed to fetch related novels, status: ${response.status}`);
                 }
                 const novels = await response.json();
+                console.log("renderRelatedNovels: Received novels from API:", novels);
 
                 if (!novels || !novels.length) {
                     relatedList.innerHTML = '<div style="color:#888;">Связанные новеллы не найдены.</div>';
+                    console.log("renderRelatedNovels: No novels found from API.");
+                    console.log("Exiting renderRelatedNovels (no novels from API)");
                     return;
                 }
 
@@ -574,6 +620,7 @@
                 console.error("Error rendering related novels:", error);
                 relatedList.innerHTML = '<div style="color:red;">Ошибка загрузки связанных новелл.</div>';
             }
+            console.log("Exiting renderRelatedNovels");
         }
 
         // === МАППИНГ СТАТУСОВ ===
@@ -593,62 +640,94 @@
         let loadedNovel = null;
 
         async function loadNovelData(novelId) {
+            console.log("Entering loadNovelData, novelId:", novelId);
             try {
                 const url = `${baseUrl}/api/novels/${novelId}`;
+                console.log("loadNovelData: Fetching novel data from URL:", url);
                 const res = await fetch(url);
-                if (!res.ok) throw new Error('Ошибка загрузки');
+                if (!res.ok) {
+                    console.error("loadNovelData: Error fetching novel data, status:", res.status, "URL:", url);
+                    throw new Error('Ошибка загрузки');
+                }
                 const novel = await res.json();
+                console.log("loadNovelData: Received novel data:", novel);
                 loadedNovel = novel;
-                renderNovel(novel);
+                renderNovel(novel); // Log inside renderNovel
             } catch (error) {
                 document.querySelector('.novel-main-error').style.display = '';
-                console.error(error);
+                console.error("loadNovelData: Exception during fetch or render:", error);
             }
+            console.log("Exiting loadNovelData");
         }
 
         async function loadNovelStatus(novelId) {
+            console.log("Entering loadNovelStatus, novelId:", novelId);
             try {
                 const res = await fetch(`/api/users/status?novelId=${novelId}`);
                 if (res.ok) {
                     const data = await res.json();
-                    return DB_TO_FRONT_STATUS[data.status] || "none";
+                    const frontStatus = DB_TO_FRONT_STATUS[data.status] || "none";
+                    console.log("loadNovelStatus: Received status:", data.status, "Mapped to frontStatus:", frontStatus);
+                    console.log("Exiting loadNovelStatus (success)");
+                    return frontStatus;
+                } else {
+                    console.warn("loadNovelStatus: Failed to load status, response not OK:", res.status);
                 }
-            } catch { }
+            } catch (error) {
+                console.error("loadNovelStatus: Exception during fetch:", error);
+            }
+            console.log("Exiting loadNovelStatus (failure or error)");
             return "none";
         }
 
         async function setNovelStatus(novelId, frontStatus) {
+            console.log("Entering setNovelStatus, novelId:", novelId, "frontStatus:", frontStatus);
             const dbStatus = FRONT_TO_DB_STATUS[frontStatus];
             if (!dbStatus) {
                 alert("Некорректный статус!");
+                console.warn("setNovelStatus: Invalid frontStatus:", frontStatus);
+                console.log("Exiting setNovelStatus (invalid status)");
                 return null;
             }
-            const res = await fetch(`/api/users/status`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ novelId, status: dbStatus })
-            });
-            if (res.ok) {
-                return frontStatus;
+            console.log("setNovelStatus: Mapped frontStatus to dbStatus:", dbStatus);
+            try {
+                const res = await fetch(`/api/users/status`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ novelId, status: dbStatus })
+                });
+                if (res.ok) {
+                    console.log("setNovelStatus: Successfully set status. Returning frontStatus:", frontStatus);
+                    console.log("Exiting setNovelStatus (success)");
+                    return frontStatus;
+                } else {
+                    console.error("setNovelStatus: Failed to set status, response not OK:", res.status);
+                }
+            } catch (error) {
+                console.error("setNovelStatus: Exception during fetch:", error);
             }
+            console.log("Exiting setNovelStatus (failure or error)");
             return null;
         }
 
         // --- DOMContentLoaded основной (статусы, кнопки, тултипы и т.д.) ---
         let chapterViewModels = [];
         document.addEventListener('DOMContentLoaded', async function () {
-        @if (ViewData["ChapterViewModels"] != null)
+            console.log("DOMContentLoaded: Event triggered.");
+            @if (ViewData["ChapterViewModels"] != null)
+            {
+                <text>
+                    chapterViewModels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewData["ChapterViewModels"]));
+                    console.log("DOMContentLoaded: chapterViewModels loaded from ViewData:", chapterViewModels);
+                </text>
+            }
+            else {
+                console.log("DOMContentLoaded: No chapterViewModels found in ViewData.");
+            }
 
-
-
-        {
-            <text>
-                        chapterViewModels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewData["ChapterViewModels"]));
-            </text>
-        }
-
-                                const novelId = getNovelIdFromUrl();
-            await loadNovelData(novelId);
+            const novelId = getNovelIdFromUrl(); // Log inside function
+            console.log("DOMContentLoaded: novelId from URL:", novelId);
+            await loadNovelData(novelId); // Log inside function
 
             // --- Статусы ---
             const statusDropdown = document.getElementById('status-dropdown');
@@ -679,11 +758,14 @@
             });
 
             statusBtn.onclick = (e) => {
+                console.log("statusBtn.onclick: Clicked. Current novelId:", novelId);
                 e.stopPropagation();
                 fetch('/api/users/me').then(r => {
                     if (r.ok) {
+                        console.log("statusBtn.onclick: User authenticated, toggling dropdown.");
                         statusDropdown.classList.toggle('open');
                     } else {
+                        console.warn("statusBtn.onclick: User not authenticated, redirecting to login.");
                         alert("Вы не авторизованы!\nПожалуйста, войдите в аккаунт.");
                         window.location.href = "/login";
                     }
@@ -692,17 +774,25 @@
 
             statusList.querySelectorAll('.status-option').forEach(btn => {
                 btn.onclick = function () {
+                    const statusToSet = this.dataset.status;
+                    console.log("status-option.onclick: Clicked. Status to set:", statusToSet, "NovelId:", novelId);
                     fetch('/api/users/me').then(r => {
                         if (!r.ok) {
+                            console.warn("status-option.onclick: User not authenticated, redirecting to login.");
                             alert("Вы не авторизованы!\nПожалуйста, войдите в аккаунт.");
                             window.location.href = "/login";
                             return;
                         }
-                        const status = this.dataset.status;
-                        setNovelStatus(novelId, status)
+                        console.log("status-option.onclick: User authenticated. Setting novel status.");
+                        setNovelStatus(novelId, statusToSet) // Log inside setNovelStatus
                             .then(srvStatus => {
-                                if (srvStatus) updateStatus(srvStatus);
-                                else alert("Ошибка смены статуса");
+                                if (srvStatus) {
+                                    updateStatus(srvStatus);
+                                    console.log("status-option.onclick: Status updated successfully to:", srvStatus);
+                                } else {
+                                    alert("Ошибка смены статуса");
+                                    console.error("status-option.onclick: Failed to update status.");
+                                }
                             });
                         statusDropdown.classList.remove('open');
                     });
@@ -714,17 +804,21 @@
             // Кнопка чтения
             const readBtn = document.getElementById('read-btn');
             readBtn.onclick = function () {
+                console.log("readBtn.onclick: Clicked. loadedNovel:", loadedNovel);
                 if (!loadedNovel || !loadedNovel.chapters || !loadedNovel.chapters.length) {
                     alert("Нет доступных глав для чтения.");
+                    console.warn("readBtn.onclick: No chapters available to read.");
                     return;
                 }
-                let chapterId = "";
+                let chapterIdToRead = ""; // Renamed from chapterId to avoid conflict
                 if (loadedNovel.bookmarkChapterId && loadedNovel.bookmarkChapterId > 0) {
-                    chapterId = loadedNovel.bookmarkChapterId;
+                    chapterIdToRead = loadedNovel.bookmarkChapterId;
+                    console.log("readBtn.onclick: Continuing from bookmark, chapterIdToRead:", chapterIdToRead);
                 } else {
-                    chapterId = loadedNovel.chapters[0].id;
+                    chapterIdToRead = loadedNovel.chapters[0].id;
+                    console.log("readBtn.onclick: Starting from first chapter, chapterIdToRead:", chapterIdToRead);
                 }
-                window.location.href = `/chapter/${chapterId}`;
+                window.location.href = `/chapter/${chapterIdToRead}`;
             };
 
             tippy('[data-tippy-content]', {

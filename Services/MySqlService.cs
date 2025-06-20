@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using MySql.Data.MySqlClient;
@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using BulbaLib.Models;
 using System.Text.Json; // Added for potential JSON operations, though not strictly needed for current RequestData handling
+using Microsoft.Extensions.Logging; // Added for logging
 
 namespace BulbaLib.Services
 {
@@ -13,11 +14,13 @@ namespace BulbaLib.Services
     {
         private readonly string _connectionString;
         private readonly FileService _fileService; // Added FileService
+        private readonly ILogger<MySqlService> _logger;
 
-        public MySqlService(string connectionString, FileService fileService) // Modified constructor
+        public MySqlService(string connectionString, FileService fileService, ILoggerFactory loggerFactory) // Modified constructor
         {
             _connectionString = connectionString;
             _fileService = fileService; // Initialize FileService
+            _logger = loggerFactory.CreateLogger<MySqlService>();
             InitializeDatabaseSchema();
         }
 
@@ -537,6 +540,7 @@ namespace BulbaLib.Services
 
         public Novel GetNovel(int id)
         {
+            _logger.LogInformation("Entering GetNovel method for Id: {NovelId}", id);
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status FROM Novels WHERE Id = @id";
@@ -544,7 +548,7 @@ namespace BulbaLib.Services
             using var reader = cmd.ExecuteReader();
             if (reader.Read())
             {
-                return new Novel
+                var novel = new Novel
                 {
                     Id = reader.GetInt32("Id"),
                     Title = reader.GetString("Title"),
@@ -560,7 +564,10 @@ namespace BulbaLib.Services
                     RelatedNovelIds = reader.IsDBNull("RelatedNovelIds") ? "" : reader.GetString("RelatedNovelIds"),
                     Status = reader.IsDBNull("Status") ? NovelStatus.Draft : Enum.Parse<NovelStatus>(reader.GetString("Status"), true)
                 };
+                _logger.LogInformation("Novel found for Id: {NovelId}. Title: {NovelTitle}", id, novel.Title);
+                return novel;
             }
+            _logger.LogWarning("Novel not found for Id: {NovelId}", id);
             return null;
         }
 
@@ -578,6 +585,7 @@ namespace BulbaLib.Services
                 {
                     command.Parameters.AddWithValue("@query", "%" + titleQuery.ToLower() + "%");
                     command.Parameters.AddWithValue("@limit", limit);
+                    _logger.LogInformation("Executing SearchNovelsByTitle query: '{QueryText}' with query: {TitleQuery}, limit: {Limit}", command.CommandText, titleQuery, limit);
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -593,17 +601,20 @@ namespace BulbaLib.Services
                     }
                 }
             }
+            _logger.LogInformation("Found {NovelCount} novels for title query: '{TitleQuery}' with limit: {Limit}", novels.Count, titleQuery, limit);
             return novels;
         }
 
         public int CreateNovel(Novel novel)
         {
+            _logger.LogInformation("Entering CreateNovel method for novel Title: {NovelTitle}", novel.Title);
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT INTO Novels 
                 (Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, Date, RelatedNovelIds, Status)
                 VALUES (@title, @desc, @covers, @genres, @tags, @type, @format, @releaseYear, @authorId, @altTitles, @date, @relatedNovelIds, @status);
                 SELECT LAST_INSERT_ID();";
+            _logger.LogDebug("CreateNovel parameters: Title={Title}, AuthorId={AuthorId}, Status={Status}", novel.Title, novel.AuthorId, novel.Status);
             cmd.Parameters.AddWithValue("@title", novel.Title);
             cmd.Parameters.AddWithValue("@desc", novel.Description ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@covers", novel.Covers ?? "[]");
@@ -619,11 +630,14 @@ namespace BulbaLib.Services
             cmd.Parameters.AddWithValue("@status", novel.Status.ToString());
 
             var result = cmd.ExecuteScalar();
-            return Convert.ToInt32(result);
+            var newNovelId = Convert.ToInt32(result);
+            _logger.LogInformation("Novel created with Id: {NovelId}, Title: {NovelTitle}", newNovelId, novel.Title);
+            return newNovelId;
         }
 
         public void UpdateNovel(Novel novel)
         {
+            _logger.LogInformation("Entering UpdateNovel method for novel Id: {NovelId}, Title: {NovelTitle}", novel.Id, novel.Title);
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"UPDATE Novels SET 
@@ -640,6 +654,7 @@ namespace BulbaLib.Services
         RelatedNovelIds=@relatedNovelIds,
         Status=@status 
         WHERE Id=@id";
+            _logger.LogDebug("UpdateNovel parameters for Id={NovelId}: Title={Title}, AuthorId={AuthorId}, Status={Status}", novel.Id, novel.Title, novel.AuthorId, novel.Status);
             cmd.Parameters.AddWithValue("@title", novel.Title);
             cmd.Parameters.AddWithValue("@desc", novel.Description ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@covers", novel.Covers ?? "[]");
@@ -653,11 +668,13 @@ namespace BulbaLib.Services
             cmd.Parameters.AddWithValue("@authorId", novel.AuthorId.HasValue ? novel.AuthorId.Value : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@relatedNovelIds", string.IsNullOrEmpty(novel.RelatedNovelIds) ? (object)DBNull.Value : novel.RelatedNovelIds);
             cmd.Parameters.AddWithValue("@status", novel.Status.ToString());
-            cmd.ExecuteNonQuery();
+            int rowsAffected = cmd.ExecuteNonQuery();
+            _logger.LogInformation("UpdateNovel for Id: {NovelId} affected {RowsAffected} row(s).", novel.Id, rowsAffected);
         }
 
         public void DeleteNovel(int id)
         {
+            _logger.LogInformation("Entering DeleteNovel method for novel Id: {NovelId}", id);
             // IMPORTANT: This method only deletes the novel entry itself.
             // For full data integrity, ensure that related chapters, favorites, and bookmarks
             // are deleted either via database CASCADE constraints (recommended)
@@ -666,12 +683,14 @@ namespace BulbaLib.Services
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM Novels WHERE Id = @id";
             cmd.Parameters.AddWithValue("@id", id);
-            cmd.ExecuteNonQuery();
+            int rowsAffected = cmd.ExecuteNonQuery();
+            _logger.LogInformation("DeleteNovel for Id: {NovelId} affected {RowsAffected} row(s).", id, rowsAffected);
         }
 
         // ---------- CHAPTERS ----------
         public List<Chapter> GetChaptersByNovel(int novelId)
         {
+            _logger.LogInformation("Entering GetChaptersByNovel method for NovelId: {NovelId}", novelId);
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             // Removed Content from SELECT, Added ContentFilePath
@@ -700,6 +719,7 @@ namespace BulbaLib.Services
                 .ThenBy(ch => ch.Id)
                 .ToList();
 
+            _logger.LogInformation("Found {ChapterCount} chapters for NovelId: {NovelId}", chapters.Count, novelId);
             return chapters;
         }
 
@@ -725,36 +745,44 @@ namespace BulbaLib.Services
 
         public void CreateChapter(Chapter chapter)
         {
+            _logger.LogInformation("Entering CreateChapter method for NovelId: {NovelId}, Chapter Title: {ChapterTitle}", chapter.NovelId, chapter.Title);
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             // Added ContentFilePath to INSERT
             cmd.CommandText = "INSERT INTO Chapters (NovelId, Number, Title, Date, CreatorId, ContentFilePath) VALUES (@novelId, @number, @title, @date, @creatorId, @contentFilePath); SELECT LAST_INSERT_ID();";
+            _logger.LogDebug("CreateChapter parameters: NovelId={NovelId}, Number={Number}, Title={Title}, CreatorId={CreatorId}", chapter.NovelId, chapter.Number, chapter.Title, chapter.CreatorId);
             cmd.Parameters.AddWithValue("@novelId", chapter.NovelId);
             cmd.Parameters.AddWithValue("@number", chapter.Number ?? "");
             cmd.Parameters.AddWithValue("@title", chapter.Title);
             cmd.Parameters.AddWithValue("@date", chapter.Date);
             cmd.Parameters.AddWithValue("@creatorId", chapter.CreatorId.HasValue ? (object)chapter.CreatorId.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("@contentFilePath", (object)chapter.ContentFilePath ?? DBNull.Value);
-            chapter.Id = Convert.ToInt32(cmd.ExecuteScalar()); // Get new chapter ID
+            var newChapterId = Convert.ToInt32(cmd.ExecuteScalar());
+            chapter.Id = newChapterId; // Get new chapter ID
+            _logger.LogInformation("Chapter created with Id: {ChapterId} for NovelId: {NovelId}, Title: {ChapterTitle}", newChapterId, chapter.NovelId, chapter.Title);
         }
 
         public void UpdateChapter(Chapter chapter)
         {
+            _logger.LogInformation("Entering UpdateChapter method for Chapter Id: {ChapterId}, Title: {ChapterTitle}", chapter.Id, chapter.Title);
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             // Added ContentFilePath to UPDATE
             cmd.CommandText = "UPDATE Chapters SET Number=@number, Title=@title, Date=@date, CreatorId=@creatorId, ContentFilePath=@contentFilePath WHERE Id=@id";
+            _logger.LogDebug("UpdateChapter parameters for Id={ChapterId}: Number={Number}, Title={Title}, CreatorId={CreatorId}", chapter.Id, chapter.Number, chapter.Title, chapter.CreatorId);
             cmd.Parameters.AddWithValue("@number", chapter.Number ?? "");
             cmd.Parameters.AddWithValue("@title", chapter.Title);
             cmd.Parameters.AddWithValue("@date", chapter.Date);
             cmd.Parameters.AddWithValue("@creatorId", chapter.CreatorId.HasValue ? (object)chapter.CreatorId.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("@contentFilePath", (object)chapter.ContentFilePath ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@id", chapter.Id);
-            cmd.ExecuteNonQuery();
+            int rowsAffected = cmd.ExecuteNonQuery();
+            _logger.LogInformation("UpdateChapter for Id: {ChapterId} affected {RowsAffected} row(s).", chapter.Id, rowsAffected);
         }
 
         public void DeleteChapter(int chapterId)
         {
+            _logger.LogInformation("Entering DeleteChapter method for Chapter Id: {ChapterId}", chapterId);
             // IMPORTANT: This method only deletes the chapter entry itself.
             // For full data integrity, ensure that related bookmarks
             // are deleted either via database CASCADE constraints (recommended)
@@ -763,7 +791,8 @@ namespace BulbaLib.Services
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM Chapters WHERE Id = @id";
             cmd.Parameters.AddWithValue("@id", chapterId);
-            cmd.ExecuteNonQuery();
+            int rowsAffected = cmd.ExecuteNonQuery();
+            _logger.LogInformation("DeleteChapter for Id: {ChapterId} affected {RowsAffected} row(s).", chapterId, rowsAffected);
         }
 
         // ---------- BOOKMARKS ----------
@@ -1002,7 +1031,8 @@ namespace BulbaLib.Services
         // Получить все уникальные жанры
         public List<string> GetAllGenres()
         {
-            var novels = GetNovels();
+            _logger.LogInformation("Entering GetAllGenres method.");
+            var novels = GetNovels(); // This already logs internally if GetNovels has logging
             var genres = new HashSet<string>();
             foreach (var n in novels)
             {
@@ -1013,13 +1043,16 @@ namespace BulbaLib.Services
                             genres.Add(g.Trim());
                 }
             }
-            return genres.OrderBy(g => g).ToList();
+            var result = genres.OrderBy(g => g).ToList();
+            _logger.LogInformation("Found {GenreCount} unique genres.", result.Count);
+            return result;
         }
 
         // Получить все уникальные теги
         public List<string> GetAllTags()
         {
-            var novels = GetNovels();
+            _logger.LogInformation("Entering GetAllTags method.");
+            var novels = GetNovels(); // This already logs internally
             var tags = new HashSet<string>();
             foreach (var n in novels)
             {
@@ -1030,14 +1063,18 @@ namespace BulbaLib.Services
                             tags.Add(t.Trim());
                 }
             }
-            return tags.OrderBy(t => t).ToList();
+            var result = tags.OrderBy(t => t).ToList();
+            _logger.LogInformation("Found {TagCount} unique tags.", result.Count);
+            return result;
         }
 
         public List<Novel> GetNovelsByIds(List<int> ids)
         {
+            _logger.LogInformation("Entering GetNovelsByIds method for {IdCount} IDs: {NovelIds}", ids?.Count ?? 0, ids != null ? string.Join(",", ids) : "null");
             var novels = new List<Novel>();
             if (ids == null || !ids.Any())
             {
+                _logger.LogWarning("GetNovelsByIds called with null or empty ID list.");
                 return novels;
             }
 
@@ -1051,6 +1088,7 @@ namespace BulbaLib.Services
                     parameters[i] = $"@id{i}";
                 }
                 string commandText = $"SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status FROM Novels WHERE Id IN ({string.Join(",", parameters)})";
+                _logger.LogDebug("GetNovelsByIds executing query: {QueryText}", commandText);
 
                 using (var command = new MySqlCommand(commandText, connection))
                 {
@@ -1084,6 +1122,7 @@ namespace BulbaLib.Services
                     }
                 }
             }
+            _logger.LogInformation("Found {NovelCount} novels for the provided IDs.", novels.Count);
             return novels;
         }
 
@@ -1149,12 +1188,16 @@ namespace BulbaLib.Services
 
         public int CreateModerationRequest(ModerationRequest request)
         {
+            _logger.LogInformation("Entering CreateModerationRequest method. RequestType: {RequestType}, UserId: {UserId}, NovelId: {NovelId}, ChapterId: {ChapterId}",
+                request.RequestType, request.UserId, request.NovelId, request.ChapterId);
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT INTO ModerationRequests 
                                 (RequestType, UserId, NovelId, ChapterId, RequestData, Status, CreatedAt, UpdatedAt) 
                                 VALUES (@requestType, @userId, @novelId, @chapterId, @requestData, @status, @createdAt, @updatedAt);
                                 SELECT LAST_INSERT_ID();";
+            _logger.LogDebug("CreateModerationRequest details: RequestData (first 100 chars): {RequestDataSnippet}, Status: {Status}",
+                request.RequestData?.Substring(0, Math.Min(request.RequestData.Length, 100)), request.Status);
 
             cmd.Parameters.AddWithValue("@requestType", request.RequestType.ToString());
             cmd.Parameters.AddWithValue("@userId", request.UserId);
@@ -1166,7 +1209,9 @@ namespace BulbaLib.Services
             cmd.Parameters.AddWithValue("@updatedAt", request.UpdatedAt);
             // ModeratorId and ModerationComment are not set on creation
 
-            return Convert.ToInt32(cmd.ExecuteScalar());
+            var newRequestId = Convert.ToInt32(cmd.ExecuteScalar());
+            _logger.LogInformation("ModerationRequest created with Id: {RequestId}", newRequestId);
+            return newRequestId;
         }
 
         public ModerationRequest GetModerationRequestById(int id)
@@ -1230,6 +1275,8 @@ namespace BulbaLib.Services
                                 ModerationComment = @moderationComment, 
                                 UpdatedAt = @updatedAt 
                                 WHERE Id = @id";
+            _logger.LogDebug("UpdateModerationRequest parameters for Id={RequestId}: Status={Status}, ModeratorId={ModeratorId}",
+                request.Id, request.Status, request.ModeratorId);
 
             cmd.Parameters.AddWithValue("@status", request.Status.ToString());
             cmd.Parameters.AddWithValue("@moderatorId", request.ModeratorId.HasValue ? (object)request.ModeratorId.Value : DBNull.Value);
@@ -1237,7 +1284,9 @@ namespace BulbaLib.Services
             cmd.Parameters.AddWithValue("@updatedAt", request.UpdatedAt);
             cmd.Parameters.AddWithValue("@id", request.Id);
 
-            return cmd.ExecuteNonQuery() > 0;
+            var rowsAffected = cmd.ExecuteNonQuery() > 0;
+            _logger.LogInformation("UpdateModerationRequest for Id: {RequestId} success: {Success}", request.Id, rowsAffected);
+            return rowsAffected;
         }
 
         private ModerationRequest MapReaderToModerationRequest(System.Data.Common.DbDataReader reader)
@@ -1751,9 +1800,11 @@ namespace BulbaLib.Services
 
         public async Task CreateChapterAsync(Chapter chapter)
         {
+            _logger.LogInformation("Entering CreateChapterAsync for NovelId: {NovelId}, Chapter Title: {ChapterTitle}", chapter.NovelId, chapter.Title);
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "INSERT INTO Chapters (NovelId, Number, Title, Date, CreatorId, ContentFilePath) VALUES (@novelId, @number, @title, @date, @creatorId, @contentFilePath); SELECT LAST_INSERT_ID();";
+            _logger.LogDebug("CreateChapterAsync parameters: NovelId={NovelId}, Number={Number}, Title={Title}, CreatorId={CreatorId}", chapter.NovelId, chapter.Number, chapter.Title, chapter.CreatorId);
             cmd.Parameters.AddWithValue("@novelId", chapter.NovelId);
             cmd.Parameters.AddWithValue("@number", chapter.Number ?? "");
             cmd.Parameters.AddWithValue("@title", chapter.Title);
@@ -1764,14 +1815,21 @@ namespace BulbaLib.Services
             if (newId != null && newId != DBNull.Value)
             {
                 chapter.Id = Convert.ToInt32(newId);
+                _logger.LogInformation("Chapter created asynchronously with Id: {ChapterId} for NovelId: {NovelId}", chapter.Id, chapter.NovelId);
+            }
+            else
+            {
+                _logger.LogError("Failed to create chapter asynchronously for NovelId: {NovelId}, Title: {ChapterTitle}. ExecuteScalar returned null or DBNull.", chapter.NovelId, chapter.Title);
             }
         }
 
         public async Task UpdateChapterAsync(Chapter chapter)
         {
+            _logger.LogInformation("Entering UpdateChapterAsync for Chapter Id: {ChapterId}, Title: {ChapterTitle}", chapter.Id, chapter.Title);
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "UPDATE Chapters SET NovelId=@novelId, Number=@number, Title=@title, Date=@date, CreatorId=@creatorId, ContentFilePath=@contentFilePath WHERE Id=@id";
+            _logger.LogDebug("UpdateChapterAsync parameters for Id={ChapterId}: Number={Number}, Title={Title}, CreatorId={CreatorId}", chapter.Id, chapter.Number, chapter.Title, chapter.CreatorId);
             cmd.Parameters.AddWithValue("@id", chapter.Id);
             cmd.Parameters.AddWithValue("@novelId", chapter.NovelId);
             cmd.Parameters.AddWithValue("@number", chapter.Number ?? "");
@@ -1779,16 +1837,19 @@ namespace BulbaLib.Services
             cmd.Parameters.AddWithValue("@date", chapter.Date);
             cmd.Parameters.AddWithValue("@creatorId", chapter.CreatorId.HasValue ? (object)chapter.CreatorId.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("@contentFilePath", (object)chapter.ContentFilePath ?? DBNull.Value);
-            await cmd.ExecuteNonQueryAsync();
+            var rowsAffected = await cmd.ExecuteNonQueryAsync();
+            _logger.LogInformation("UpdateChapterAsync for Id: {ChapterId} affected {RowsAffected} row(s).", chapter.Id, rowsAffected);
         }
 
         public async Task DeleteChapterAsync(int chapterId)
         {
+            _logger.LogInformation("Entering DeleteChapterAsync for Chapter Id: {ChapterId}", chapterId);
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM Chapters WHERE Id = @id";
             cmd.Parameters.AddWithValue("@id", chapterId);
-            await cmd.ExecuteNonQueryAsync();
+            var rowsAffected = await cmd.ExecuteNonQueryAsync();
+            _logger.LogInformation("DeleteChapterAsync for Id: {ChapterId} affected {RowsAffected} row(s).", chapterId, rowsAffected);
         }
 
         public List<ChapterWithNovelInfo> GetRecentChapterUpdates(int count)
