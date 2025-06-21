@@ -50,8 +50,30 @@ namespace BulbaLib.Controllers
         {
             if (string.IsNullOrWhiteSpace(input))
             {
-                return JsonSerializer.Serialize(new List<string>()); // Store as empty JSON array
+                return "[]"; // Store as empty JSON array string
             }
+
+            // Попытка распарсить как JSON-массив строк
+            try
+            {
+                var deserialized = JsonSerializer.Deserialize<List<string>>(input);
+                // Если успешно и это действительно список строк (хотя Deserialize<List<string>> это обеспечит)
+                // Возвращаем исходную строку, так как она уже валидный JSON-массив строк
+                if (deserialized != null)
+                {
+                    // Дополнительно проверим, что все элементы - строки, хотя Deserialize<List<string>> должен это гарантировать
+                    // Это больше для уверенности, если бы десериализация была в object, а потом каст.
+                    // В данном случае, если Deserialize<List<string>> не выкинет исключение, значит input - валидный JSON массив строк.
+                    return input;
+                }
+            }
+            catch (JsonException)
+            {
+                // Если не удалось распарсить как JSON, значит это, вероятно, строка через запятую
+                // или просто одиночная строка. Обрабатываем как CSV.
+            }
+
+            // Обработка как строки, разделенной запятыми
             var list = input.Split(',')
                              .Select(s => s.Trim())
                              .Where(s => !string.IsNullOrWhiteSpace(s))
@@ -115,43 +137,11 @@ namespace BulbaLib.Controllers
                 Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             };
 
-            // Обработка Genres
-            if (string.IsNullOrWhiteSpace(model.Genres))
-            {
-                novel.Genres = "[]";
-            }
-            else
-            {
-                try
-                {
-                    JsonSerializer.Deserialize<List<string>>(model.Genres); // Проверка на валидность
-                    novel.Genres = model.Genres; // Используем как есть, если валидный JSON массив строк
-                }
-                catch (JsonException ex)
-                {
-                    _logger.LogWarning(ex, "Model.Genres input was not a valid JSON array of strings. Input: {GenresInput}. Storing as empty array.", model.Genres);
-                    novel.Genres = "[]"; // Сохраняем пустой массив в случае ошибки
-                }
-            }
-
-            // Обработка Tags
-            if (string.IsNullOrWhiteSpace(model.Tags))
-            {
-                novel.Tags = "[]";
-            }
-            else
-            {
-                try
-                {
-                    JsonSerializer.Deserialize<List<string>>(model.Tags); // Проверка на валидность
-                    novel.Tags = model.Tags; // Используем как есть, если валидный JSON массив строк
-                }
-                catch (JsonException ex)
-                {
-                    _logger.LogWarning(ex, "Model.Tags input was not a valid JSON array of strings. Input: {TagsInput}. Storing as empty array.", model.Tags);
-                    novel.Tags = "[]"; // Сохраняем пустой массив в случае ошибки
-                }
-            }
+            // Обработка Genres и Tags с использованием обновленной функции SerializeTagsOrGenres
+            novel.Genres = SerializeTagsOrGenres(model.Genres);
+            novel.Tags = SerializeTagsOrGenres(model.Tags);
+            _logger.LogInformation("Processed Genres for novel {Title}: {ProcessedGenres}", model.Title, novel.Genres);
+            _logger.LogInformation("Processed Tags for novel {Title}: {ProcessedTags}", model.Title, novel.Tags);
 
             var tempCoverPaths = new List<string>();
 
@@ -253,7 +243,7 @@ namespace BulbaLib.Controllers
                 _mySqlService.UpdateNovel(novel); // Update with final cover paths
 
                 TempData["SuccessMessage"] = "Новелла успешно создана.";
-                return RedirectToAction("Details", "Novel", new { id = newNovelId });
+                return Redirect($"/novel/{newNovelId}");
             }
             else // UserRole.Author
             {
@@ -487,21 +477,11 @@ namespace BulbaLib.Controllers
                 existingNovel.Title = model.Title;
                 existingNovel.Description = model.Description;
 
-                // Обработка Genres
-                if (string.IsNullOrWhiteSpace(model.Genres)) { existingNovel.Genres = "[]"; }
-                else
-                {
-                    try { JsonSerializer.Deserialize<List<string>>(model.Genres); existingNovel.Genres = model.Genres; }
-                    catch (JsonException ex) { _logger.LogWarning(ex, "Admin Edit: Model.Genres input was not a valid JSON array. Input: {GenresInput}. Storing as empty array.", model.Genres); existingNovel.Genres = "[]"; }
-                }
-
-                // Обработка Tags
-                if (string.IsNullOrWhiteSpace(model.Tags)) { existingNovel.Tags = "[]"; }
-                else
-                {
-                    try { JsonSerializer.Deserialize<List<string>>(model.Tags); existingNovel.Tags = model.Tags; }
-                    catch (JsonException ex) { _logger.LogWarning(ex, "Admin Edit: Model.Tags input was not a valid JSON array. Input: {TagsInput}. Storing as empty array.", model.Tags); existingNovel.Tags = "[]"; }
-                }
+                // Обработка Genres и Tags с использованием обновленной функции SerializeTagsOrGenres
+                existingNovel.Genres = SerializeTagsOrGenres(model.Genres);
+                existingNovel.Tags = SerializeTagsOrGenres(model.Tags);
+                _logger.LogInformation("Admin Edit: Processed Genres for novel {NovelId}: {ProcessedGenres}", existingNovel.Id, existingNovel.Genres);
+                _logger.LogInformation("Admin Edit: Processed Tags for novel {NovelId}: {ProcessedTags}", existingNovel.Id, existingNovel.Tags);
 
                 existingNovel.Type = model.Type;
                 existingNovel.Format = model.Format;
@@ -552,21 +532,11 @@ namespace BulbaLib.Controllers
                     existingNovel.Title = model.Title;
                     existingNovel.Description = model.Description;
 
-                    // Обработка Genres
-                    if (string.IsNullOrWhiteSpace(model.Genres)) { existingNovel.Genres = "[]"; }
-                    else
-                    {
-                        try { JsonSerializer.Deserialize<List<string>>(model.Genres); existingNovel.Genres = model.Genres; }
-                        catch (JsonException ex) { _logger.LogWarning(ex, "Author Draft Edit: Model.Genres input was not a valid JSON array. Input: {GenresInput}. Storing as empty array.", model.Genres); existingNovel.Genres = "[]"; }
-                    }
-
-                    // Обработка Tags
-                    if (string.IsNullOrWhiteSpace(model.Tags)) { existingNovel.Tags = "[]"; }
-                    else
-                    {
-                        try { JsonSerializer.Deserialize<List<string>>(model.Tags); existingNovel.Tags = model.Tags; }
-                        catch (JsonException ex) { _logger.LogWarning(ex, "Author Draft Edit: Model.Tags input was not a valid JSON array. Input: {TagsInput}. Storing as empty array.", model.Tags); existingNovel.Tags = "[]"; }
-                    }
+                    // Обработка Genres и Tags с использованием обновленной функции SerializeTagsOrGenres
+                    existingNovel.Genres = SerializeTagsOrGenres(model.Genres);
+                    existingNovel.Tags = SerializeTagsOrGenres(model.Tags);
+                    _logger.LogInformation("Author Draft Edit: Processed Genres for novel {NovelId}: {ProcessedGenres}", existingNovel.Id, existingNovel.Genres);
+                    _logger.LogInformation("Author Draft Edit: Processed Tags for novel {NovelId}: {ProcessedTags}", existingNovel.Id, existingNovel.Tags);
 
                     existingNovel.Type = model.Type;
                     existingNovel.Format = model.Format;
@@ -634,22 +604,11 @@ namespace BulbaLib.Controllers
                     // `updatedCoverListForRequest` contains kept existing final paths + new temporary paths.
                     // This list is what the admin will see and process.
 
-                    // For Author submitting moderation, process Genres and Tags from the model
-                    string processedGenresForModeration;
-                    if (string.IsNullOrWhiteSpace(model.Genres)) { processedGenresForModeration = "[]"; }
-                    else
-                    {
-                        try { JsonSerializer.Deserialize<List<string>>(model.Genres); processedGenresForModeration = model.Genres; }
-                        catch (JsonException ex) { _logger.LogWarning(ex, "Author Moderation Edit: Model.Genres input was not a valid JSON array. Input: {GenresInput}. Storing as empty array for moderation.", model.Genres); processedGenresForModeration = "[]"; }
-                    }
-
-                    string processedTagsForModeration;
-                    if (string.IsNullOrWhiteSpace(model.Tags)) { processedTagsForModeration = "[]"; }
-                    else
-                    {
-                        try { JsonSerializer.Deserialize<List<string>>(model.Tags); processedTagsForModeration = model.Tags; }
-                        catch (JsonException ex) { _logger.LogWarning(ex, "Author Moderation Edit: Model.Tags input was not a valid JSON array. Input: {TagsInput}. Storing as empty array for moderation.", model.Tags); processedTagsForModeration = "[]"; }
-                    }
+                    // For Author submitting moderation, process Genres and Tags from the model using SerializeTagsOrGenres
+                    string processedGenresForModeration = SerializeTagsOrGenres(model.Genres);
+                    string processedTagsForModeration = SerializeTagsOrGenres(model.Tags);
+                    _logger.LogInformation("Author Moderation Edit: Processed Genres for moderation request for novel {NovelId}: {ProcessedGenres}", existingNovel.Id, processedGenresForModeration);
+                    _logger.LogInformation("Author Moderation Edit: Processed Tags for moderation request for novel {NovelId}: {ProcessedTags}", existingNovel.Id, processedTagsForModeration);
 
                     // Create a temporary object for UpdatedFields that has the processed genres/tags
                     // This ensures the moderator sees the intended JSON structure for genres/tags.

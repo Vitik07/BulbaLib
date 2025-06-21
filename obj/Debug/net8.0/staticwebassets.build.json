@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "3pIQTxQLxw78seL9zv//SmXdku02qhYVGToIORlflrY=",
+  "Hash": "DAJrFHPq8BZAwaIvZKbEstoq2GnHhsThDAX+QUquUP4=",
   "Source": "BulbaLib",
   "BasePath": "_content/BulbaLib",
   "Mode": "Default",
@@ -12348,12 +12348,12 @@
       "OriginalItemSpec": "wwwroot\\uploads\\covers\\14\\cover_638856173753367285.jpg"
     },
     {
-      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark9\\BulbaLib\\wwwroot\\uploads\\covers\\15\\cover_638860407416544521.jpg",
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark9\\BulbaLib\\wwwroot\\uploads\\covers\\17\\cover_638860828602851637.jpg",
       "SourceId": "BulbaLib",
       "SourceType": "Discovered",
       "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark9\\BulbaLib\\wwwroot\\",
       "BasePath": "_content/BulbaLib",
-      "RelativePath": "uploads/covers/15/cover_638860407416544521.jpg",
+      "RelativePath": "uploads/covers/17/cover_638860828602851637.jpg",
       "AssetKind": "All",
       "AssetMode": "All",
       "AssetRole": "Primary",
@@ -12364,26 +12364,7 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\uploads\\covers\\15\\cover_638860407416544521.jpg"
-    },
-    {
-      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark9\\BulbaLib\\wwwroot\\uploads\\covers\\16\\cover_638860799277665343.jpg",
-      "SourceId": "BulbaLib",
-      "SourceType": "Discovered",
-      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark9\\BulbaLib\\wwwroot\\",
-      "BasePath": "_content/BulbaLib",
-      "RelativePath": "uploads/covers/16/cover_638860799277665343.jpg",
-      "AssetKind": "All",
-      "AssetMode": "All",
-      "AssetRole": "Primary",
-      "AssetMergeBehavior": "PreferTarget",
-      "AssetMergeSource": "",
-      "RelatedAsset": "",
-      "AssetTraitName": "",
-      "AssetTraitValue": "",
-      "CopyToOutputDirectory": "Never",
-      "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\uploads\\covers\\16\\cover_638860799277665343.jpg"
+      "OriginalItemSpec": "wwwroot\\uploads\\covers\\17\\cover_638860828602851637.jpg"
     },
     {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark9\\BulbaLib\\wwwroot\\uploads\\covers\\2\\1.jpg",

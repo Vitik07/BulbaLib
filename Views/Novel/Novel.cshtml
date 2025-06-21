@@ -384,18 +384,20 @@
             let genresList = [];
             if (novelFromApi.genres) {
                 try {
+                    // Предполагаем, что novelFromApi.genres это всегда строка JSON-массива
                     genresList = JSON.parse(novelFromApi.genres);
                     if (!Array.isArray(genresList)) {
-                        genresList = [];
-                        throw new Error("Parsed result is not an array.");
+                        console.warn("renderNovel: novelFromApi.genres parsed but is not an array:", genresList);
+                        genresList = []; // Если не массив, считаем пустым
                     }
                 } catch (e) {
-                    genresList = (novelFromApi.genres || '').split(',').filter(Boolean).map(g => g.trim());
+                    console.error("renderNovel: Error parsing novelFromApi.genres JSON:", e, "Input:", novelFromApi.genres);
+                    genresList = []; // В случае ошибки парсинга, считаем пустым
                 }
             }
             console.log("renderNovel: Parsed genresList:", genresList);
             genresBlock.innerHTML = genresList
-                .map(g => `<span class="novel-tag genre">${g}</span>`)
+                .map(g => `<span class="novel-tag genre">${String(g).trim()}</span>`) // Убедимся что g это строка и тримим
                 .join('');
 
             // Теги
@@ -403,18 +405,20 @@
             let tagsList = [];
             if (novelFromApi.tags) {
                 try {
+                    // Предполагаем, что novelFromApi.tags это всегда строка JSON-массива
                     tagsList = JSON.parse(novelFromApi.tags);
                     if (!Array.isArray(tagsList)) {
-                        tagsList = [];
-                        throw new Error("Parsed result is not an array.");
+                        console.warn("renderNovel: novelFromApi.tags parsed but is not an array:", tagsList);
+                        tagsList = []; // Если не массив, считаем пустым
                     }
                 } catch (e) {
-                    tagsList = (novelFromApi.tags || '').split(',').filter(Boolean).map(t => t.trim());
+                    console.error("renderNovel: Error parsing novelFromApi.tags JSON:", e, "Input:", novelFromApi.tags);
+                    tagsList = []; // В случае ошибки парсинга, считаем пустым
                 }
             }
             console.log("renderNovel: Parsed tagsList:", tagsList);
             tagsBlock.innerHTML = tagsList
-                .map(t => `<span class="novel-tag tag">#${t}</span>`)
+                .map(t => `<span class="novel-tag tag">${String(t).trim()}</span>`) // Убираем #, убедимся что t это строка и тримим
                 .join('');
 
             renderChaptersWithBookmark(chapterViewModels); // Log inside renderChaptersWithBookmark
