@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "6yNJIuIDRmIFZMSGKsdMBZl+TFIjvAicCq3cC8XlnD8=",
+  "Hash": "VMPVz+BnsmPhaEmJfwwOYQrZmCJGofCDDxNsJELIHew=",
   "Source": "BulbaLib",
   "BasePath": "_content/BulbaLib",
   "Mode": "Default",
@@ -53,6 +53,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\obj\\Debug\\net8.0\\scopedcss\\projectbundle\\BulbaLib.bundle.scp.css"
+    },
+    {
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\css\\AdminPanel.css",
+      "SourceId": "BulbaLib",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\",
+      "BasePath": "_content/BulbaLib",
+      "RelativePath": "css/AdminPanel.css",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\css\\AdminPanel.css"
     },
     {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\css\\Catalog.css",
@@ -12536,6 +12555,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\uploads\\covers\\2\\9.jpg"
+    },
+    {
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\uploads\\covers\\20\\cover_638860890330713673.jpg",
+      "SourceId": "BulbaLib",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\",
+      "BasePath": "_content/BulbaLib",
+      "RelativePath": "uploads/covers/20/cover_638860890330713673.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\covers\\20\\cover_638860890330713673.jpg"
     },
     {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\uploads\\covers\\3\\1.jpg",

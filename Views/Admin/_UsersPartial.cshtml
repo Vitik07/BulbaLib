@@ -4,8 +4,8 @@
 <div>
     <form id="searchUsersForm" method="get" class="mb-3">
         <div class="input-group">
-            <input type="text" name="searchTerm" class="form-control" placeholder="Поиск по логину..." value="@Model.SearchTerm" />
-            <button type="submit" class="btn btn-primary">Поиск</button>
+            <input type="text" name="searchTerm" class="form-control" autocomplete="off" placeholder="Поиск по логину..." value="@Model.SearchTerm" />
+            <!-- Кнопка поиска удалена -->
         </div>
     </form>
 </div>
@@ -25,7 +25,9 @@
         <tbody>
             @if (Model.Users != null && Model.Users.Any())
             {
+
                 foreach (var user in Model.Users)
+
                 {
                     <tr>
                         <td>@user.Id</td>
@@ -86,78 +88,19 @@
 </div>
 
 <script>
-    // AJAX for role change
-    // AJAX for role change
-    // Ensure this script is executed after the partial view is loaded into the DOM.
-    // If using jQuery's .load(), this script block will execute.
-    // For more complex scenarios or if issues arise, consider event delegation from the parent page (Index.cshtml).
-
-    $(document).ready(function () { // Ensures DOM is ready for this partial too
-        // Using event delegation for dynamically loaded content is more robust
-        // However, if this partial is reloaded, these direct bindings will be set again.
-        $('#adminTabContent').off('submit.userRole').on('submit.userRole', '.form-change-role', function (e) {
-            e.preventDefault();
-            var form = $(this);
-            var userId = form.data('user-id'); // Or extract from hidden input
-            var newRole = form.find('select[name="role"]').val();
-            var token = form.find('input[name="__RequestVerificationToken"]').val();
-
-            $.ajax({
-                type: 'POST',
-                url: '@Url.Action("UpdateUserRole", "Admin")', // Corrected Action Name
-                data: {
-                    __RequestVerificationToken: token,
-                    userId: userId,
-                    newRole: newRole
-                },
-                success: function (response) {
-                    if (response.success) {
-                        alert(response.message);
-                        // Update the role text in the table directly
-                        form.closest('tr').find('td').eq(3).text(newRole); // Assuming 4th td is the role display
-                    } else {
-                        alert('Ошибка: ' + response.message);
-                    }
-                },
-                error: function (xhr) {
-                    alert('Произошла ошибка: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Неизвестная ошибка.'));
-                }
-            });
+    // Поиск пользователей при каждом вводе (debounce)
+    $(document).ready(function () {
+        let debounceTimer;
+        $('#searchUsersForm input[name="searchTerm"]').on('input', function () {
+            clearTimeout(debounceTimer);
+            const $input = $(this);
+            debounceTimer = setTimeout(function () {
+                const searchTerm = $input.val();
+                const url = '@Url.Action("UsersPartial", "Admin")' + '?searchTerm=' + encodeURIComponent(searchTerm);
+                $('#users-content-area').load(url);
+            }, 350); // debounce 350ms
         });
 
-        $('#adminTabContent').off('submit.toggleBlock').on('submit.toggleBlock', '.form-toggle-block', function (e) {
-            e.preventDefault();
-            var form = $(this);
-            var button = form.find('button[type="submit"]');
-            var userId = form.data('user-id'); // Or extract from hidden input
-            var token = form.find('input[name="__RequestVerificationToken"]').val();
-
-            $.ajax({
-                type: 'POST',
-                url: '@Url.Action("ToggleUserBlock", "Admin")',
-                data: {
-                    __RequestVerificationToken: token,
-                    userId: userId
-                },
-                success: function (response) {
-                    if (response.success) {
-                        alert(response.message);
-                        var badge = form.closest('tr').find('.badge');
-                        if (response.isBlocked) {
-                            button.text('Разблокировать').removeClass('btn-outline-danger').addClass('btn-outline-success');
-                            badge.text('Заблокирован').removeClass('bg-success').addClass('bg-danger');
-                        } else {
-                            button.text('Заблокировать').removeClass('btn-outline-success').addClass('btn-outline-danger');
-                            badge.text('Активен').removeClass('bg-danger').addClass('bg-success');
-                        }
-                    } else {
-                        alert('Ошибка: ' + response.message);
-                    }
-                },
-                error: function (xhr) {
-                    alert('Произошла ошибка: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Неизвестная ошибка.'));
-                }
-            });
-        });
+        // Тут оставь или добавь твои другие AJAX формы (смена роли, блокировка и т.д.)
     });
 </script>

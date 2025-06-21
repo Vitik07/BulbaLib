@@ -33,6 +33,10 @@
       "PackagePath": "staticwebassets\\Resource\\favicon.ico"
     },
     {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\css\\AdminPanel.css",
+      "PackagePath": "staticwebassets\\css\\AdminPanel.css"
+    },
+    {
       "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\css\\Catalog.css",
       "PackagePath": "staticwebassets\\css\\Catalog.css"
     },
@@ -2595,6 +2599,10 @@
     {
       "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\uploads\\covers\\1\\cover_638860122286049578.jpg",
       "PackagePath": "staticwebassets\\uploads\\covers\\1\\cover_638860122286049578.jpg"
+    },
+    {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\uploads\\covers\\20\\cover_638860890330713673.jpg",
+      "PackagePath": "staticwebassets\\uploads\\covers\\20\\cover_638860890330713673.jpg"
     },
     {
       "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\uploads\\covers\\2\\1.jpg",

@@ -1,55 +1,62 @@
-﻿﻿﻿@{
+﻿@{
     ViewData["Title"] = "Админ-панель";
 
-
-
-    Layout = "~/Views/Shared/_Layout.cshtml"; // Assuming a layout that includes Bootstrap
+    Layout = null;
 }
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"]</title>
+    <!-- Подключение стиля для админ-панели -->
+    <link rel="stylesheet" href="~/css/AdminPanel.css" />
+    <!-- Подключение Bootstrap (css и js) и FontAwesome, если требуется -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+</head>
+<body>
+    <h1>@ViewData["Title"]</h1>
 
-<h1>@ViewData["Title"]</h1>
+    <ul class="nav nav-tabs mb-3" id="adminTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-panel" type="button" role="tab" aria-controls="users-panel" aria-selected="true">Пользователи</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="novel-requests-tab" data-bs-toggle="tab" data-bs-target="#novel-requests-panel" type="button" role="tab" aria-controls="novel-requests-panel" aria-selected="false">Запросы (Новеллы)</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="chapter-requests-tab" data-bs-toggle="tab" data-bs-target="#chapter-requests-panel" type="button" role="tab" aria-controls="chapter-requests-panel" aria-selected="false">Запросы (Главы)</button>
+        </li>
+    </ul>
 
-<ul class="nav nav-tabs mb-3" id="adminTab" role="tablist">
-    <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-panel" type="button" role="tab" aria-controls="users-panel" aria-selected="true">Пользователи</button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="novel-requests-tab" data-bs-toggle="tab" data-bs-target="#novel-requests-panel" type="button" role="tab" aria-controls="novel-requests-panel" aria-selected="false">Запросы (Новеллы)</button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="chapter-requests-tab" data-bs-toggle="tab" data-bs-target="#chapter-requests-panel" type="button" role="tab" aria-controls="chapter-requests-panel" aria-selected="false">Запросы (Главы)</button>
-    </li>
-</ul>
-
-<div class="tab-content" id="adminTabContent">
-    <div class="tab-pane fade show active" id="users-panel" role="tabpanel" aria-labelledby="users-tab">
-        <h4>Управление пользователями</h4>
-        <div id="users-content-area">
-            <p>Загрузка...</p>
+    <div class="tab-content" id="adminTabContent">
+        <div class="tab-pane fade show active" id="users-panel" role="tabpanel" aria-labelledby="users-tab">
+            <h4>Управление пользователями</h4>
+            <div id="users-content-area">
+                <p>Загрузка...</p>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="novel-requests-panel" role="tabpanel" aria-labelledby="novel-requests-tab">
+            <h4>Запросы на модерацию новелл</h4>
+            <div id="novel-requests-content-area">
+                <p>Загрузка...</p>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="chapter-requests-panel" role="tabpanel" aria-labelledby="chapter-requests-tab">
+            <h4>Запросы на модерацию глав</h4>
+            <div id="chapter-requests-content-area">
+                <p>Загрузка...</p>
+            </div>
         </div>
     </div>
-    <div class="tab-pane fade" id="novel-requests-panel" role="tabpanel" aria-labelledby="novel-requests-tab">
-        <h4>Запросы на модерацию новелл</h4>
-        <div id="novel-requests-content-area">
-            <p>Загрузка...</p>
-        </div>
-    </div>
-    <div class="tab-pane fade" id="chapter-requests-panel" role="tabpanel" aria-labelledby="chapter-requests-tab">
-        <h4>Запросы на модерацию глав</h4>
-        <div id="chapter-requests-content-area">
-            <p>Загрузка...</p>
-        </div>
-    </div>
-</div>
 
-@section Scripts {
+    <!-- УБРАН RenderSection! Скрипты подключай здесь -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script>
         // Script to load tab content dynamically via AJAX or handle tab state
         $(document).ready(function () {
             function loadTabContent(targetTabPaneId, url) {
-                // Basic check to prevent reloading if content is already there (optional)
-                // if ($(targetTabPaneId).html().trim() === '') {
-                //    $(targetTabPaneId).load(url);
-                // }
                 // Always load for now, or implement more sophisticated caching/check
                 $(targetTabPaneId).load(url, function (response, status, xhr) {
                     if (status == "error") {
@@ -68,7 +75,7 @@
 
             // Handle search form submission for users
             // Use event delegation as the form is loaded dynamically
-            $('#users-content-area').on('submit', '#searchUsersForm', function(event) {
+            $('#users-content-area').on('submit', '#searchUsersForm', function (event) {
                 event.preventDefault();
                 var searchTerm = $(this).find('input[name="searchTerm"]').val();
                 var url = '@Url.Action("UsersPartial", "Admin")' + '?searchTerm=' + encodeURIComponent(searchTerm);
@@ -86,12 +93,8 @@
             var triggerTabList = [].slice.call(document.querySelectorAll('#adminTab button'))
             triggerTabList.forEach(function (triggerEl) {
                 var tabTrigger = new bootstrap.Tab(triggerEl)
-                // Optional: re-add click listener if Bootstrap's default is prevented elsewhere
-                // triggerEl.addEventListener('click', function (event) {
-                //    event.preventDefault()
-                //    tabTrigger.show()
-                // })
             });
         });
     </script>
-}
+</body>
+</html>

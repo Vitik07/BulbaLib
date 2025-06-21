@@ -1,0 +1,435 @@
+﻿@charset "UTF-8";
+/* === BulbaLib Admin Panel — True Dark Table & Controls === */
+:root {
+    --admin-bg: #16161a;
+    --admin-fg: #23232a;
+    --admin-card: #202026;
+    --admin-border: #282845;
+    --admin-accent: #2360d1;
+    --admin-accent-light: #3a8bfd;
+    --admin-pink: #fa6565;
+    --admin-success: #35b66d;
+    --admin-warning: #ffb84c;
+    --admin-muted: #8a8a8e;
+    --admin-primary-text: #e1e1e6;
+    --admin-secondary-text: #b2c4d8;
+    --admin-radius: 12px;
+    --admin-radius-card: 16px;
+    --admin-shadow: 0 2px 20px rgba(0,0,0,0.5);
+    --admin-shadow-soft: 0 1.5px 8px rgba(0,0,0,0.3);
+    --admin-font: "Open Sans", Arial, Helvetica, sans-serif;
+}
+
+body, html {
+    background: var(--admin-bg) !important;
+    color: var(--admin-primary-text) !important;
+    font-family: var(--admin-font);
+    font-size: 16px;
+    min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6, label, legend {
+    color: #fff !important;
+}
+
+a, .btn-link {
+    color: var(--admin-accent);
+    text-decoration: none;
+    transition: color .13s;
+}
+
+    a:hover, .btn-link:hover {
+        color: var(--admin-accent-light);
+        text-decoration: underline;
+    }
+
+/* ========== NAV TABS ========== */
+.nav-tabs {
+    border-bottom: none !important;
+    background: var(--admin-fg);
+    border-radius: var(--admin-radius-card) var(--admin-radius-card) 0 0;
+    box-shadow: var(--admin-shadow-soft);
+    overflow-x: auto;
+    overflow-y: visible !important;
+    margin-bottom: 0 !important;
+}
+
+    .nav-tabs .nav-link {
+        color: var(--admin-muted);
+        background: none !important;
+        border: none !important;
+        border-radius: var(--admin-radius) var(--admin-radius) 0 0 !important;
+        font-weight: 600;
+        font-size: 1.05rem;
+        padding: 14px 32px 10px 32px;
+        margin-right: 6px;
+        transition: background .13s, color .13s;
+        outline: none;
+    }
+
+        .nav-tabs .nav-link.active,
+        .nav-tabs .nav-link:focus,
+        .nav-tabs .nav-link:hover {
+            color: #fff;
+            background: var(--admin-card) !important;
+            border-bottom: 2.5px solid var(--admin-accent) !important;
+            z-index: 2;
+        }
+
+/* Убрать белую полоску-подложку под табами */
+#adminTabContent, .tab-content {
+    background: var(--admin-card);
+    border-radius: 0 0 var(--admin-radius-card) var(--admin-radius-card);
+    box-shadow: var(--admin-shadow);
+    padding: 32px 26px;
+    min-height: 380px;
+    border: none !important;
+}
+
+@media (max-width: 700px) {
+    .tab-content {
+        padding: 18px 2px;
+    }
+}
+
+/* ========== TABLES ========== */
+.table, .table-striped, .table-hover, .table-bordered, .table th, .table td {
+    background: var(--admin-card) !important;
+    color: var(--admin-primary-text) !important;
+    border-color: var(--admin-border) !important;
+}
+
+.table {
+    border: 1.5px solid #353545 !important;
+    border-radius: 14px !important;
+    box-shadow: var(--admin-shadow-soft) !important;
+    overflow: hidden;
+}
+
+    .table thead th {
+        background: var(--admin-fg) !important;
+        color: #fff !important;
+        font-weight: 700;
+        border-bottom: 2px solid var(--admin-border) !important;
+    }
+
+.table-striped > tbody > tr:nth-of-type(odd) {
+    background: #202026 !important;
+}
+
+.table-striped > tbody > tr:nth-of-type(even) {
+    background: #23232a !important;
+}
+
+.table-hover > tbody > tr:hover {
+    background: #292939 !important;
+    color: #fff !important;
+}
+
+.table th, .table td {
+    vertical-align: middle !important;
+    font-weight: 500;
+    font-size: 1em;
+    border-bottom: 1.5px solid var(--admin-border) !important;
+    transition: background 0.15s, color 0.15s;
+}
+
+.table .badge, .badge {
+    font-size: .97em;
+    padding: 6px 13px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+    .badge.bg-success {
+        background: var(--admin-success) !important;
+        color: #fff !important;
+    }
+
+    .badge.bg-danger {
+        background: var(--admin-pink) !important;
+        color: #fff !important;
+    }
+
+    .badge.bg-warning {
+        background: var(--admin-warning) !important;
+        color: #1a1a1a !important;
+    }
+
+    .badge.bg-info {
+        background: var(--admin-accent) !important;
+        color: #fff !important;
+    }
+
+    .badge.bg-primary {
+        background: var(--admin-accent-light) !important;
+        color: #fff !important;
+    }
+
+/* ========== BUTTONS ========== */
+.btn, button, input[type="submit"], input[type="button"] {
+    font-family: inherit !important;
+    font-weight: 600 !important;
+    border: none !important;
+    border-radius: var(--admin-radius) !important;
+    background: var(--admin-fg) !important;
+    color: #fff !important;
+    box-shadow: 0 1.5px 8px rgba(36,40,60,0.13);
+    outline: none !important;
+    transition: background 0.13s, color 0.13s;
+}
+
+    .btn:active, .btn:focus, .btn:hover,
+    button:active, button:focus, button:hover {
+        background: var(--admin-accent) !important;
+        color: #fff !important;
+    }
+
+.btn-outline-primary {
+    background: transparent !important;
+    border: 1.5px solid var(--admin-accent) !important;
+    color: var(--admin-accent) !important;
+}
+
+    .btn-outline-primary:hover,
+    .btn-outline-primary:focus {
+        background: var(--admin-accent) !important;
+        color: #fff !important;
+    }
+
+.btn-outline-danger {
+    background: transparent !important;
+    border: 1.5px solid var(--admin-pink) !important;
+    color: var(--admin-pink) !important;
+}
+
+    .btn-outline-danger:hover,
+    .btn-outline-danger:focus {
+        background: var(--admin-pink) !important;
+        color: #fff !important;
+    }
+
+.btn-outline-success {
+    background: transparent !important;
+    border: 1.5px solid var(--admin-success) !important;
+    color: var(--admin-success) !important;
+}
+
+    .btn-outline-success:hover,
+    .btn-outline-success:focus {
+        background: var(--admin-success) !important;
+        color: #fff !important;
+    }
+
+/* ========== SELECTS & INPUTS ========== */
+input[type="text"], input[type="search"], input[type="password"], select, textarea,
+.table input, .table select, .table .form-select {
+    background: var(--admin-fg) !important;
+    color: var(--admin-primary-text) !important;
+    border: 1.3px solid var(--admin-border) !important;
+    border-radius: var(--admin-radius) !important;
+    outline: none !important;
+    transition: border-color 0.13s, background 0.13s;
+}
+
+    input:focus, select:focus, textarea:focus {
+        border-color: var(--admin-accent) !important;
+        background: #23232a !important;
+        color: #fff !important;
+    }
+
+.table select, .table .form-select {
+    background: var(--admin-fg) !important;
+    color: var(--admin-primary-text) !important;
+}
+
+    .table select:focus, .table .form-select:focus {
+        background: #23232a !important;
+        color: #fff !important;
+    }
+
+/* ========== AVATAR ========== */
+.table img, .img-thumbnail {
+    background: #23232a !important;
+    border-radius: 50% !important;
+    width: 40px !important;
+    height: 40px !important;
+    object-fit: cover !important;
+    border: 2px solid var(--admin-border) !important;
+    box-shadow: 0 2px 14px #0005 !important;
+}
+
+/* ========== PAGINATION ========== */
+.pagination .page-link {
+    background: var(--admin-fg) !important;
+    color: var(--admin-muted) !important;
+    border: 1.5px solid var(--admin-border) !important;
+    border-radius: 7px !important;
+    font-weight: 600 !important;
+    transition: background 0.13s, color 0.13s, border-color 0.13s;
+}
+
+    .pagination .page-link:hover, .pagination .active .page-link {
+        background: var(--admin-accent-light) !important;
+        color: #fff !important;
+        border-color: var(--admin-accent-light) !important;
+    }
+
+.pagination .disabled .page-link {
+    background: var(--admin-bg) !important;
+    color: #555 !important;
+    border-color: var(--admin-border) !important;
+    cursor: not-allowed !important;
+}
+
+/* ========== INPUT GROUP — DARK SEARCH BAR ========== */
+.input-group,
+.input-group .form-control,
+.input-group input[type="text"] {
+    background: transparent !important;
+    border: none !important;
+    color: var(--admin-primary-text) !important;
+    box-shadow: none !important;
+}
+
+    .input-group .form-control {
+        border-bottom: 1.5px solid var(--admin-border) !important;
+        border-radius: 0 !important;
+        padding: 10px 8px !important;
+        outline: none !important;
+        background: transparent !important;
+    }
+
+        .input-group .form-control:focus {
+            border-bottom: 1.5px solid var(--admin-accent) !important;
+            background: var(--admin-card) !important;
+            color: #fff !important;
+        }
+
+    .input-group .btn,
+    .input-group button {
+        display: none !important; /* убирает кнопку поиска */
+    }
+
+/* Поисковая форма */
+#searchUsersForm, .table-responsive > form {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin-bottom: 14px !important;
+}
+
+/* ========== MODALS ========== */
+.modal-content {
+    background: var(--admin-card) !important;
+    color: var(--admin-primary-text) !important;
+    border-radius: var(--admin-radius-card) !important;
+    border: 1.5px solid var(--admin-border) !important;
+}
+
+.modal-header {
+    background: var(--admin-fg) !important;
+    color: #fff !important;
+    border-bottom: 1.5px solid var(--admin-border) !important;
+}
+
+.modal-title {
+    color: #fff !important;
+    font-weight: 700 !important;
+}
+
+.modal-footer {
+    background: var(--admin-fg) !important;
+    border-top: 1.5px solid var(--admin-border) !important;
+}
+
+/* ========== CARD / PANEL BLOCKS ========== */
+.card, .shadow-sm {
+    background: var(--admin-card) !important;
+    color: var(--admin-primary-text) !important;
+    border-radius: var(--admin-radius-card) !important;
+    border: 1.5px solid var(--admin-border) !important;
+    box-shadow: var(--admin-shadow-soft) !important;
+}
+
+.card-header, .bg-light {
+    background: var(--admin-fg) !important;
+    color: #fff !important;
+    border-radius: var(--admin-radius-card) var(--admin-radius-card) 0 0 !important;
+    font-weight: 700 !important;
+}
+
+.card-footer {
+    background: var(--admin-fg) !important;
+    border-radius: 0 0 var(--admin-radius-card) var(--admin-radius-card) !important;
+}
+
+.alert, .alert-info {
+    background: #22222d !important;
+    color: var(--admin-secondary-text) !important;
+    border-radius: var(--admin-radius) !important;
+    font-weight: 600 !important;
+    border: 1.3px solid var(--admin-border) !important;
+    margin-bottom: 18px !important;
+}
+
+hr {
+    border: none !important;
+    border-top: 1.5px solid var(--admin-border) !important;
+    margin: 20px 0 !important;
+}
+
+pre {
+    background: #1b1b20 !important;
+    color: var(--admin-primary-text) !important;
+    border-radius: var(--admin-radius) !important;
+    border: 1.3px solid var(--admin-border) !important;
+    padding: 12px 13px !important;
+    white-space: pre-wrap !important;
+    font-size: 0.97em !important;
+    margin-bottom: 16px !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #22222d;
+    border-radius: 7px;
+}
+
+::-webkit-scrollbar {
+    background: #18181c;
+    width: 8px;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 900px) {
+    .tab-content {
+        padding: 13px 2px;
+    }
+}
+
+@media (max-width: 700px) {
+    .nav-tabs .nav-link {
+        font-size: 0.98rem;
+        padding: 10px 12px 7px 12px;
+    }
+
+    .tab-content {
+        font-size: 0.97em;
+    }
+
+    .card-body, .card-header, .card-footer {
+        padding: 12px 8px;
+    }
+}
+
+@media (max-width: 500px) {
+    .table th, .table td {
+        padding: 7px 2px;
+        font-size: 0.98em;
+    }
+
+    .tab-content {
+        padding: 5px 1px;
+    }
+}
