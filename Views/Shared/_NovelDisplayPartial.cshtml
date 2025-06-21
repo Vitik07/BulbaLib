@@ -1,178 +1,135 @@
 ﻿@model BulbaLib.Models.Novel
-@using Newtonsoft.Json; // Assuming Newtonsoft.Json is available
+@using Newtonsoft.Json
 
 @if (Model != null)
 {
-    <dl class="row">
-        <dt class="col-sm-3">ID Новеллы:</dt>
-        <dd class="col-sm-9">@Model.Id</dd>
-
-        <dt class="col-sm-3">Название:</dt>
-        <dd class="col-sm-9">@Model.Title</dd>
-
-        <dt class="col-sm-3">Описание:</dt>
-        <dd class="col-sm-9">
-            <div style="max-height: 200px; overflow-y: auto; border: 1px solid #eee; padding: 5px; white-space: pre-wrap;">
-                @Model.Description
-            </div>
-        </dd>
-
-        <dt class="col-sm-3">Обложки:</dt>
-        <dd class="col-sm-9">
-            @if (!string.IsNullOrEmpty(Model.Covers))
+    <div class="admin-novel-preview-card">
+        @{
+            string firstCoverUrl = null;
+            if (!string.IsNullOrEmpty(Model.Covers))
             {
                 try
                 {
                     var coversList = JsonConvert.DeserializeObject<List<string>>(Model.Covers);
                     if (coversList != null && coversList.Any())
                     {
-                        foreach (var coverUrl in coversList)
-                        {
-                            <div style="margin-bottom: 5px;">
-                                <a href="@coverUrl" target="_blank">@coverUrl</a>
-                                <br />
-                                <img src="@coverUrl" alt="Обложка" style="max-width: 100px; max-height: 150px; margin-top: 2px; border: 1px solid #ddd;" />
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <text>Список обложек пуст или некорректен.</text>
+                        firstCoverUrl = coversList.First();
                     }
                 }
-                catch (JsonReaderException) // Catches errors during JSON deserialization
+                catch (JsonReaderException) // Not a JSON array
                 {
-                        // Attempt to display as a single image if not a JSON array
-                    <div>
-                        <a href="@Model.Covers" target="_blank">@Model.Covers</a>
-                        <br />
-                        <img src="@Model.Covers" alt="Обложка (одиночная)" style="max-width: 100px; max-height: 150px; margin-top: 2px; border: 1px solid #ddd;" />
-                    </div>
-                }
-                catch (Exception ex) // Catch other potential errors
-                {
-                    <text>Ошибка отображения обложек: @ex.Message</text>
-                    <br />
-                    <text>Исходные данные: @Model.Covers</text>
-                }
-            }
-            else
-            {
-                <text>Нет данных</text>
-            }
-        </dd>
-
-        <dt class="col-sm-3">Жанры:</dt>
-        <dd class="col-sm-9">
-            @if (!string.IsNullOrEmpty(Model.Genres))
-            {
-                try
-                {
-                    var itemsList = JsonConvert.DeserializeObject<List<string>>(Model.Genres);
-                    if (itemsList != null && itemsList.Any())
+                    if (Uri.IsWellFormedUriString(Model.Covers, UriKind.Absolute)) // Check if it's a single URL
                     {
-                        <ul>
-                            @foreach (var item in itemsList)
-                            {
-                                <li>@item</li>
-                            }
-                        </ul>
-                    }
-                    else
-                    {
-                        @Model.Genres
+                        firstCoverUrl = Model.Covers;
                     }
                 }
                 catch (Exception)
                 {
-                    @Model.Genres
-                    // Fallback to raw display
+                    // Silently ignore other errors for covers, worst case no cover is shown.
                 }
             }
-            else
-            {
-                <text>Нет данных</text>
-            }
-        </dd>
+        }
 
-        <dt class="col-sm-3">Теги:</dt>
-        <dd class="col-sm-9">
-            @if (!string.IsNullOrEmpty(Model.Tags))
-            {
-                try
-                {
-                    var itemsList = JsonConvert.DeserializeObject<List<string>>(Model.Tags);
-                    if (itemsList != null && itemsList.Any())
-                    {
-                        <ul>
-                            @foreach (var item in itemsList)
-                            {
-                                <li>@item</li>
-                            }
-                        </ul>
-                    }
-                    else
-                    {
-                        @Model.Tags
-                    }
-                }
-                catch (Exception)
-                {
-                    @Model.Tags
-                    // Fallback to raw display
-                }
-            }
-            else
-            {
-                <text>Нет данных</text>
-            }
-        </dd>
+        @if (!string.IsNullOrEmpty(firstCoverUrl))
+        {
+            <div class="anp-cover-section">
+                <img src="@firstCoverUrl" alt="Novel Cover" class="anp-cover-image" />
+            </div>
+        }
 
-        <dt class="col-sm-3">Тип:</dt>
-        <dd class="col-sm-9">@Model.Type</dd>
+        <div class="anp-details-section">
+            <h4 class="anp-title">@Model.Title</h4>
 
-        <dt class="col-sm-3">Формат:</dt>
-        <dd class="col-sm-9">@Model.Format</dd>
-
-        <dt class="col-sm-3">Год выпуска:</dt>
-        <dd class="col-sm-9">@(Model.ReleaseYear.HasValue ? Model.ReleaseYear.Value.ToString() : "-")</dd>
-
-        <dt class="col-sm-3">Альтернативные названия:</dt>
-        <dd class="col-sm-9">
             @if (!string.IsNullOrEmpty(Model.AlternativeTitles))
             {
-                try
-                {
-                    var itemsList = JsonConvert.DeserializeObject<List<string>>(Model.AlternativeTitles);
-                    if (itemsList != null && itemsList.Any())
-                    {
-                        <ul>
-                            @foreach (var item in itemsList)
-                            {
-                                <li>@item</li>
-                            }
-                        </ul>
-                    }
-                    else
-                    {
-                        @Model.AlternativeTitles
-                    }
-                }
-                catch (Exception)
-                {
-                    @Model.AlternativeTitles
-                    // Fallback to raw display
-                }
-            }
-            else
-            {
-                <text>Нет данных</text>
-            }
-        </dd>
+                List<string> altTitlesList = null;
+                try { altTitlesList = JsonConvert.DeserializeObject<List<string>>(Model.AlternativeTitles); } catch { }
 
-        <dt class="col-sm-3">Автор ID:</dt>
-        <dd class="col-sm-9">@(Model.AuthorId.HasValue ? Model.AuthorId.Value.ToString() : "-")</dd>
-    </dl>
+                if (altTitlesList != null && altTitlesList.Any())
+                {
+                    <div class="anp-alt-titles">
+                        <strong>Альтернативные названия:</strong>
+                        @foreach (var altTitle in altTitlesList)
+                        {
+                            <span class="anp-alt-title-item">@altTitle</span>@if (altTitle != altTitlesList.Last()){<span>, </span>}
+                        }
+                    </div>
+                }
+                else if (!string.IsNullOrWhiteSpace(Model.AlternativeTitles) && !Model.AlternativeTitles.StartsWith("[")) // Display as plain text if not a list and not empty JSON array
+                {
+                    <div class="anp-alt-titles">
+                        <strong>Альтернативные названия:</strong> @Model.AlternativeTitles
+                    </div>
+                }
+            }
+
+            @if (!string.IsNullOrEmpty(Model.Description))
+            {
+                <div class="anp-description">
+                    <strong>Описание:</strong>
+                    <p>@Model.Description</p>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(Model.Genres))
+            {
+                List<string> genresList = null;
+                try { genresList = JsonConvert.DeserializeObject<List<string>>(Model.Genres); } catch { }
+
+                if (genresList != null && genresList.Any())
+                {
+                    <div class="anp-genres">
+                        <strong>Жанры:</strong>
+                        <div class="anp-tag-list">
+                            @foreach (var genre in genresList)
+                            {
+                                <span class="anp-tag anp-genre-tag">@genre</span>
+                            }
+                        </div>
+                    </div>
+                }
+                 else if (!string.IsNullOrWhiteSpace(Model.Genres) && !Model.Genres.StartsWith("["))
+                {
+                    <div class="anp-genres">
+                        <strong>Жанры:</strong> <span class="anp-tag anp-genre-tag">@Model.Genres</span>
+                    </div>
+                }
+            }
+
+            @if (!string.IsNullOrEmpty(Model.Tags))
+            {
+                List<string> tagsList = null;
+                try { tagsList = JsonConvert.DeserializeObject<List<string>>(Model.Tags); } catch { }
+
+                if (tagsList != null && tagsList.Any())
+                {
+                    <div class="anp-tags">
+                        <strong>Теги:</strong>
+                        <div class="anp-tag-list">
+                            @foreach (var tag in tagsList)
+                            {
+                                <span class="anp-tag anp-misc-tag">@tag</span>
+                            }
+                        </div>
+                    </div>
+                }
+                else if (!string.IsNullOrWhiteSpace(Model.Tags) && !Model.Tags.StartsWith("["))
+                {
+                     <div class="anp-tags">
+                        <strong>Теги:</strong> <span class="anp-tag anp-misc-tag">@Model.Tags</span>
+                    </div>
+                }
+            }
+
+            <div class="anp-meta-info">
+                <div><strong>ID:</strong> @Model.Id</div>
+                <div><strong>Тип:</strong> @(!string.IsNullOrEmpty(Model.Type) ? Model.Type : "-")</div>
+                <div><strong>Формат:</strong> @(!string.IsNullOrEmpty(Model.Format) ? Model.Format : "-")</div>
+                <div><strong>Год выпуска:</strong> @(Model.ReleaseYear.HasValue ? Model.ReleaseYear.Value.ToString() : "-")</div>
+                <div><strong>Автор ID:</strong> @(Model.AuthorId.HasValue ? Model.AuthorId.Value.ToString() : "-")</div>
+            </div>
+        </div>
+    </div>
 }
 else
 {

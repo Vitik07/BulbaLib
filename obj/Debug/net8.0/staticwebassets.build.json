@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "VMPVz+BnsmPhaEmJfwwOYQrZmCJGofCDDxNsJELIHew=",
+  "Hash": "TybLxlywxKhpXAdYoVtk1ZoAQKhNYpSVq6Ztvp7/djk=",
   "Source": "BulbaLib",
   "BasePath": "_content/BulbaLib",
   "Mode": "Default",
@@ -53,6 +53,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\obj\\Debug\\net8.0\\scopedcss\\projectbundle\\BulbaLib.bundle.scp.css"
+    },
+    {
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\css\\AdminNovelPreview.css",
+      "SourceId": "BulbaLib",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\",
+      "BasePath": "_content/BulbaLib",
+      "RelativePath": "css/AdminNovelPreview.css",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\css\\AdminNovelPreview.css"
     },
     {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\css\\AdminPanel.css",
@@ -12557,25 +12576,6 @@
       "OriginalItemSpec": "wwwroot\\uploads\\covers\\2\\9.jpg"
     },
     {
-      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\uploads\\covers\\20\\cover_638860890330713673.jpg",
-      "SourceId": "BulbaLib",
-      "SourceType": "Discovered",
-      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\",
-      "BasePath": "_content/BulbaLib",
-      "RelativePath": "uploads/covers/20/cover_638860890330713673.jpg",
-      "AssetKind": "All",
-      "AssetMode": "All",
-      "AssetRole": "Primary",
-      "AssetMergeBehavior": "PreferTarget",
-      "AssetMergeSource": "",
-      "RelatedAsset": "",
-      "AssetTraitName": "",
-      "AssetTraitValue": "",
-      "CopyToOutputDirectory": "Never",
-      "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\uploads\\covers\\20\\cover_638860890330713673.jpg"
-    },
-    {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\uploads\\covers\\3\\1.jpg",
       "SourceId": "BulbaLib",
       "SourceType": "Discovered",
@@ -12612,6 +12612,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\uploads\\images\\novels\\tokidoki-bosotto-roshia-go-de-dereru-tonari-no-arya-san\\chapters\\Том 1 Глава 1\\image.jpg"
+    },
+    {
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\uploads\\temp_covers\\temp_3dfa76d4-b625-489a-8041-2c704ac3c876.jpg",
+      "SourceId": "BulbaLib",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\",
+      "BasePath": "_content/BulbaLib",
+      "RelativePath": "uploads/temp_covers/temp_3dfa76d4-b625-489a-8041-2c704ac3c876.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\temp_covers\\temp_3dfa76d4-b625-489a-8041-2c704ac3c876.jpg"
     }
   ]
 }

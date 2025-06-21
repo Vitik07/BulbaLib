@@ -33,6 +33,10 @@
       "PackagePath": "staticwebassets\\Resource\\favicon.ico"
     },
     {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\css\\AdminNovelPreview.css",
+      "PackagePath": "staticwebassets\\css\\AdminNovelPreview.css"
+    },
+    {
       "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\css\\AdminPanel.css",
       "PackagePath": "staticwebassets\\css\\AdminPanel.css"
     },
@@ -2601,10 +2605,6 @@
       "PackagePath": "staticwebassets\\uploads\\covers\\1\\cover_638860122286049578.jpg"
     },
     {
-      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\uploads\\covers\\20\\cover_638860890330713673.jpg",
-      "PackagePath": "staticwebassets\\uploads\\covers\\20\\cover_638860890330713673.jpg"
-    },
-    {
       "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\uploads\\covers\\2\\1.jpg",
       "PackagePath": "staticwebassets\\uploads\\covers\\2\\1.jpg"
     },
@@ -2647,6 +2647,10 @@
     {
       "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\uploads\\images\\novels\\tokidoki-bosotto-roshia-go-de-dereru-tonari-no-arya-san\\chapters\\Том 1 Глава 1\\image.jpg",
       "PackagePath": "staticwebassets\\uploads\\images\\novels\\tokidoki-bosotto-roshia-go-de-dereru-tonari-no-arya-san\\chapters\\Том 1 Глава 1\\image.jpg"
+    },
+    {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark10\\BulbaLib\\wwwroot\\uploads\\temp_covers\\temp_3dfa76d4-b625-489a-8041-2c704ac3c876.jpg",
+      "PackagePath": "staticwebassets\\uploads\\temp_covers\\temp_3dfa76d4-b625-489a-8041-2c704ac3c876.jpg"
     },
     {
       "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.BulbaLib.Microsoft.AspNetCore.StaticWebAssets.props",

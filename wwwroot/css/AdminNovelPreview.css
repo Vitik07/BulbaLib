@@ -1,0 +1,153 @@
+﻿/* ========== Novel Preview Card Styles (Isolated) ========== */
+/* These styles are intended for the novel preview card displayed in specific admin views. */
+/* They rely on CSS variables defined in the main AdminPanel.css (e.g., :root variables) */
+
+.admin-novel-preview-card {
+    background-color: var(--admin-fg);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-card);
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--admin-shadow-soft);
+    display: flex;
+    gap: 20px;
+    color: var(--admin-primary-text);
+}
+
+    .admin-novel-preview-card .anp-cover-section {
+        flex: 0 0 150px;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+    }
+
+    .admin-novel-preview-card .anp-cover-image {
+        max-width: 100%;
+        height: auto;
+        border-radius: var(--admin-radius);
+        border: 2px solid var(--admin-border);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        object-fit: cover;
+    }
+
+    .admin-novel-preview-card .anp-details-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .admin-novel-preview-card .anp-title {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 0px;
+        line-height: 1.3;
+    }
+
+    .admin-novel-preview-card .anp-alt-titles {
+        font-size: 0.9rem;
+        color: var(--admin-secondary-text);
+        margin-bottom: 8px;
+    }
+
+        .admin-novel-preview-card .anp-alt-titles strong {
+            color: var(--admin-primary-text);
+        }
+
+    .admin-novel-preview-card .anp-description {
+        font-size: 0.95rem;
+        line-height: 1.6;
+        margin-bottom: 8px;
+    }
+
+        .admin-novel-preview-card .anp-description strong {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--admin-primary-text);
+        }
+
+        .admin-novel-preview-card .anp-description p {
+            max-height: 150px;
+            overflow-y: auto;
+            padding-right: 10px;
+            margin-bottom: 0;
+            background: var(--admin-card); /* Corrected background for better containment */
+            padding: 10px;
+            border-radius: var(--admin-radius);
+            border: 1px solid var(--admin-border);
+            white-space: pre-wrap;
+        }
+
+    .admin-novel-preview-card .anp-genres,
+    .admin-novel-preview-card .anp-tags {
+        margin-bottom: 8px;
+    }
+
+        .admin-novel-preview-card .anp-genres strong,
+        .admin-novel-preview-card .anp-tags strong {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 1rem;
+            color: var(--admin-primary-text);
+        }
+
+    .admin-novel-preview-card .anp-tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .admin-novel-preview-card .anp-tag {
+        background-color: var(--admin-accent);
+        color: #fff;
+        padding: 5px 12px;
+        border-radius: var(--admin-radius);
+        font-size: 0.85rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .admin-novel-preview-card .anp-genre-tag {
+        background-color: var(--admin-success); /* Using the variable now */
+    }
+
+    .admin-novel-preview-card .anp-misc-tag {
+        background-color: var(--admin-accent-light);
+    }
+
+    .admin-novel-preview-card .anp-meta-info {
+        font-size: 0.9rem;
+        color: var(--admin-secondary-text);
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 8px 15px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--admin-border);
+    }
+
+        .admin-novel-preview-card .anp-meta-info strong {
+            color: var(--admin-primary-text);
+        }
+
+    /* Adjustments if no cover image */
+    /* Note: :has() might not be supported in very old browsers */
+    .admin-novel-preview-card:not(:has(.anp-cover-section)) .anp-details-section {
+        flex-basis: 100%;
+    }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .admin-novel-preview-card {
+        flex-direction: column;
+    }
+
+        .admin-novel-preview-card .anp-cover-section {
+            flex-basis: auto;
+            align-self: center;
+            max-width: 200px;
+            margin-bottom: 15px;
+        }
+}

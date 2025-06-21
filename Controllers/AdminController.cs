@@ -49,12 +49,12 @@ namespace BulbaLib.Controllers
             List<User> users;
             if (string.IsNullOrWhiteSpace(searchTerm))
             {
-                users = _mySqlService.GetAllUsers(); // Получаем всех, если строка поиска пуста
+                users = _mySqlService.GetAllUsers().OrderBy(u => u.Id).ToList(); // Получаем всех и сортируем по ID
             }
             else
             {
-                // Используем новый метод для поиска с полной информацией о пользователе
-                users = _mySqlService.SearchUsersForAdmin(searchTerm);
+                // Используем новый метод для поиска с полной информацией о пользователе и сортируем по ID
+                users = _mySqlService.SearchUsersForAdmin(searchTerm).OrderBy(u => u.Id).ToList();
             }
 
             var viewModel = new AdminUsersViewModel
@@ -218,9 +218,50 @@ namespace BulbaLib.Controllers
                             foreach (var oCP in existingCDB) { if (!finalUpdP.Contains(oCP) && !tempToCommit.Contains(oCP)) { await _fileService.DeleteCoverAsync(oCP); } }
                             novelTU.Covers = JsonSerializer.Serialize(finalUpdP.Distinct().ToList()); _mySqlService.UpdateNovel(novelTU); break;
                         case ModerationRequestType.DeleteNovel:
-                            if (!request.NovelId.HasValue) throw new Exception("NovelId missing"); var novelTD = _mySqlService.GetNovel(request.NovelId.Value);
-                            if (novelTD != null) { novelForNotification = new Novel { Title = novelTD.Title }; if (!string.IsNullOrWhiteSpace(novelTD.Covers)) { var cTD = JsonSerializer.Deserialize<List<string>>(novelTD.Covers); if (cTD != null) { foreach (var cP in cTD) await _fileService.DeleteCoverAsync(cP); } } _mySqlService.DeleteNovel(request.NovelId.Value); }
-                            else { _logger.LogWarning("Novel {Nid} for del not found", request.NovelId.Value); }
+                            int? novelIdToDelete = request.NovelId;
+                            if (!novelIdToDelete.HasValue && !string.IsNullOrEmpty(request.RequestData))
+                            {
+                                try
+                                {
+                                    var requestDataJson = JsonDocument.Parse(request.RequestData).RootElement;
+                                    if (requestDataJson.TryGetProperty("NovelId", out var novelIdElement) && novelIdElement.ValueKind == JsonValueKind.Number)
+                                    {
+                                        novelIdToDelete = novelIdElement.GetInt32();
+                                    }
+                                    else if (requestDataJson.TryGetProperty("Id", out var idElement) && idElement.ValueKind == JsonValueKind.Number) // Fallback for "Id"
+                                    {
+                                        novelIdToDelete = idElement.GetInt32();
+                                    }
+                                }
+                                catch (JsonException ex)
+                                {
+                                    _logger.LogWarning(ex, "Failed to parse NovelId from RequestData for DeleteNovel request ID {RequestId}", requestId);
+                                }
+                            }
+
+                            if (!novelIdToDelete.HasValue)
+                            {
+                                _logger.LogError("NovelId missing for DeleteNovel request ID {RequestId}. Cannot process deletion.", requestId);
+                                throw new Exception("NovelId is missing and could not be retrieved from RequestData. Cannot process deletion.");
+                            }
+
+                            var novelTD = _mySqlService.GetNovel(novelIdToDelete.Value);
+                            if (novelTD != null)
+                            {
+                                novelForNotification = new Novel { Title = novelTD.Title };
+                                if (!string.IsNullOrWhiteSpace(novelTD.Covers))
+                                {
+                                    var cTD = JsonSerializer.Deserialize<List<string>>(novelTD.Covers);
+                                    if (cTD != null) { foreach (var cP in cTD) await _fileService.DeleteCoverAsync(cP); }
+                                }
+                                _mySqlService.DeleteNovel(novelIdToDelete.Value);
+                                // Ensure the request object's NovelId is updated if it was parsed from RequestData, for notification consistency
+                                if (!request.NovelId.HasValue) request.NovelId = novelIdToDelete;
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Novel {Nid} for deletion not found, request ID {RequestId}", novelIdToDelete.Value, requestId);
+                            }
                             break;
                         default: throw new InvalidOperationException("Unsupported type");
                     }
