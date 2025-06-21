@@ -174,17 +174,41 @@ namespace BulbaLib.Controllers
                 CreatorId = currentUser.Id
             };
 
+            string chapterContent = model.Content; // По умолчанию используем то, что в textarea
+
+            if (model.ChapterTextFile != null && model.ChapterTextFile.Length > 0)
+            {
+                _logger.LogInformation("ChapterTextFile provided, reading content from file.");
+                try
+                {
+                    using (var reader = new StreamReader(model.ChapterTextFile.OpenReadStream()))
+                    {
+                        chapterContent = await reader.ReadToEndAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error reading content from ChapterTextFile.");
+                    ModelState.AddModelError("ChapterTextFile", "Не удалось прочитать содержимое файла.");
+                    // Повторно заполняем NovelTitle, так как он теряется при возврате View с ошибкой модели
+                    model.NovelTitle = novel.Title;
+                    return View("~/Views/Chapter/Create.cshtml", model);
+                }
+            }
+
             if (currentUser.Role == UserRole.Admin)
             {
-                string filePath = await _fileService.SaveChapterContentAsync(chapter.NovelId, chapter.Number, chapter.Title, model.Content);
+                string filePath = await _fileService.SaveChapterContentAsync(chapter.NovelId, chapter.Number, chapter.Title, chapterContent); // Используем chapterContent
                 if (string.IsNullOrEmpty(filePath))
                 {
                     ModelState.AddModelError(string.Empty, "Ошибка сохранения содержимого главы.");
+                    // Повторно заполняем NovelTitle
+                    model.NovelTitle = novel.Title;
                     return View("~/Views/Chapter/Create.cshtml", model);
                 }
                 // chapter.ContentFilePath = filePath; // If Chapter model has this field
                 chapter.ContentFilePath = filePath; // Assign the path
-                _mySqlService.CreateChapter(chapter);
+                _mySqlService.CreateChapter(chapter); // chapter.Content (внутри объекта chapter) не используется для сохранения в файл, filePath - да
 
                 var translators = _mySqlService.GetTranslatorsForNovel(novel.Id);
                 if (!translators.Any(t => t.Id == currentUser.Id))
@@ -202,7 +226,7 @@ namespace BulbaLib.Controllers
                     NovelId = model.NovelId,
                     Number = model.Number,
                     Title = model.Title,
-                    Content = model.Content,
+                    Content = chapterContent, // Используем chapterContent
                     Date = chapter.Date,
                     CreatorId = currentUser.Id
                 };

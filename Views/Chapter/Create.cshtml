@@ -12,7 +12,7 @@
     <h4>Для новеллы: @ViewData["NovelTitle"]</h4>
 }
 
-<form asp-controller="ChapterView" asp-action="Create" method="post" enctype="multipart/form-data">
+<form asp-controller="Chapters" asp-action="Create" method="post" enctype="multipart/form-data">
     @Html.AntiForgeryToken()
     <input type="hidden" asp-for="NovelId" />
 
