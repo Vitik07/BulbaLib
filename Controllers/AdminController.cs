@@ -40,13 +40,30 @@ namespace BulbaLib.Controllers
             return View("~/Views/Admin/Index.cshtml");
         }
 
-        public IActionResult UsersPartial()
+        public IActionResult UsersPartial(string searchTerm = null) // Added searchTerm parameter
         {
             var currentUser = _currentUserService.GetCurrentUser();
             if (currentUser == null || !_permissionService.CanManageUsers(currentUser))
             { return PartialView("~/Views/Shared/_AccessDeniedPartial.cshtml"); }
-            List<User> users = _mySqlService.GetAllUsers();
-            return PartialView("~/Views/Admin/_UsersPartial.cshtml", users);
+
+            List<User> users;
+            if (string.IsNullOrWhiteSpace(searchTerm))
+            {
+                users = _mySqlService.GetAllUsers(); // Получаем всех, если строка поиска пуста
+            }
+            else
+            {
+                // Используем новый метод для поиска с полной информацией о пользователе
+                users = _mySqlService.SearchUsersForAdmin(searchTerm);
+            }
+
+            var viewModel = new AdminUsersViewModel
+            {
+                Users = users,
+                SearchTerm = searchTerm
+            };
+
+            return PartialView("~/Views/Admin/_UsersPartial.cshtml", viewModel);
         }
 
         [HttpPost]

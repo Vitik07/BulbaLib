@@ -1,5 +1,7 @@
-﻿﻿@{
+﻿﻿﻿@{
     ViewData["Title"] = "Админ-панель";
+
+
 
     Layout = "~/Views/Shared/_Layout.cshtml"; // Assuming a layout that includes Bootstrap
 }
@@ -63,6 +65,16 @@
             $('#users-tab').on('shown.bs.tab', function (e) {
                 loadTabContent('#users-content-area', '@Url.Action("UsersPartial", "Admin")');
             });
+
+            // Handle search form submission for users
+            // Use event delegation as the form is loaded dynamically
+            $('#users-content-area').on('submit', '#searchUsersForm', function(event) {
+                event.preventDefault();
+                var searchTerm = $(this).find('input[name="searchTerm"]').val();
+                var url = '@Url.Action("UsersPartial", "Admin")' + '?searchTerm=' + encodeURIComponent(searchTerm);
+                loadTabContent('#users-content-area', url);
+            });
+
             $('#novel-requests-tab').on('shown.bs.tab', function (e) {
                 loadTabContent('#novel-requests-content-area', '@Url.Action("NovelRequestsPartial", "Admin")');
             });

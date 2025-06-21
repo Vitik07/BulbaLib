@@ -109,4 +109,17 @@ namespace BulbaLib.Models
             }
         }
     }
+
+    public class AdminUsersViewModel
+    {
+        public List<User> Users { get; set; }
+        public string SearchTerm { get; set; } // Для хранения текущего поискового запроса
+        public List<UserRole> AllRoles { get; set; } // Для выпадающего списка ролей
+
+        public AdminUsersViewModel()
+        {
+            Users = new List<User>();
+            AllRoles = Enum.GetValues(typeof(UserRole)).Cast<UserRole>().ToList();
+        }
+    }
 }

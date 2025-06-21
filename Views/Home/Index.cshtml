@@ -1,4 +1,4 @@
-﻿﻿﻿﻿@{
+﻿﻿﻿﻿﻿@{
     ViewData["Title"] = "BulbaLib";
 
     Layout = null;
@@ -165,12 +165,40 @@
                     profileLoginText.textContent = user.login;
                 }
                 profileButton.onclick = () => window.location.href = `/profile/${user.id}`;
+
+                // Add Admin Panel button if user is Admin
+                if (user.role === 'Admin') {
+                    const logoDropdownPanel = document.querySelector('.logo-dropdown-panel');
+                    if (logoDropdownPanel) {
+                        const adminPanelButton = document.createElement('button');
+                        adminPanelButton.className = 'dropdown-item nav-admin-panel'; // Add a class for styling if needed
+                        adminPanelButton.textContent = 'Админ панель';
+                        adminPanelButton.onclick = () => window.location.href = '/admin';
+
+                        // Insert after Catalog button
+                        const catalogButton = logoDropdownPanel.querySelector('.nav-catalog');
+                        if (catalogButton && catalogButton.nextSibling) {
+                            logoDropdownPanel.insertBefore(adminPanelButton, catalogButton.nextSibling);
+                        } else if (catalogButton) {
+                            logoDropdownPanel.appendChild(adminPanelButton); // Fallback if no nextSibling
+                        } else {
+                            // Fallback if no catalog button (should not happen based on current HTML)
+                            logoDropdownPanel.appendChild(adminPanelButton);
+                        }
+                    }
+                }
+
             } catch {
                 profileAvatar.src = '/Resource/default-avatar.jpg';
                 if (profileLoginText) {
                     profileLoginText.textContent = ''; // Clear the login name
                 }
                 profileButton.onclick = () => window.location.href = '/login';
+                // Ensure Admin Panel button is not shown if login fails or user is not admin
+                const existingAdminButton = document.querySelector('.nav-admin-panel');
+                if (existingAdminButton) {
+                    existingAdminButton.remove();
+                }
             }
         }
 
@@ -254,9 +282,9 @@
                 const card = document.createElement('div');
                 card.className = 'search-novel-card';
                 card.innerHTML = `
-                                                            <img src="${getCover(novel)}" alt="${novel.title}">
-                                                            <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
-                                                        `;
+                                                                    <img src="${getCover(novel)}" alt="${novel.title}">
+                                                                    <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
+                                                                `;
                 card.onclick = () => window.location.href = `/novel/${novel.id}`;
                 searchResultsList.appendChild(card);
             }
@@ -303,9 +331,9 @@
                     const card = document.createElement('div');
                     card.className = 'recent-novel-card';
                     card.innerHTML = `
-                                                        <img src="${getCover(novel)}" alt="${novel.title}">
-                                                        <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
-                                                    `;
+                                                                <img src="${getCover(novel)}" alt="${novel.title}">
+                                                                <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
+                                                            `;
                     card.onclick = () => window.location.href = `/novel/${novel.id}`;
                     recentlyReadList.appendChild(card);
                 }
@@ -340,13 +368,13 @@
                         : '/Resource/default.jpg'; // Default image
 
                     item.innerHTML = `
-                                <img class="update-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="${upd.novelTitle}">
-                                <div class="update-info">
-                                    <div class="update-title">${upd.novelTitle}</div>
-                                    <div class="update-chapter">${upd.chapterNumber ? upd.chapterNumber + " " : ""}${upd.chapterTitle || 'Без названия'}</div>
-                                    <div class="update-date">${formatRelativeTime(upd.chapterDate)}</div>
-                                </div>
-                            `;
+                                        <img class="update-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="${upd.novelTitle}">
+                                        <div class="update-info">
+                                            <div class="update-title">${upd.novelTitle}</div>
+                                            <div class="update-chapter">${upd.chapterNumber ? upd.chapterNumber + " " : ""}${upd.chapterTitle || 'Без названия'}</div>
+                                            <div class="update-date">${formatRelativeTime(upd.chapterDate)}</div>
+                                        </div>
+                                    `;
                     // Переход на страницу новеллы и попытка проскроллить к главе (если такой функционал нужен)
                     // или просто на страницу новеллы /novel/${upd.novelId}
                     // или на страницу главы /chapter/${upd.chapterId}
@@ -370,9 +398,9 @@
                     const card = document.createElement('div');
                     card.className = 'novelty-card';
                     card.innerHTML = `
-                                                        <img src="${getCover(novel)}" alt="${novel.title}">
-                                                        <div class="novelty-title" title="${novel.title}">${novel.title}</div>
-                                                    `;
+                                                                <img src="${getCover(novel)}" alt="${novel.title}">
+                                                                <div class="novelty-title" title="${novel.title}">${novel.title}</div>
+                                                            `;
                     card.onclick = () => window.location.href = `/novel/${novel.id}`;
                     noveltiesList.appendChild(card);
                 }
@@ -474,9 +502,9 @@
                 const card = document.createElement('div');
                 card.className = 'slider-novel-card';
                 card.innerHTML = `
-                                            <img src="${getCover(novel)}" alt="${novel.title}">
-                                            <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
-                                        `;
+                                                    <img src="${getCover(novel)}" alt="${novel.title}">
+                                                    <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
+                                                `;
                 card.onclick = () => window.location.href = `/novel/${novel.id}`;
                 mainSlider.appendChild(card);
             }

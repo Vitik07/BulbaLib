@@ -418,6 +418,33 @@ namespace BulbaLib.Services
             return users;
         }
 
+        public List<User> SearchUsersForAdmin(string searchTerm)
+        {
+            var users = new List<User>();
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            // Выбираем все необходимые поля для админ-панели
+            cmd.CommandText = "SELECT Id, Login, Avatar, Role, IsBlocked FROM Users WHERE LOWER(Login) LIKE @searchTerm ORDER BY Login";
+            cmd.Parameters.AddWithValue("@searchTerm", "%" + (searchTerm ?? "").ToLower() + "%");
+
+            _logger.LogInformation("Executing SearchUsersForAdmin query with searchTerm: {SearchTerm}", searchTerm);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                users.Add(new User
+                {
+                    Id = reader.GetInt32("Id"),
+                    Login = reader.GetString("Login"),
+                    Avatar = !reader.IsDBNull(reader.GetOrdinal("Avatar")) ? (byte[])reader["Avatar"] : null,
+                    Role = Enum.Parse<UserRole>(reader.GetString("Role"), true),
+                    IsBlocked = reader.GetBoolean("IsBlocked")
+                });
+            }
+            _logger.LogInformation("Found {UserCount} users for admin search term: {SearchTerm}", users.Count, searchTerm);
+            return users;
+        }
+
         public string GetUserLogin(int userId)
         {
             _logger.LogInformation("Entering GetUserLogin method for UserId: {UserId}", userId);
