@@ -1,0 +1,304 @@
+﻿@model BulbaLib.Models.NovelRequestPreviewViewModel
+@{
+    ViewData["Title"] = "Предпросмотр запроса новеллы";
+    Layout = null; // This will be a standalone page for preview
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>@Model.Title — @ViewData["Title"] — BulbaLib</title>
+    @* Ссылки на CSS из Novel.cshtml, предполагая, что они доступны по тем же путям *@
+    <link rel="stylesheet" href="~/css/Novel.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light.css" />
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/animations/shift-away.css" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <style>
+        /* Стили из Novel.cshtml для ссылок на автора и модального окна обложек */
+        .novel-author-link { color: var(--link, #369bf6); text-decoration: none; font-weight: 600; transition: color 0.15s; }
+        .novel-author-link:hover { color: var(--accent-blue-light, #3a8bfd); text-decoration: underline; }
+        .cover-modal { display: none; position: fixed; z-index: 10001; padding-top: 40px; left: 0; top: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.87); text-align: center; }
+        .cover-modal-content { margin: auto; display: block; max-width: 90vw; max-height: 85vh; border-radius: 12px; box-shadow: 0 8px 40px #000a; }
+        .cover-modal-close { position: absolute; top: 18px; right: 40px; color: #fff; font-size: 40px; font-weight: bold; cursor: pointer; z-index: 10002; }
+        .cover-modal-prev, .cover-modal-next { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.3); color: #fff; border: none; font-size: 48px; padding: 16px 20px; border-radius: 50%; cursor: pointer; z-index: 10002; }
+        .cover-modal-prev { left: 60px; }
+        .cover-modal-next { right: 60px; }
+
+        /* Дополнительные стили для информационного блока о запросе */
+        .request-info-banner {
+            background-color: #f0f8ff; /* AliceBlue */
+            border: 1px solid #add8e6; /* LightBlue */
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .request-info-banner h3 {
+            margin-top: 0;
+            color: #31708f; /* Darker blue for heading */
+        }
+        .request-info-banner p {
+            margin-bottom: 5px;
+        }
+         .deletion-warning {
+            background-color: #fff3cd; /* Light yellow */
+            color: #856404; /* Dark yellow */
+            padding: 10px;
+            border: 1px solid #ffeeba; /* Lighter yellow */
+            border-radius: 5px;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    @* Упрощенный хедер, так как это предпросмотр *@
+    <div class="novel-header-bar">
+        <div class="header-logo-btn" onclick="window.close();" role="button" tabindex="0" aria-label="Закрыть предпросмотр">
+            <img src="/favicon.ico" alt="logo" />
+            <span class="header-logo-text">BulbaLib - Предпросмотр</span>
+        </div>
+        <div style="margin-left: auto; padding-right: 20px; color: #fff;">
+            <button onclick="window.close();" style="background: #ff4d4d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Закрыть</button>
+        </div>
+    </div>
+
+    <div class="novel-main-bg">
+        <div class="novel-main-container">
+            <!-- SIDEBAR -->
+            <aside class="novel-sidebar" aria-label="Боковая панель новеллы">
+                <div class="novel-cover-wrap">
+                    <img class="novel-cover" id="novel-cover-img" src="@(Model.CoversList.Any() ? Model.CoversList.Last() : "/img/no-cover.png")" alt="Обложка новеллы" style="cursor:pointer;" />
+                </div>
+                <!-- Модалка для обложек -->
+                <div id="cover-modal" class="cover-modal">
+                    <span class="cover-modal-close" id="cover-modal-close">&times;</span>
+                    <img class="cover-modal-content" id="cover-modal-img">
+                    <button class="cover-modal-prev" id="cover-modal-prev">&lt;</button>
+                    <button class="cover-modal-next" id="cover-modal-next">&gt;</button>
+                </div>
+
+                @* Кнопки "Читать", "Добавить в планы" и действия (Редактировать/Удалить/Добавить главу) здесь не нужны, так как это предпросмотр *@
+                <div class="request-info-banner">
+                    <h3>Информация о запросе</h3>
+                    <p><strong>Тип запроса:</strong> @Model.GetFriendlyRequestTypeName()</p>
+                    <p><strong>Запросил:</strong> @Model.RequesterLogin</p>
+                    @if (Model.IsPendingDeletion)
+                    {
+                        <div class="deletion-warning">
+                            Эта новелла предложена к УДАЛЕНИЮ!
+                        </div>
+                    }
+                    else if (Model.RequestType == ModerationRequestType.EditNovel && !string.IsNullOrEmpty(Model.OriginalNovelTitle))
+                    {
+                        <p><strong>Редактируется новелла:</strong> @Model.OriginalNovelTitle</p>
+                    }
+                </div>
+
+                <div class="novel-info-panel">
+                    <div class="novel-info-row">
+                        <span class="novel-info-label">Тип</span>
+                        <span class="novel-info-value" id="sidebar-type">@Model.Type</span>
+                    </div>
+                    <div class="novel-info-row">
+                        <span class="novel-info-label">Формат</span>
+                        <span class="novel-info-value" id="sidebar-format">@Model.Format</span>
+                    </div>
+                    <div class="novel-info-row">
+                        <span class="novel-info-label">Выпуск</span>
+                        <span class="novel-info-value" id="sidebar-release">@(Model.ReleaseYear.HasValue ? Model.ReleaseYear.Value + " г." : "-")</span>
+                    </div>
+                    <div class="novel-info-row">
+                        <span class="novel-info-label">Глав</span>
+                        <span class="novel-info-value" id="sidebar-chapters">-</span> @* Главы не загружаются для предпросмотра *@
+                    </div>
+                    @if (!string.IsNullOrEmpty(Model.AuthorLogin))
+                    {
+                        <div class="novel-info-row" id="novel-author-row">
+                            <span class="novel-info-label">Автор</span>
+                            @* Для предпросмотра ссылка на профиль автора может быть неактуальна или вести в никуда, если автор тоже новый *@
+                            <span class="novel-info-value" id="sidebar-author">@Model.AuthorLogin</span>
+                        </div>
+                    }
+                    @* Переводчики не актуальны для предпросмотра данных запроса *@
+                </div>
+            </aside>
+            <main class="novel-content-block" aria-label="Основное содержимое новеллы">
+                @* Вкладки "Описание" и "Главы". Для предпросмотра оставим только "Описание". *@
+                <div class="novel-tabs" style="margin-top:0;">
+                    <div class="novel-tabs-header">
+                        <button class="novel-tab-btn active">Описание</button>
+                    </div>
+                    <div class="novel-tabs-content">
+                        <div class="tab-pane" id="tab-description" style="display:block;">
+                            <h1 class="novel-page-title novel-title">@Model.Title</h1>
+                            @if (!string.IsNullOrWhiteSpace(Model.AlternativeTitles))
+                            {
+                                var altTitlesList = BulbaLib.Models.NovelRequestPreviewViewModel.ParseJsonStringToList(Model.AlternativeTitles);
+                                if (!altTitlesList.Any() && !Model.AlternativeTitles.StartsWith("[")) // If parsing gave nothing, and it wasn't an empty JSON array string, treat original as plain text
+                                {
+                                    <div class="novel-alt-title text-secondary" aria-label="Альтернативное название">@Model.AlternativeTitles</div>
+                                }
+                                else if (altTitlesList.Any())
+                                {
+                                    <div class="novel-alt-title text-secondary" aria-label="Альтернативное название">@string.Join(", ", altTitlesList)</div>
+                                }
+                            }
+
+                            <div class="novel-description" id="novel-description">
+                                @* Логика "Подробнее..." для описания *@
+                                @{
+                                    const int shortDescLength = 400;
+                                    string fullDescription = Model.Description ?? "";
+                                    string shortDesc = fullDescription.Length > shortDescLength ? fullDescription.Substring(0, shortDescLength) + "..." : fullDescription;
+                                }
+                                @if (fullDescription.Length > shortDescLength)
+                                {
+                                    <span class="desc-short">@shortDesc</span>
+                                    <span class="desc-full" style="display:none;">@fullDescription</span>
+                                    <a href="#" class="desc-more" id="desc-toggle" onclick="toggleDesc(); return false;">Подробнее...</a>
+                                }
+                                else
+                                {
+                                    @fullDescription
+                                }
+                            </div>
+
+                            <div class="novel-tags-block" aria-label="Информация о жанрах и тегах">
+                                @if (Model.GenresList.Any())
+                                {
+                                    <div class="genres-block">
+                                        <div class="block-title">Жанры</div>
+                                        <div class="novel-genres novel-tag-list">
+                                            @foreach (var genre in Model.GenresList)
+                                            {
+                                                <span class="novel-tag genre">@genre</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                @if (Model.TagsList.Any())
+                                {
+                                    <div class="tags-block">
+                                        <div class="block-title">Теги</div>
+                                        <div class="novel-tags novel-tag-list">
+                                            @foreach (var tag in Model.TagsList)
+                                            {
+                                                <span class="novel-tag tag">@tag</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(Model.RelatedNovelIds) && Model.RelatedNovelIds != "null" && Model.RelatedNovelIds != "[]")
+                            {
+                                <div class="related-block">
+                                    <div class="block-title">Связанное (ID)</div>
+                                    @* Для предпросмотра просто покажем ID, без загрузки карточек *@
+                                    <div class="related-list" id="related-list">
+                                        @Model.RelatedNovelIds
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        @* Вкладка "Главы" удалена для предпросмотра *@
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <script src="https://unpkg.com/@@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js"></script>
+    <script>
+        // JavaScript из Novel.cshtml, адаптированный для предпросмотра
+        // Обложки
+        let covers = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CoversList ?? new List<string>()));
+        let currentCoverIdx = covers.length ? covers.length - 1 : 0;
+        let modalCoverIdx = 0;
+
+        function setSidebarCover(idx) {
+            if (!covers.length) {
+                document.getElementById('novel-cover-img').src = '/img/no-cover.png';
+                currentCoverIdx = 0;
+            } else {
+                if (typeof idx === "undefined" || idx < 0 || idx >= covers.length) idx = covers.length - 1; // Default to last or first if out of bounds
+                document.getElementById('novel-cover-img').src = covers[idx];
+                currentCoverIdx = idx;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setSidebarCover(currentCoverIdx); // Set initial cover
+
+            const coverImg = document.getElementById('novel-cover-img');
+            if(coverImg) {
+                coverImg.onclick = function () {
+                    if (!covers.length) return;
+                    modalCoverIdx = currentCoverIdx;
+                    showModalCover(modalCoverIdx);
+                    document.getElementById('cover-modal').style.display = 'block';
+                };
+            }
+
+            const closeModalBtn = document.getElementById('cover-modal-close');
+            if(closeModalBtn) {
+                closeModalBtn.onclick = function () {
+                    document.getElementById('cover-modal').style.display = 'none';
+                };
+            }
+
+            const prevCoverBtn = document.getElementById('cover-modal-prev');
+            if(prevCoverBtn) {
+                prevCoverBtn.onclick = function () {
+                    if (!covers.length) return;
+                    modalCoverIdx = (modalCoverIdx - 1 + covers.length) % covers.length;
+                    showModalCover(modalCoverIdx);
+                };
+            }
+
+            const nextCoverBtn = document.getElementById('cover-modal-next');
+            if(nextCoverBtn) {
+                nextCoverBtn.onclick = function () {
+                    if (!covers.length) return;
+                    modalCoverIdx = (modalCoverIdx + 1) % covers.length;
+                    showModalCover(modalCoverIdx);
+                };
+            }
+
+            tippy('[data-tippy-content]', {
+                animation: 'shift-away',
+                theme: 'light',
+                arrow: true,
+                delay: [100, 100],
+            });
+        });
+
+        function showModalCover(idx) {
+            if (covers && covers.length > 0 && covers[idx]) {
+                 const modalImg = document.getElementById('cover-modal-img');
+                 if(modalImg) modalImg.src = covers[idx];
+            }
+        }
+
+        function toggleDesc() {
+            var shortDesc = document.querySelector('.desc-short');
+            var fullDesc = document.querySelector('.desc-full');
+            var toggle = document.getElementById('desc-toggle');
+            if (shortDesc && fullDesc && toggle) {
+                if (shortDesc.style.display !== 'none') {
+                    shortDesc.style.display = 'none';
+                    fullDesc.style.display = '';
+                    toggle.textContent = "Свернуть";
+                } else {
+                    shortDesc.style.display = '';
+                    fullDesc.style.display = 'none';
+                    toggle.textContent = "Подробнее...";
+                }
+            }
+        }
+    </script>
+</body>
+</html>

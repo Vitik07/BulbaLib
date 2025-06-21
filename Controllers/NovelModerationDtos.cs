@@ -32,4 +32,10 @@ namespace BulbaLib.Models // Assuming Models namespace is appropriate, or adjust
         // Add Id if it's part of UpdatedFields and used, though typically Id comes from the main request.
         // public int Id {get; set;} // From model.Id in NovelsController
     }
+
+    public class NovelDeleteModerationData
+    {
+        public int Id { get; set; }
+        public string? Title { get; set; } // Title might be included for context, though Id is key
+    }
 }

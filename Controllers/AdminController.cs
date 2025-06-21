@@ -708,5 +708,175 @@ namespace BulbaLib.Controllers
         // {
         // ... (old combined logic removed)
         // }
+
+        public async Task<IActionResult> NovelRequestPreview(int requestId)
+        {
+            var currentUser = _currentUserService.GetCurrentUser();
+            if (currentUser == null || !_permissionService.CanModerateNovelRequests(currentUser)) // Assuming same permission
+            {
+                // Or redirect to a generic access denied page if not returning a partial
+                return RedirectToAction("AccessDenied", "AuthView");
+            }
+
+            ModerationRequest request = _mySqlService.GetModerationRequestById(requestId);
+            if (request == null)
+            {
+                return NotFound("Запрос на модерацию не найден.");
+            }
+
+            var requester = _mySqlService.GetUser(request.UserId);
+            var viewModel = new NovelRequestPreviewViewModel
+            {
+                RequestId = request.Id,
+                RequestType = request.RequestType,
+                RequesterLogin = requester?.Login ?? "N/A",
+                // RequestTypeDisplayName will be set by GetFriendlyRequestTypeName in VM
+            };
+
+            string authorLogin = "Не указан";
+
+            try
+            {
+                switch (request.RequestType)
+                {
+                    case ModerationRequestType.AddNovel:
+                        var addData = JsonSerializer.Deserialize<Novel>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (addData != null)
+                        {
+                            viewModel.Title = addData.Title;
+                            viewModel.Description = addData.Description;
+                            viewModel.CoversList = NovelRequestPreviewViewModel.ParseJsonStringToList(addData.Covers);
+                            viewModel.GenresList = NovelRequestPreviewViewModel.ParseJsonStringToList(addData.Genres);
+                            viewModel.TagsList = NovelRequestPreviewViewModel.ParseJsonStringToList(addData.Tags);
+                            viewModel.Type = addData.Type;
+                            viewModel.Format = addData.Format;
+                            viewModel.ReleaseYear = addData.ReleaseYear;
+                            viewModel.AuthorId = addData.AuthorId;
+                            viewModel.AlternativeTitles = addData.AlternativeTitles;
+                            viewModel.RelatedNovelIds = addData.RelatedNovelIds; // Assuming string
+                            viewModel.Date = addData.Date;
+                            viewModel.Status = addData.Status; // NovelStatus enum
+                        }
+                        break;
+
+                    case ModerationRequestType.EditNovel:
+                        var editPayload = JsonSerializer.Deserialize<NovelEditModerationData>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (editPayload != null && editPayload.UpdatedFields != null && request.NovelId.HasValue)
+                        {
+                            Novel existingNovel = _mySqlService.GetNovel(request.NovelId.Value);
+                            if (existingNovel == null) return NotFound("Редактируемая новелла не найдена.");
+
+                            viewModel.Id = existingNovel.Id;
+                            viewModel.OriginalNovelTitle = existingNovel.Title; // Store original title
+
+                            // Populate with existing data first
+                            viewModel.Title = existingNovel.Title;
+                            viewModel.Description = existingNovel.Description;
+                            viewModel.CoversList = NovelRequestPreviewViewModel.ParseJsonStringToList(existingNovel.Covers);
+                            viewModel.GenresList = NovelRequestPreviewViewModel.ParseJsonStringToList(existingNovel.Genres);
+                            viewModel.TagsList = NovelRequestPreviewViewModel.ParseJsonStringToList(existingNovel.Tags);
+                            viewModel.Type = existingNovel.Type;
+                            viewModel.Format = existingNovel.Format;
+                            viewModel.ReleaseYear = existingNovel.ReleaseYear;
+                            viewModel.AuthorId = existingNovel.AuthorId;
+                            viewModel.AlternativeTitles = existingNovel.AlternativeTitles;
+                            viewModel.RelatedNovelIds = existingNovel.RelatedNovelIds;
+                            viewModel.Date = existingNovel.Date;
+                            viewModel.Status = existingNovel.Status;
+
+                            // Apply updated fields
+                            var updated = editPayload.UpdatedFields;
+                            if (updated.Title != null) viewModel.Title = updated.Title;
+                            if (updated.Description != null) viewModel.Description = updated.Description;
+                            if (updated.Genres != null) viewModel.GenresList = NovelRequestPreviewViewModel.ParseJsonStringToList(updated.Genres);
+                            if (updated.Tags != null) viewModel.TagsList = NovelRequestPreviewViewModel.ParseJsonStringToList(updated.Tags);
+                            if (updated.Type != null) viewModel.Type = updated.Type;
+                            if (updated.Format != null) viewModel.Format = updated.Format;
+                            if (updated.ReleaseYear.HasValue) viewModel.ReleaseYear = updated.ReleaseYear;
+                            if (updated.AuthorId.HasValue) viewModel.AuthorId = updated.AuthorId; // Can be null to unset author
+                            else if (editPayload.UpdatedFields.GetType().GetProperty("AuthorId") != null && updated.AuthorId == null) viewModel.AuthorId = null; // Explicitly set to null if provided as null
+
+                            if (updated.AlternativeTitles != null) viewModel.AlternativeTitles = updated.AlternativeTitles;
+                            if (updated.RelatedNovelIds != null) viewModel.RelatedNovelIds = updated.RelatedNovelIds;
+
+                            // Combine covers
+                            var finalCovers = new List<string>();
+                            if (editPayload.KeptExistingCovers != null) finalCovers.AddRange(editPayload.KeptExistingCovers);
+                            if (editPayload.NewTempCoverPaths != null) finalCovers.AddRange(editPayload.NewTempCoverPaths);
+                            viewModel.CoversList = finalCovers.Distinct().ToList();
+                        }
+                        else
+                        {
+                            _logger.LogWarning("EditNovel request ID {RequestId} has invalid data or missing NovelId.", requestId);
+                            return BadRequest("Некорректные данные для предпросмотра редактирования.");
+                        }
+                        break;
+
+                    case ModerationRequestType.DeleteNovel:
+                        var deleteData = JsonSerializer.Deserialize<NovelDeleteModerationData>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        int novelIdToDelete = deleteData?.Id ?? request.NovelId ?? 0;
+
+                        if (novelIdToDelete > 0)
+                        {
+                            Novel novelToDelete = _mySqlService.GetNovel(novelIdToDelete);
+                            if (novelToDelete != null)
+                            {
+                                viewModel.Id = novelToDelete.Id;
+                                viewModel.Title = novelToDelete.Title; // Title from DB, RequestData might only have ID
+                                viewModel.OriginalNovelTitle = novelToDelete.Title; // For consistency
+                                viewModel.Description = novelToDelete.Description;
+                                viewModel.CoversList = NovelRequestPreviewViewModel.ParseJsonStringToList(novelToDelete.Covers);
+                                viewModel.GenresList = NovelRequestPreviewViewModel.ParseJsonStringToList(novelToDelete.Genres);
+                                viewModel.TagsList = NovelRequestPreviewViewModel.ParseJsonStringToList(novelToDelete.Tags);
+                                viewModel.Type = novelToDelete.Type;
+                                viewModel.Format = novelToDelete.Format;
+                                viewModel.ReleaseYear = novelToDelete.ReleaseYear;
+                                viewModel.AuthorId = novelToDelete.AuthorId;
+                                viewModel.AlternativeTitles = novelToDelete.AlternativeTitles;
+                                viewModel.RelatedNovelIds = novelToDelete.RelatedNovelIds;
+                                viewModel.Date = novelToDelete.Date;
+                                viewModel.Status = novelToDelete.Status;
+                                viewModel.IsPendingDeletion = true;
+                            }
+                            else return NotFound("Новелла для удаления не найдена.");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("DeleteNovel request ID {RequestId} has invalid data or missing NovelId.", requestId);
+                            return BadRequest("Некорректные данные для предпросмотра удаления.");
+                        }
+                        break;
+
+                    default:
+                        return BadRequest("Неподдерживаемый тип запроса для предпросмотра.");
+                }
+
+                if (viewModel.AuthorId.HasValue && viewModel.AuthorId > 0)
+                {
+                    var author = _mySqlService.GetUser(viewModel.AuthorId.Value);
+                    if (author != null)
+                    {
+                        authorLogin = author.Login;
+                    }
+                }
+                viewModel.AuthorLogin = authorLogin;
+
+
+            }
+            catch (JsonException jsonEx)
+            {
+                _logger.LogError(jsonEx, "Error deserializing RequestData for preview, RequestId: {RequestId}", requestId);
+                // Consider returning a specific error view or message
+                return View("~/Views/Shared/Error.cshtml", new ErrorViewModel { RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier, Message = "Ошибка при чтении данных запроса для предпросмотра." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Generic error during NovelRequestPreview for RequestId: {RequestId}", requestId);
+                return View("~/Views/Shared/Error.cshtml", new ErrorViewModel { RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier, Message = "Произошла ошибка при подготовке предпросмотра." });
+            }
+
+            viewModel.RequestTypeDisplayName = viewModel.GetFriendlyRequestTypeName();
+            return View("~/Views/Admin/NovelRequestPreview.cshtml", viewModel);
+        }
     }
 }
