@@ -72,16 +72,19 @@ namespace BulbaLib.Models
             }
 
             // Обновленная логика валидации обложек
-            bool hasExistingCovers = ExistingCoverPaths != null && ExistingCoverPaths.Any(c => !string.IsNullOrWhiteSpace(c));
+            // bool hasExistingCovers = ExistingCoverPaths != null && ExistingCoverPaths.Any(c => !string.IsNullOrWhiteSpace(c)); // Старая переменная, не используется в новой логике напрямую
             bool hasNewCoverFiles = NewCovers != null && NewCovers.Any(f => f != null && f.Length > 0);
-            int coversToDeleteCount = CoversToDelete != null ? CoversToDelete.Count : 0;
-            int existingCoversAfterDeletion = (ExistingCoverPaths != null ? ExistingCoverPaths.Count : 0) - coversToDeleteCount;
+            // int coversToDeleteCount = CoversToDelete != null ? CoversToDelete.Count : 0; // coversToDeleteCount больше не нужен для этой проверки
 
+            // Новая логика: ExistingCoverPaths от клиента уже содержит только те обложки, которые должны остаться.
+            // Считаем количество действительных путей в ExistingCoverPaths.
+            int netExistingCovers = ExistingCoverPaths != null ? ExistingCoverPaths.Count(c => !string.IsNullOrWhiteSpace(c)) : 0;
 
-            if (existingCoversAfterDeletion <= 0 && !hasNewCoverFiles)
+            if (netExistingCovers <= 0 && !hasNewCoverFiles)
             {
                 yield return new ValidationResult(
                    "Новелла должна иметь хотя бы одну обложку. Пожалуйста, загрузите новую или убедитесь, что не все существующие обложки помечены на удаление.",
+                   // Оставляем все три поля, так как они все влияют на конечное состояние обложек
                    new[] { nameof(ExistingCoverPaths), nameof(NewCovers), nameof(CoversToDelete) });
             }
         }

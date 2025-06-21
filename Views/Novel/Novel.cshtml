@@ -150,7 +150,7 @@
 
                     {
                         <form asp-controller="Novels" asp-action="Delete" asp-route-id="@ViewData["NovelId"]" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить эту новеллу? Это действие необратимо.');" style="display:inline;">
-                            @Html.AntiForgeryToken() // Ensure this is the correct way to get token if form is outside a full .NET form context
+                            @Html.AntiForgeryToken()
                             <button type="submit" class="novel-action-btn novel-delete">
                                 <i class="fa-solid fa-trash"></i> Удалить
                             </button>
@@ -611,8 +611,7 @@
                         <a href="/novel/${novel.id}" style="text-decoration:none;">
                             <img class="related-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="Обложка ${novel.title || ''}">
                             <div class="related-title">${novel.title ? novel.title : 'Название не найдено'}</div>
-                            // Тип новеллы не приходит от detailsByIds, так что его убираем или модифицируем API
-                            // <div class="related-type">${novel.type || ''}</div>
+                            <div class="related-type">${novel.type || ''}</div>
                         </a>
                     `;
                     relatedList.appendChild(card);

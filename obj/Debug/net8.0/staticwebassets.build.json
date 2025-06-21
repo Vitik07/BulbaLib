@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "DAJrFHPq8BZAwaIvZKbEstoq2GnHhsThDAX+QUquUP4=",
+  "Hash": "rb3Hrtwi4j5xBw6hSf4/SMfeu65cOyc47Bwo9rf4zwk=",
   "Source": "BulbaLib",
   "BasePath": "_content/BulbaLib",
   "Mode": "Default",
@@ -12346,6 +12346,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\uploads\\covers\\14\\cover_638856173753367285.jpg"
+    },
+    {
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark9\\BulbaLib\\wwwroot\\uploads\\covers\\14\\cover_638860834329514492.jpg",
+      "SourceId": "BulbaLib",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark9\\BulbaLib\\wwwroot\\",
+      "BasePath": "_content/BulbaLib",
+      "RelativePath": "uploads/covers/14/cover_638860834329514492.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\covers\\14\\cover_638860834329514492.jpg"
     },
     {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark9\\BulbaLib\\wwwroot\\uploads\\covers\\17\\cover_638860828602851637.jpg",

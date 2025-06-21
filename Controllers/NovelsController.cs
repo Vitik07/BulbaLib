@@ -488,6 +488,7 @@ namespace BulbaLib.Controllers
                 existingNovel.ReleaseYear = model.ReleaseYear;
                 existingNovel.AlternativeTitles = model.AlternativeTitles;
                 existingNovel.RelatedNovelIds = model.RelatedNovelIds;
+                existingNovel.AuthorId = model.AuthorId; // <--- ДОБАВЛЕНО ИЗМЕНЕНИЕ АВТОРА
 
                 // Admin can change status using IsDraft
                 if (model.IsDraft)
@@ -522,7 +523,7 @@ namespace BulbaLib.Controllers
                 _logger.LogInformation("Admin updating novel {NovelId}. Final novel data before DB update: {NovelData}", existingNovel.Id, JsonSerializer.Serialize(existingNovel));
                 _mySqlService.UpdateNovel(existingNovel);
                 TempData["SuccessMessage"] = "Новелла успешно обновлена.";
-                return RedirectToAction("Details", "Novel", new { id = existingNovel.Id });
+                return Redirect($"/novel/{existingNovel.Id}"); // Changed redirect
             }
             else // UserRole.Author
             {
@@ -587,6 +588,7 @@ namespace BulbaLib.Controllers
                         _logger.LogInformation("Moderation request for submitting draft novel {NovelId}: {ModerationRequestData}", existingNovel.Id, JsonSerializer.Serialize(moderationRequest));
                         _mySqlService.CreateModerationRequest(moderationRequest);
                         TempData["SuccessMessage"] = "Черновик отправлен на модерацию.";
+                        return Redirect($"/novel/{existingNovel.Id}"); // Changed redirect
                     }
                     else // Author continues to save as draft
                     {
@@ -594,8 +596,8 @@ namespace BulbaLib.Controllers
                         _logger.LogInformation("Author saving updated draft novel {NovelId}. Final novel data: {NovelData}", existingNovel.Id, JsonSerializer.Serialize(existingNovel));
                         _mySqlService.UpdateNovel(existingNovel);
                         TempData["SuccessMessage"] = "Черновик успешно обновлен.";
+                        return RedirectToAction("Edit", new { id = existingNovel.Id }); // Keep redirect to Edit for draft saves
                     }
-                    return RedirectToAction("Edit", new { id = existingNovel.Id });
                 }
                 // Author is editing an already published/pending novel -> new moderation request for edit
                 else
@@ -652,7 +654,7 @@ namespace BulbaLib.Controllers
                     _mySqlService.CreateModerationRequest(moderationRequest);
 
                     TempData["SuccessMessage"] = "Запрос на редактирование новеллы отправлен на модерацию.";
-                    return RedirectToAction("Details", "Novel", new { id = existingNovel.Id });
+                    return Redirect($"/novel/{existingNovel.Id}"); // Changed redirect
                 }
             }
         }
