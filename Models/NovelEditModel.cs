@@ -2,6 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace BulbaLib.Models
 {
@@ -52,7 +53,8 @@ namespace BulbaLib.Models
 
         [Display(Name = "Альтернативные названия")]
         [DataType(DataType.MultilineText)]
-        public string AlternativeTitles { get; set; }
+        public string? AlternativeTitles { get; set; }
+
         public string RelatedNovelIds { get; set; }
 
         [Display(Name = "Автор")]

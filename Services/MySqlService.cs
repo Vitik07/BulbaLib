@@ -1159,7 +1159,17 @@ namespace BulbaLib.Services
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogWarning("Failed to deserialize Genres JSON for Novel Id {NovelId}. JSON: \"{GenreJson}\". Error: {ErrorMessage}", n.Id, n.Genres, ex.Message);
+                    _logger.LogWarning("Failed to deserialize Genres JSON for Novel Id {NovelId}. JSON: \"{GenreJson}\". Error: {ErrorMessage}. Treating as comma-separated string.", n.Id, n.Genres, ex.Message);
+                    // Fallback: treat as comma-separated string
+                    var genreParts = n.Genres.Split(',');
+                    foreach (var part in genreParts)
+                    {
+                        var trimmedPart = part.Trim();
+                        if (!string.IsNullOrWhiteSpace(trimmedPart))
+                        {
+                            uniqueGenres.Add(trimmedPart);
+                        }
+                    }
                 }
             }
             var result = uniqueGenres.OrderBy(g => g).ToList();
@@ -1197,7 +1207,17 @@ namespace BulbaLib.Services
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogWarning("Failed to deserialize Tags JSON for Novel Id {NovelId}. JSON: \"{TagJson}\". Error: {ErrorMessage}", n.Id, n.Tags, ex.Message);
+                    _logger.LogWarning("Failed to deserialize Tags JSON for Novel Id {NovelId}. JSON: \"{TagJson}\". Error: {ErrorMessage}. Treating as comma-separated string.", n.Id, n.Tags, ex.Message);
+                    // Fallback: treat as comma-separated string
+                    var tagParts = n.Tags.Split(',');
+                    foreach (var part in tagParts)
+                    {
+                        var trimmedPart = part.Trim();
+                        if (!string.IsNullOrWhiteSpace(trimmedPart))
+                        {
+                            uniqueTags.Add(trimmedPart);
+                        }
+                    }
                 }
             }
             var result = uniqueTags.OrderBy(t => t).ToList();

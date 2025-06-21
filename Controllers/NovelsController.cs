@@ -411,9 +411,7 @@ namespace BulbaLib.Controllers
                 return RedirectToAction("Details", "Novel", new { id = model.Id });
             }
 
-            // Явно делаем поле AlternativeTitles необязательным при редактировании
-            ModelState.Remove("AlternativeTitles");
-
+                
             if (!ModelState.IsValid)
             {
                 // Repopulate ExistingCoverPaths if model state is invalid and we return to view
