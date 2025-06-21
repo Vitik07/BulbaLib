@@ -5,7 +5,7 @@
     <ul class="list-group list-group-flush">
         @foreach (var notification in Model)
         {
-            <li class="list-group-item @(notification.IsRead ? "" : "list-group-item-primary")">
+            <li class="list-group-item">
                 <div class="d-flex w-100 justify-content-between">
                     <h6 class="mb-1">@notification.Type</h6>
                     <small>@notification.DateSent.ToString("dd.MM.yyyy HH:mm")</small>
@@ -16,10 +16,7 @@
                     {
                         <a href="@notification.Link" class="btn btn-sm btn-outline-primary me-2 notification-link" target="_blank">Перейти</a>
                     }
-                    @if (!notification.IsRead)
-                    {
-                        <button class="btn btn-sm btn-outline-secondary mark-notification-as-read" data-notification-id="@notification.Id">Прочитано</button>
-                    }
+                    @* "Mark as read" button removed as IsRead functionality is deprecated *@
                 </small>
             </li>
         }

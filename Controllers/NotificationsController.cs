@@ -35,7 +35,8 @@ namespace BulbaLib.Controllers
                 return PartialView("~/Views/Shared/_NotificationsModalPartial.cshtml", new List<NotificationViewModel>());
             }
 
-            var notifications = await _notificationService.GetNotifications(currentUser.Id, false, pageSize, (page - 1) * pageSize);
+            // Updated call to GetNotifications, removed 'false' argument for 'onlyUnread'
+            var notifications = await _notificationService.GetNotifications(currentUser.Id, pageSize, (page - 1) * pageSize);
 
             var notificationViewModels = new List<NotificationViewModel>();
             foreach (var n in notifications)
@@ -47,8 +48,8 @@ namespace BulbaLib.Controllers
                     Type = MapNotificationTypeToRussian(n.Type),
                     Message = n.Message,
                     Link = await GetNotificationLink(n),
-                    DateSent = n.CreatedAt,
-                    IsRead = n.IsRead
+                    DateSent = n.CreatedAt
+                    // IsRead property removed from NotificationViewModel and Notification model
                 });
             }
 
@@ -95,50 +96,15 @@ namespace BulbaLib.Controllers
             {
                 NotificationType.RequestApproved => "Запрос одобрен",
                 NotificationType.RequestRejected => "Запрос отклонен",
+                NotificationType.ModerationApproved => "Запрос на модерацию одобрен", // Added to match enum
+                NotificationType.ModerationRejected => "Запрос на модерацию отклонен", // Added to match enum
                 NotificationType.NewChapter => "Новая глава",
                 NotificationType.NovelUpdated => "Новелла обновлена",
                 _ => type.ToString(),
             };
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> MarkNotificationAsRead(int notificationId)
-        {
-            var currentUser = _currentUserService.GetCurrentUser();
-            if (currentUser == null) return Json(new { success = false, message = "Пользователь не авторизован." });
-
-            var success = await _notificationService.MarkAsRead(notificationId, currentUser.Id);
-            // After marking as read, update the unread count for the badge
-            int newCount = 0;
-            if (success) // Only recount if marking was successful
-            {
-                newCount = await _notificationService.GetUnreadNotificationCount(currentUser.Id);
-            }
-            return Json(new { success = success, newUnreadCount = newCount });
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> MarkAllNotificationsAsRead()
-        {
-            var currentUser = _currentUserService.GetCurrentUser();
-            if (currentUser == null) return Json(new { success = false, message = "Пользователь не авторизован." });
-
-            var success = await _notificationService.MarkAllAsRead(currentUser.Id);
-            // After marking all as read, the count should be 0
-            return Json(new { success = success, newUnreadCount = 0 });
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> GetUnreadCount()
-        {
-            var currentUser = _currentUserService.GetCurrentUser();
-            if (currentUser == null) return Json(new { count = 0 }); // Not an error, just no count for anonymous
-
-            int count = await _notificationService.GetUnreadNotificationCount(currentUser.Id);
-            return Json(new { count = count });
-        }
+        // Removed MarkNotificationAsRead, MarkAllNotificationsAsRead, and GetUnreadCount actions
 
         private string GetTimeAgo(DateTime dateTime)
         {

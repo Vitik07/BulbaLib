@@ -577,97 +577,123 @@ body {
         vertical-align: top;
     }
 
-/* ---- Notifications modal ---- */
-#notificationsModal .modal-dialog {
-    margin-top: 6vh;
-    max-width: 425px;
+/* ---- Notifications popover (уведомления - карточки) ---- */
+.notifications-popover {
+    position: absolute;
+    z-index: 6000;
+    top: 110%;
+    right: 0;
     min-width: 320px;
-}
-
-#notificationsModal .modal-content {
-    background: var(--fg);
-    color: var(--text-primary);
+    max-width: 425px;
+    background: var(--fg, #23232a);
+    color: var(--text-primary, #e1e1e6);
     border-radius: 14px;
-    border: 1.5px solid var(--border-base);
-    box-shadow: 0 6px 32px var(--shadow), 0 2px 0 #363657;
+    border: 1.5px solid var(--border-base, #252538);
+    box-shadow: 0 6px 32px var(--shadow, rgba(0,0,0,0.7)), 0 2px 0 #363657;
+    padding: 0;
+    display: none;
+    animation: fadeIn 0.18s;
 }
 
-#notificationsModal .modal-header {
-    background: var(--card-bg);
-    color: #fff;
-    border-bottom: 1.5px solid var(--border-base);
-    border-radius: 14px 14px 0 0;
-    padding: 13px 18px;
-}
-
-#notificationsModal .modal-title {
-    font-size: 1.14em;
-    font-weight: 700;
-    color: #fff;
-}
-
-#notificationsModal .modal-body {
-    background: var(--fg);
-    color: var(--text-primary);
-    padding: 18px 16px 14px 16px;
-    max-height: 55vh;
-    overflow-y: auto;
-}
-
-#notificationsModal .list-group-item {
-    background: none;
-    border: none;
-    border-bottom: 1.3px solid #232337;
-    color: var(--text-primary);
-    padding: 15px 8px 11px 8px;
-    border-radius: 0;
-    font-size: 1em;
-    transition: background 0.13s;
-}
-
-    #notificationsModal .list-group-item:last-child {
-        border-bottom: none;
+    .notifications-popover.active {
+        display: block;
+        animation: fadeIn 0.2s;
     }
 
-#notificationsModal .list-group-item-primary {
-    background: #24244b !important;
-    color: #fff !important;
-}
-
-#notificationsModal .btn-outline-primary,
-#notificationsModal .btn-outline-secondary {
-    border-radius: 7px;
-    font-size: 0.97em;
-    padding: 7px 14px;
-}
-
-#notificationsModal .btn-outline-primary {
-    border-color: var(--accent-blue);
-    color: var(--accent-blue);
-    background: none !important;
-}
-
-    #notificationsModal .btn-outline-primary:hover {
-        background: var(--accent-blue);
-        color: #fff;
+    .notifications-popover .notifications-list {
+        max-height: 55vh;
+        overflow-y: auto;
+        padding: 12px 10px 10px 10px;
     }
 
-#notificationsModal .btn-outline-secondary {
-    border-color: var(--text-secondary);
-    color: var(--text-secondary);
-    background: none !important;
-}
-
-    #notificationsModal .btn-outline-secondary:hover {
-        background: var(--text-secondary);
-        color: #23232a;
+    .notifications-popover .list-group {
+        padding: 8px 0;
+        margin: 0;
     }
 
-#notificationsModal .notification-link {
-    margin-right: 8px;
-}
+    .notifications-popover .list-group-item {
+        background: var(--card-bg, #202026);
+        border: 1px solid #232337;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 8px #0002;
+        padding: 15px 13px 11px 14px;
+        color: var(--text-primary, #e1e1e6);
+        font-size: 0.98em;
+        transition: background 0.14s, box-shadow 0.13s;
+        position: relative;
+        display: block;
+    }
 
-/* --- Responsive (unchanged) --- */
+        .notifications-popover .list-group-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .notifications-popover .list-group-item:hover {
+            background: #232337;
+            box-shadow: 0 4px 16px #2360d133, 0 2px 8px #0003;
+        }
+
+        .notifications-popover .list-group-item h6 {
+            font-weight: 700;
+            font-size: 1em;
+            color: var(--accent-blue, #2360d1);
+            margin: 0 0 3px 0;
+            display: block;
+            letter-spacing: 0.01em;
+        }
+
+        .notifications-popover .list-group-item small {
+            color: var(--text-secondary, #8a8a8e);
+            font-size: 0.93em;
+        }
+
+        .notifications-popover .list-group-item p {
+            margin: 0.35em 0 0.2em 0;
+            color: var(--text-primary, #e1e1e6);
+            font-size: 0.98em;
+            line-height: 1.5;
+        }
+
+    .notifications-popover .notification-link {
+        margin-right: 8px;
+        padding: 2px 13px;
+        font-size: 0.93em;
+        border-radius: 7px;
+        background: none;
+        border: 1px solid var(--accent-blue, #2360d1);
+        color: var(--accent-blue, #2360d1);
+        transition: background 0.13s, color 0.13s, border 0.13s;
+    }
+
+        .notifications-popover .notification-link:hover {
+            background: var(--accent-blue-light, #3a8bfd);
+            color: #fff !important;
+            border-color: var(--accent-blue-light, #3a8bfd);
+            text-decoration: none;
+        }
+
+    .notifications-popover .text-center.p-3 {
+        color: var(--text-secondary, #8a8a8e);
+        font-size: 1.01em;
+    }
+
+    .notifications-popover .list-group-item-success h6 {
+        color: #53e353;
+    }
+
+    .notifications-popover .list-group-item-danger h6 {
+        color: #fa6565;
+    }
+
+    .notifications-popover .list-group-item-warning h6 {
+        color: #ffb47b;
+    }
+
+    .notifications-popover .list-group-item-info h6 {
+        color: #3a8bfd;
+    }
+
 @media (max-width: 1200px) {
     .central-block {
         padding: 18px 7px 13px 7px;

@@ -10,7 +10,6 @@ namespace BulbaLib.Models
         public string Message { get; set; }
         public string Link { get; set; }
         public DateTime DateSent { get; set; }
-        public bool IsRead { get; set; }
         // Optional: Add a property for "TimeAgo" if you prefer to calculate it in the backend.
         // public string TimeAgo { get; set; } 
     }

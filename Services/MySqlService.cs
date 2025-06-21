@@ -1432,8 +1432,8 @@ namespace BulbaLib.Services
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT INTO Notifications 
-                                (UserId, Type, Message, RelatedItemId, RelatedItemType, IsRead, CreatedAt) 
-                                VALUES (@userId, @type, @message, @relatedItemId, @relatedItemType, @isRead, @createdAt);
+                                (UserId, Type, Message, RelatedItemId, RelatedItemType, CreatedAt) 
+                                VALUES (@userId, @type, @message, @relatedItemId, @relatedItemType, @createdAt);
                                 SELECT LAST_INSERT_ID();";
 
             cmd.Parameters.AddWithValue("@userId", notification.UserId);
@@ -1441,24 +1441,18 @@ namespace BulbaLib.Services
             cmd.Parameters.AddWithValue("@message", notification.Message);
             cmd.Parameters.AddWithValue("@relatedItemId", notification.RelatedItemId.HasValue ? (object)notification.RelatedItemId.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("@relatedItemType", notification.RelatedItemType == RelatedItemType.None ? DBNull.Value : (object)notification.RelatedItemType.ToString());
-            cmd.Parameters.AddWithValue("@isRead", notification.IsRead);
             cmd.Parameters.AddWithValue("@createdAt", notification.CreatedAt);
 
             return Convert.ToInt32(cmd.ExecuteScalar());
         }
 
-        public List<Notification> GetNotificationsByUserId(int userId, bool onlyUnread, int limit, int offset)
+        public List<Notification> GetNotificationsByUserId(int userId, int limit, int offset)
         {
             var notifications = new List<Notification>();
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
 
-            string sql = "SELECT * FROM Notifications WHERE UserId = @userId";
-            if (onlyUnread)
-            {
-                sql += " AND IsRead = FALSE";
-            }
-            sql += " ORDER BY CreatedAt DESC LIMIT @limit OFFSET @offset";
+            string sql = "SELECT * FROM Notifications WHERE UserId = @userId ORDER BY CreatedAt DESC LIMIT @limit OFFSET @offset";
 
             cmd.CommandText = sql;
             cmd.Parameters.AddWithValue("@userId", userId);
@@ -1473,34 +1467,6 @@ namespace BulbaLib.Services
             return notifications;
         }
 
-        public bool MarkNotificationAsRead(int notificationId, int userId)
-        {
-            using var conn = GetConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "UPDATE Notifications SET IsRead = TRUE WHERE Id = @notificationId AND UserId = @userId";
-            cmd.Parameters.AddWithValue("@notificationId", notificationId);
-            cmd.Parameters.AddWithValue("@userId", userId);
-            return cmd.ExecuteNonQuery() > 0;
-        }
-
-        public int MarkAllNotificationsAsRead(int userId)
-        {
-            using var conn = GetConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "UPDATE Notifications SET IsRead = TRUE WHERE UserId = @userId AND IsRead = FALSE";
-            cmd.Parameters.AddWithValue("@userId", userId);
-            return cmd.ExecuteNonQuery();
-        }
-
-        public int CountUnreadNotifications(int userId)
-        {
-            using var conn = GetConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT COUNT(*) FROM Notifications WHERE UserId = @userId AND IsRead = FALSE";
-            cmd.Parameters.AddWithValue("@userId", userId);
-            return Convert.ToInt32(cmd.ExecuteScalar());
-        }
-
         private Notification MapReaderToNotification(System.Data.Common.DbDataReader reader)
         {
             // Get ordinals once
@@ -1510,7 +1476,7 @@ namespace BulbaLib.Services
             int messageOrdinal = reader.GetOrdinal("Message");
             int relatedItemIdOrdinal = reader.GetOrdinal("RelatedItemId");
             int relatedItemTypeOrdinal = reader.GetOrdinal("RelatedItemType");
-            int isReadOrdinal = reader.GetOrdinal("IsRead");
+            // int isReadOrdinal = reader.GetOrdinal("IsRead"); // Removed
             int createdAtOrdinal = reader.GetOrdinal("CreatedAt");
 
             return new Notification
@@ -1521,7 +1487,7 @@ namespace BulbaLib.Services
                 Message = reader.GetString(messageOrdinal),
                 RelatedItemId = reader.IsDBNull(relatedItemIdOrdinal) ? (int?)null : reader.GetInt32(relatedItemIdOrdinal),
                 RelatedItemType = reader.IsDBNull(relatedItemTypeOrdinal) ? RelatedItemType.None : Enum.Parse<RelatedItemType>(reader.GetString(relatedItemTypeOrdinal)),
-                IsRead = reader.GetBoolean(isReadOrdinal),
+                // IsRead = reader.GetBoolean(isReadOrdinal), // Removed
                 CreatedAt = reader.GetDateTime(createdAtOrdinal)
             };
         }
