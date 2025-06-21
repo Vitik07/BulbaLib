@@ -115,8 +115,43 @@ namespace BulbaLib.Controllers
                 Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             };
 
-            novel.Genres = SerializeTagsOrGenres(model.Genres);
-            novel.Tags = SerializeTagsOrGenres(model.Tags);
+            // Обработка Genres
+            if (string.IsNullOrWhiteSpace(model.Genres))
+            {
+                novel.Genres = "[]";
+            }
+            else
+            {
+                try
+                {
+                    JsonSerializer.Deserialize<List<string>>(model.Genres); // Проверка на валидность
+                    novel.Genres = model.Genres; // Используем как есть, если валидный JSON массив строк
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Model.Genres input was not a valid JSON array of strings. Input: {GenresInput}. Storing as empty array.", model.Genres);
+                    novel.Genres = "[]"; // Сохраняем пустой массив в случае ошибки
+                }
+            }
+
+            // Обработка Tags
+            if (string.IsNullOrWhiteSpace(model.Tags))
+            {
+                novel.Tags = "[]";
+            }
+            else
+            {
+                try
+                {
+                    JsonSerializer.Deserialize<List<string>>(model.Tags); // Проверка на валидность
+                    novel.Tags = model.Tags; // Используем как есть, если валидный JSON массив строк
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Model.Tags input was not a valid JSON array of strings. Input: {TagsInput}. Storing as empty array.", model.Tags);
+                    novel.Tags = "[]"; // Сохраняем пустой массив в случае ошибки
+                }
+            }
 
             var tempCoverPaths = new List<string>();
 
@@ -218,7 +253,7 @@ namespace BulbaLib.Controllers
                 _mySqlService.UpdateNovel(novel); // Update with final cover paths
 
                 TempData["SuccessMessage"] = "Новелла успешно создана.";
-                return RedirectToAction("Novel", "NovelView", new { id = newNovelId }); // Assuming NovelView controller and Novel action
+                return RedirectToAction("Details", "Novel", new { id = newNovelId });
             }
             else // UserRole.Author
             {
@@ -381,7 +416,7 @@ namespace BulbaLib.Controllers
             {
                 TempData["ErrorMessage"] = "У вас нет прав для редактирования этой новеллы.";
                 // Maybe redirect to novel page instead of Home?
-                return RedirectToAction("Novel", "NovelView", new { id = model.Id });
+                return RedirectToAction("Details", "Novel", new { id = model.Id });
             }
 
             if (!ModelState.IsValid)
@@ -451,8 +486,23 @@ namespace BulbaLib.Controllers
                 _logger.LogInformation("Admin editing novel Id: {NovelId}. Applying changes directly.", model.Id);
                 existingNovel.Title = model.Title;
                 existingNovel.Description = model.Description;
-                existingNovel.Genres = SerializeTagsOrGenres(model.Genres);
-                existingNovel.Tags = SerializeTagsOrGenres(model.Tags);
+
+                // Обработка Genres
+                if (string.IsNullOrWhiteSpace(model.Genres)) { existingNovel.Genres = "[]"; }
+                else
+                {
+                    try { JsonSerializer.Deserialize<List<string>>(model.Genres); existingNovel.Genres = model.Genres; }
+                    catch (JsonException ex) { _logger.LogWarning(ex, "Admin Edit: Model.Genres input was not a valid JSON array. Input: {GenresInput}. Storing as empty array.", model.Genres); existingNovel.Genres = "[]"; }
+                }
+
+                // Обработка Tags
+                if (string.IsNullOrWhiteSpace(model.Tags)) { existingNovel.Tags = "[]"; }
+                else
+                {
+                    try { JsonSerializer.Deserialize<List<string>>(model.Tags); existingNovel.Tags = model.Tags; }
+                    catch (JsonException ex) { _logger.LogWarning(ex, "Admin Edit: Model.Tags input was not a valid JSON array. Input: {TagsInput}. Storing as empty array.", model.Tags); existingNovel.Tags = "[]"; }
+                }
+
                 existingNovel.Type = model.Type;
                 existingNovel.Format = model.Format;
                 existingNovel.ReleaseYear = model.ReleaseYear;
@@ -492,7 +542,7 @@ namespace BulbaLib.Controllers
                 _logger.LogInformation("Admin updating novel {NovelId}. Final novel data before DB update: {NovelData}", existingNovel.Id, JsonSerializer.Serialize(existingNovel));
                 _mySqlService.UpdateNovel(existingNovel);
                 TempData["SuccessMessage"] = "Новелла успешно обновлена.";
-                return RedirectToAction("Novel", "NovelView", new { id = existingNovel.Id });
+                return RedirectToAction("Details", "Novel", new { id = existingNovel.Id });
             }
             else // UserRole.Author
             {
@@ -501,8 +551,23 @@ namespace BulbaLib.Controllers
                 {
                     existingNovel.Title = model.Title;
                     existingNovel.Description = model.Description;
-                    existingNovel.Genres = SerializeTagsOrGenres(model.Genres);
-                    existingNovel.Tags = SerializeTagsOrGenres(model.Tags);
+
+                    // Обработка Genres
+                    if (string.IsNullOrWhiteSpace(model.Genres)) { existingNovel.Genres = "[]"; }
+                    else
+                    {
+                        try { JsonSerializer.Deserialize<List<string>>(model.Genres); existingNovel.Genres = model.Genres; }
+                        catch (JsonException ex) { _logger.LogWarning(ex, "Author Draft Edit: Model.Genres input was not a valid JSON array. Input: {GenresInput}. Storing as empty array.", model.Genres); existingNovel.Genres = "[]"; }
+                    }
+
+                    // Обработка Tags
+                    if (string.IsNullOrWhiteSpace(model.Tags)) { existingNovel.Tags = "[]"; }
+                    else
+                    {
+                        try { JsonSerializer.Deserialize<List<string>>(model.Tags); existingNovel.Tags = model.Tags; }
+                        catch (JsonException ex) { _logger.LogWarning(ex, "Author Draft Edit: Model.Tags input was not a valid JSON array. Input: {TagsInput}. Storing as empty array.", model.Tags); existingNovel.Tags = "[]"; }
+                    }
+
                     existingNovel.Type = model.Type;
                     existingNovel.Format = model.Format;
                     existingNovel.ReleaseYear = model.ReleaseYear;
@@ -570,8 +635,21 @@ namespace BulbaLib.Controllers
                     // This list is what the admin will see and process.
 
                     // For Author submitting moderation, process Genres and Tags from the model
-                    var processedGenresForModeration = SerializeTagsOrGenres(model.Genres);
-                    var processedTagsForModeration = SerializeTagsOrGenres(model.Tags);
+                    string processedGenresForModeration;
+                    if (string.IsNullOrWhiteSpace(model.Genres)) { processedGenresForModeration = "[]"; }
+                    else
+                    {
+                        try { JsonSerializer.Deserialize<List<string>>(model.Genres); processedGenresForModeration = model.Genres; }
+                        catch (JsonException ex) { _logger.LogWarning(ex, "Author Moderation Edit: Model.Genres input was not a valid JSON array. Input: {GenresInput}. Storing as empty array for moderation.", model.Genres); processedGenresForModeration = "[]"; }
+                    }
+
+                    string processedTagsForModeration;
+                    if (string.IsNullOrWhiteSpace(model.Tags)) { processedTagsForModeration = "[]"; }
+                    else
+                    {
+                        try { JsonSerializer.Deserialize<List<string>>(model.Tags); processedTagsForModeration = model.Tags; }
+                        catch (JsonException ex) { _logger.LogWarning(ex, "Author Moderation Edit: Model.Tags input was not a valid JSON array. Input: {TagsInput}. Storing as empty array for moderation.", model.Tags); processedTagsForModeration = "[]"; }
+                    }
 
                     // Create a temporary object for UpdatedFields that has the processed genres/tags
                     // This ensures the moderator sees the intended JSON structure for genres/tags.
@@ -615,7 +693,7 @@ namespace BulbaLib.Controllers
                     _mySqlService.CreateModerationRequest(moderationRequest);
 
                     TempData["SuccessMessage"] = "Запрос на редактирование новеллы отправлен на модерацию.";
-                    return RedirectToAction("Novel", "NovelView", new { id = existingNovel.Id });
+                    return RedirectToAction("Details", "Novel", new { id = existingNovel.Id });
                 }
             }
         }
@@ -645,7 +723,7 @@ namespace BulbaLib.Controllers
             {
                 _logger.LogWarning("User (Id: {UserId}) does not have permission to delete novel Id: {NovelId}", currentUser.Id, id);
                 TempData["ErrorMessage"] = "У вас нет прав для удаления этой новеллы.";
-                return RedirectToAction("Novel", "NovelView", new { id = id });
+                return RedirectToAction("Details", "Novel", new { id = id });
             }
 
             if (currentUser.Role == UserRole.Admin)
@@ -689,7 +767,7 @@ namespace BulbaLib.Controllers
 
                 TempData["SuccessMessage"] = "Ваш запрос на удаление новеллы отправлен на модерацию.";
                 _logger.LogInformation("Exiting MVC Delete (POST) method for novel Id: {NovelId}. Moderation request created.", id);
-                return RedirectToAction("Novel", "NovelView", new { id = novelToDelete.Id });
+                return RedirectToAction("Details", "Novel", new { id = novelToDelete.Id });
             }
         }
         // MVC Actions End Here

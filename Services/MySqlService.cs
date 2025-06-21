@@ -523,14 +523,14 @@ namespace BulbaLib.Services
             using var cmd = conn.CreateCommand();
             if (!string.IsNullOrWhiteSpace(search))
             {
-                cmd.CommandText = @"SELECT Id, Title, Description, Covers, CAST(Genres AS VARBINARY) AS GenresBinary, CAST(Tags AS VARBINARY) AS TagsBinary, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status 
+                cmd.CommandText = @"SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status 
                             FROM Novels 
                             WHERE MATCH(Title, Genres, Tags) AGAINST (@search IN NATURAL LANGUAGE MODE)";
                 cmd.Parameters.AddWithValue("@search", search);
             }
             else
             {
-                cmd.CommandText = @"SELECT Id, Title, Description, Covers, CAST(Genres AS VARBINARY) AS GenresBinary, CAST(Tags AS VARBINARY) AS TagsBinary, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status 
+                cmd.CommandText = @"SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status 
                             FROM Novels";
             }
 
@@ -555,11 +555,8 @@ namespace BulbaLib.Services
                     Status = reader.IsDBNull("Status") ? NovelStatus.Draft : Enum.Parse<NovelStatus>(reader.GetString("Status"), true)
                 };
 
-                byte[] genresBytes = reader.IsDBNull("GenresBinary") ? null : (byte[])reader["GenresBinary"];
-                novel.Genres = genresBytes == null ? null : System.Text.Encoding.UTF8.GetString(genresBytes);
-
-                byte[] tagsBytes = reader.IsDBNull("TagsBinary") ? null : (byte[])reader["TagsBinary"];
-                novel.Tags = tagsBytes == null ? null : System.Text.Encoding.UTF8.GetString(tagsBytes);
+                novel.Genres = reader.IsDBNull("Genres") ? null : reader.GetString("Genres");
+                novel.Tags = reader.IsDBNull("Tags") ? null : reader.GetString("Tags");
 
                 novels.Add(novel);
             }
@@ -571,7 +568,7 @@ namespace BulbaLib.Services
             _logger.LogInformation("Entering GetNovel method for Id: {NovelId}", id);
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Title, Description, Covers, CAST(Genres AS VARBINARY) AS GenresBinary, CAST(Tags AS VARBINARY) AS TagsBinary, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status FROM Novels WHERE Id = @id";
+            cmd.CommandText = "SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status FROM Novels WHERE Id = @id";
             cmd.Parameters.AddWithValue("@id", id);
             using var reader = cmd.ExecuteReader();
             if (reader.Read())
@@ -592,11 +589,8 @@ namespace BulbaLib.Services
                     Status = reader.IsDBNull("Status") ? NovelStatus.Draft : Enum.Parse<NovelStatus>(reader.GetString("Status"), true)
                 };
 
-                byte[] genresBytes = reader.IsDBNull("GenresBinary") ? null : (byte[])reader["GenresBinary"];
-                novel.Genres = genresBytes == null ? null : System.Text.Encoding.UTF8.GetString(genresBytes);
-
-                byte[] tagsBytes = reader.IsDBNull("TagsBinary") ? null : (byte[])reader["TagsBinary"];
-                novel.Tags = tagsBytes == null ? null : System.Text.Encoding.UTF8.GetString(tagsBytes);
+                novel.Genres = reader.IsDBNull("Genres") ? null : reader.GetString("Genres");
+                novel.Tags = reader.IsDBNull("Tags") ? null : reader.GetString("Tags");
 
                 _logger.LogInformation("Novel found for Id: {NovelId}. Title: {NovelTitle}", id, novel.Title);
                 return novel;
@@ -1157,7 +1151,7 @@ namespace BulbaLib.Services
                 {
                     parameters[i] = $"@id{i}";
                 }
-                string commandText = $"SELECT Id, Title, Description, Covers, CAST(Genres AS VARBINARY) AS GenresBinary, CAST(Tags AS VARBINARY) AS TagsBinary, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status FROM Novels WHERE Id IN ({string.Join(",", parameters)})";
+                string commandText = $"SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status FROM Novels WHERE Id IN ({string.Join(",", parameters)})";
                 _logger.LogDebug("GetNovelsByIds executing query: {QueryText}", commandText);
 
                 using (var command = new MySqlCommand(commandText, connection))
@@ -1188,11 +1182,8 @@ namespace BulbaLib.Services
                                 Status = reader.IsDBNull("Status") ? NovelStatus.Draft : Enum.Parse<NovelStatus>(reader.GetString("Status"), true)
                             };
 
-                            byte[] genresBytes = reader.IsDBNull(reader.GetOrdinal("GenresBinary")) ? null : (byte[])reader["GenresBinary"];
-                            novel.Genres = genresBytes == null ? null : System.Text.Encoding.UTF8.GetString(genresBytes);
-
-                            byte[] tagsBytes = reader.IsDBNull(reader.GetOrdinal("TagsBinary")) ? null : (byte[])reader["TagsBinary"];
-                            novel.Tags = tagsBytes == null ? null : System.Text.Encoding.UTF8.GetString(tagsBytes);
+                            novel.Genres = reader.IsDBNull(reader.GetOrdinal("Genres")) ? null : reader.GetString(reader.GetOrdinal("Genres"));
+                            novel.Tags = reader.IsDBNull(reader.GetOrdinal("Tags")) ? null : reader.GetString(reader.GetOrdinal("Tags"));
 
                             novels.Add(novel);
                         }

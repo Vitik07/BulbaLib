@@ -143,7 +143,7 @@
 
                         // The asp-route-id likely comes from the model of the page.
                         <a asp-controller="Novels" asp-action="Edit" asp-route-id="@ViewData["NovelId"]" class="novel-action-btn">
-                            <i class="fa-solid fa-pen"></i> Редактировать (MVC)
+                            <i class="fa-solid fa-pen"></i> Редактировать
                         </a>
                     }
                     @if (ViewData["CanDeleteNovel"] != null && (bool)ViewData["CanDeleteNovel"])
@@ -152,7 +152,7 @@
                         <form asp-controller="Novels" asp-action="Delete" asp-route-id="@ViewData["NovelId"]" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить эту новеллу? Это действие необратимо.');" style="display:inline;">
                             @Html.AntiForgeryToken() // Ensure this is the correct way to get token if form is outside a full .NET form context
                             <button type="submit" class="novel-action-btn novel-delete">
-                                <i class="fa-solid fa-trash"></i> Удалить (MVC)
+                                <i class="fa-solid fa-trash"></i> Удалить
                             </button>
                         </form>
                     }
@@ -162,7 +162,7 @@
 
                         // Points to the new MVC action in ChaptersController
                         <a asp-controller="Chapters" asp-action="Create" asp-route-novelId="@ViewData["NovelId"]" class="novel-action-btn novel-add-chapter">
-                            <i class="fa-solid fa-plus"></i> Добавить главу (MVC)
+                            <i class="fa-solid fa-plus"></i> Добавить главу
                         </a>
                     }
                 </div>
