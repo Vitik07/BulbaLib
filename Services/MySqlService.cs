@@ -956,14 +956,25 @@ namespace BulbaLib.Services
 
             if (exists)
             {
-                using var updateCmd = conn.CreateCommand();
-                updateCmd.CommandText = "UPDATE Favorites SET Status = @status WHERE UserId = @userId AND NovelId = @novelId";
-                updateCmd.Parameters.AddWithValue("@status", status);
-                updateCmd.Parameters.AddWithValue("@userId", userId);
-                updateCmd.Parameters.AddWithValue("@novelId", novelId);
-                updateCmd.ExecuteNonQuery();
+                if (string.IsNullOrEmpty(status)) // Если статус пустой, удаляем запись
+                {
+                    using var deleteCmd = conn.CreateCommand();
+                    deleteCmd.CommandText = "DELETE FROM Favorites WHERE UserId = @userId AND NovelId = @novelId";
+                    deleteCmd.Parameters.AddWithValue("@userId", userId);
+                    deleteCmd.Parameters.AddWithValue("@novelId", novelId);
+                    deleteCmd.ExecuteNonQuery();
+                }
+                else // Иначе обновляем статус
+                {
+                    using var updateCmd = conn.CreateCommand();
+                    updateCmd.CommandText = "UPDATE Favorites SET Status = @status WHERE UserId = @userId AND NovelId = @novelId";
+                    updateCmd.Parameters.AddWithValue("@status", status);
+                    updateCmd.Parameters.AddWithValue("@userId", userId);
+                    updateCmd.Parameters.AddWithValue("@novelId", novelId);
+                    updateCmd.ExecuteNonQuery();
+                }
             }
-            else
+            else if (!string.IsNullOrEmpty(status)) // Если записи нет и статус не пустой, создаем новую
             {
                 using var insertCmd = conn.CreateCommand();
                 insertCmd.CommandText = "INSERT INTO Favorites (UserId, NovelId, Status) VALUES (@userId, @novelId, @status)";

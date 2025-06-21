@@ -45,25 +45,33 @@ namespace BulbaLib.Services
             return Task.CompletedTask; // Matches void async method signature
         }
 
-        // This method is in INotificationService but not directly requested by subtask description for this service.
-        // The subtask asks for GetNotifications(userId, onlyUnread, limit, offset)
-        // I will implement GetUnreadNotifications as it's in the interface.
+        public async Task CreateNotificationForSubscribedUsers(int novelId, int chapterId, string novelTitle, string chapterNumberOrTitle)
+        {
+            // Статусы, при которых пользователь считается подписанным на уведомления о новых главах
+            var subscribedStatuses = new List<string> { "Читаю", "Прочитано", "Любимое" }; // TODO: Использовать enum или константы
+
+            var userIds = _mySqlService.GetUserIdsSubscribedToNovel(novelId, subscribedStatuses);
+
+            foreach (var userId in userIds)
+            {
+                string message = $"Вышла новая глава ({chapterNumberOrTitle}) новеллы \"{novelTitle}\".";
+                await CreateNotification(userId, NotificationType.NewChapter, message, chapterId, RelatedItemType.Chapter);
+            }
+        }
+
         public Task<List<Notification>> GetUnreadNotifications(int userId)
         {
             try
             {
-                // Assuming GetNotificationsByUserId can handle onlyUnread = true with a default limit/offset or needs adjustment.
-                // For now, using a high limit to get "all" unread for this specific interface method.
-                return Task.FromResult(_mySqlService.GetNotificationsByUserId(userId, true, 100, 0));
+                return Task.FromResult(_mySqlService.GetNotificationsByUserId(userId, true, 100, 0)); // Example: limit 100
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting unread notifications for User {UserId}", userId);
-                return Task.FromResult(new List<Notification>()); // Return empty list on error
+                return Task.FromResult(new List<Notification>());
             }
         }
 
-        // This is the method requested by the subtask.
         public Task<List<Notification>> GetNotifications(int userId, bool onlyUnread, int limit, int offset)
         {
             try

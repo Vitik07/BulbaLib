@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿@{
+﻿﻿﻿﻿﻿﻿@{
     ViewData["Title"] = "BulbaLib";
 
     Layout = null;
@@ -32,13 +32,32 @@
             <input id="searchInput" type="text" placeholder="Введите название новеллы..." autocomplete="off" />
         </div>
         <div class="main-nav-right">
-            <!-- Profile button -->
-            <button class="nav-profile" id="profileButton">
-                <span id="profileLogin" class="profile-login-text"></span>
-                <img id="profileAvatar" src="/Resource/default-avatar.jpg" alt="Avatar" />
-            </button>
+            @* Этот блок будет управляться JavaScript в зависимости от статуса аутентификации *@
+            <div id="userActionsContainer" class="d-flex align-items-center">
+                @* Сюда будет вставлен либо колокольчик и профиль, либо кнопка входа *@
+            </div>
         </div>
     </div>
+
+    <!-- Modal for Notifications (структура) -->
+    <div class="modal fade" id="notificationsModal" tabindex="-1" aria-labelledby="notificationsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="notificationsModalLabel">Уведомления</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="notificationsModalBody">
+                    <p>Загрузка уведомлений...</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                    <button type="button" class="btn btn-primary" id="markAllNotificationsAsReadBtnIndex">Пометить все как прочитанные</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Search panel -->
     <div class="search-panel" id="searchPanel">
         <div class="search-panel-content" id="searchPanelContent">
@@ -150,57 +169,161 @@
             return scores;
         }
 
-        // ======= Profile (аватар и кнопка профиля) =======
-        const profileAvatar = document.getElementById('profileAvatar');
-        const profileButton = document.getElementById('profileButton');
-        const profileLoginText = document.getElementById('profileLogin'); // Get reference here
+        // ======= Profile, Notifications Bell, and Auth Button Logic =======
+        const userActionsContainer = document.getElementById('userActionsContainer');
 
-        async function fillProfileButton() {
+        async function setupUserActions() {
+            userActionsContainer.innerHTML = ''; // Clear previous content
+
             try {
                 const res = await fetch(`${baseUrl}/api/users/me`, { credentials: "include" });
-                if (!res.ok) throw new Error();
+                if (!res.ok) throw new Error('User not authenticated');
                 const user = await res.json();
-                profileAvatar.src = `${baseUrl}/api/users/avatar`;
-                if (profileLoginText) {
-                    profileLoginText.textContent = user.login;
-                }
-                profileButton.onclick = () => window.location.href = `/profile/${user.id}`;
 
-                // Add Admin Panel button if user is Admin
-                if (user.role === 'Admin') {
+                // User is authenticated - setup notification bell and profile
+                const notificationBell = document.createElement('a');
+                notificationBell.className = 'nav-link text-dark me-2'; // Added me-2 for spacing
+                notificationBell.href = "#";
+                notificationBell.id = "notificationBellIndex"; // Unique ID for this page
+                notificationBell.setAttribute('role', 'button');
+                notificationBell.setAttribute('data-bs-toggle', 'modal');
+                notificationBell.setAttribute('data-bs-target', '#notificationsModal');
+                notificationBell.innerHTML = `
+                            <img src="/Resource/bookmark-icon.png" alt="Уведомления" style="width: 24px; height: 24px; vertical-align: middle;" />
+                            <span class="badge bg-danger" id="notification-unread-count-index" style="display:none; vertical-align: top; margin-left: -8px; margin-top: -2px;">0</span>
+                        `;
+                userActionsContainer.appendChild(notificationBell);
+
+                const profileLink = document.createElement('a');
+                profileLink.className = 'nav-link text-dark';
+                profileLink.href = `/profile/${user.id}`;
+                profileLink.innerHTML = `
+                            <img src="${baseUrl}/api/users/avatar" alt="Avatar" class="rounded-circle" width="30" height="30" style="object-fit: cover;"
+                                 onerror="this.onerror=null; this.src='/Resource/default-avatar.jpg';" />
+                            <span class="profile-login-text ms-1">${user.login}</span>
+                        `;
+                userActionsContainer.appendChild(profileLink);
+
+                // Initialize notification bell functionality for this specific bell
+                initializeNotificationBellFunctionality('#notificationBellIndex', '#notificationsModalBody', '#notification-unread-count-index', '#markAllNotificationsAsReadBtnIndex');
+                updateNotificationCountForIndex(); // Initial count update
+
+                // Add Admin Panel button if user is Admin (similar to existing logic)
+                if (user.role === 'Admin' || user.role === 'Moderator') { // Also check for Moderator
                     const logoDropdownPanel = document.querySelector('.logo-dropdown-panel');
-                    if (logoDropdownPanel) {
+                    if (logoDropdownPanel && !logoDropdownPanel.querySelector('.nav-admin-panel')) { // Check if not already added
                         const adminPanelButton = document.createElement('button');
-                        adminPanelButton.className = 'dropdown-item nav-admin-panel'; // Add a class for styling if needed
+                        adminPanelButton.className = 'dropdown-item nav-admin-panel';
                         adminPanelButton.textContent = 'Админ панель';
                         adminPanelButton.onclick = () => window.location.href = '/admin';
 
-                        // Insert after Catalog button
                         const catalogButton = logoDropdownPanel.querySelector('.nav-catalog');
                         if (catalogButton && catalogButton.nextSibling) {
                             logoDropdownPanel.insertBefore(adminPanelButton, catalogButton.nextSibling);
                         } else if (catalogButton) {
-                            logoDropdownPanel.appendChild(adminPanelButton); // Fallback if no nextSibling
+                            logoDropdownPanel.appendChild(adminPanelButton);
                         } else {
-                            // Fallback if no catalog button (should not happen based on current HTML)
                             logoDropdownPanel.appendChild(adminPanelButton);
                         }
                     }
                 }
 
-            } catch {
-                profileAvatar.src = '/Resource/default-avatar.jpg';
-                if (profileLoginText) {
-                    profileLoginText.textContent = ''; // Clear the login name
-                }
-                profileButton.onclick = () => window.location.href = '/login';
-                // Ensure Admin Panel button is not shown if login fails or user is not admin
+            } catch (error) {
+                // User is not authenticated or error occurred
+                const loginButton = document.createElement('a');
+                loginButton.className = 'btn btn-primary'; // Or nav-link style
+                loginButton.href = '/login'; // Assuming /login is your login page
+                loginButton.textContent = 'Авторизоваться/Зарегистрироваться';
+                userActionsContainer.appendChild(loginButton);
+
+                // Ensure Admin Panel button is not shown
                 const existingAdminButton = document.querySelector('.nav-admin-panel');
                 if (existingAdminButton) {
                     existingAdminButton.remove();
                 }
             }
         }
+
+        // Function to update notification count specifically for Index page
+        function updateNotificationCountForIndex() {
+            $.get('/Notifications/GetUnreadCount', function (data) {
+                var countBadge = $('#notification-unread-count-index');
+                if (data.count > 0) {
+                    countBadge.text(data.count).show();
+                } else {
+                    countBadge.hide();
+                }
+            });
+        }
+
+        // Generic function to initialize notification bell, modal loading, and actions
+        // This can be called if you have multiple notification bells on different pages but same modal structure
+        function initializeNotificationBellFunctionality(bellSelector, modalBodySelector, badgeSelector, markAllReadBtnSelector) {
+            $(bellSelector).off('click').on('click', function (e) {
+                e.preventDefault();
+                $(modalBodySelector).html('<p class="text-center">Загрузка уведомлений...</p>');
+                $(modalBodySelector).load('/Notifications/GetNotificationsModal', function (response, status, xhr) {
+                    if (status == "error") {
+                        $(modalBodySelector).html('<p class="text-center text-danger">Не удалось загрузить уведомления.</p>');
+                    }
+                });
+            });
+
+            // Mark one as read
+            $(modalBodySelector).off('click', '.mark-notification-as-read').on('click', '.mark-notification-as-read', function () {
+                var button = $(this);
+                var notificationId = button.data('notification-id');
+                var token = $('input[name="__RequestVerificationToken"]').first().val();
+
+                $.ajax({
+                    url: '/Notifications/MarkNotificationAsRead',
+                    type: 'POST',
+                    data: { notificationId: notificationId },
+                    headers: { "RequestVerificationToken": token },
+                    success: function (response) {
+                        if (response.success) {
+                            button.closest('li.list-group-item').removeClass('list-group-item-primary').addClass('list-group-item-light');
+                            button.remove();
+                            updateNotificationCountForIndex(); // Update count
+                        } else {
+                            alert(response.message || 'Ошибка.');
+                        }
+                    },
+                    error: function () { alert('Ошибка сервера.'); }
+                });
+            });
+
+            // Mark all as read
+            $(markAllReadBtnSelector).off('click').on('click', function () {
+                var token = $('input[name="__RequestVerificationToken"]').first().val();
+                $.ajax({
+                    url: '/Notifications/MarkAllNotificationsAsRead',
+                    type: 'POST',
+                    headers: { "RequestVerificationToken": token },
+                    success: function (response) {
+                        if (response.success) {
+                            $(modalBodySelector).load('/Notifications/GetNotificationsModal'); // Reload modal
+                            updateNotificationCountForIndex(); // Update count
+                        } else {
+                            alert(response.message || 'Ошибка.');
+                        }
+                    },
+                    error: function () { alert('Ошибка сервера.'); }
+                });
+            });
+
+            // Links inside modal
+            $(modalBodySelector).off('click', 'a.notification-link').on('click', 'a.notification-link', function (e) {
+                var notificationsModalElement = document.getElementById('notificationsModal'); // Assuming this ID for the modal
+                if (notificationsModalElement) {
+                    var modalInstance = bootstrap.Modal.getInstance(notificationsModalElement);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+                }
+            });
+        }
+
 
         // ======= Search Panel =======
         const searchPanel = document.getElementById('searchPanel');
@@ -282,9 +405,9 @@
                 const card = document.createElement('div');
                 card.className = 'search-novel-card';
                 card.innerHTML = `
-                                                                    <img src="${getCover(novel)}" alt="${novel.title}">
-                                                                    <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
-                                                                `;
+                                                                            <img src="${getCover(novel)}" alt="${novel.title}">
+                                                                            <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
+                                                                        `;
                 card.onclick = () => window.location.href = `/novel/${novel.id}`;
                 searchResultsList.appendChild(card);
             }
@@ -331,9 +454,9 @@
                     const card = document.createElement('div');
                     card.className = 'recent-novel-card';
                     card.innerHTML = `
-                                                                <img src="${getCover(novel)}" alt="${novel.title}">
-                                                                <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
-                                                            `;
+                                                                        <img src="${getCover(novel)}" alt="${novel.title}">
+                                                                        <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
+                                                                    `;
                     card.onclick = () => window.location.href = `/novel/${novel.id}`;
                     recentlyReadList.appendChild(card);
                 }
@@ -368,13 +491,13 @@
                         : '/Resource/default.jpg'; // Default image
 
                     item.innerHTML = `
-                                        <img class="update-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="${upd.novelTitle}">
-                                        <div class="update-info">
-                                            <div class="update-title">${upd.novelTitle}</div>
-                                            <div class="update-chapter">${upd.chapterNumber ? upd.chapterNumber + " " : ""}${upd.chapterTitle || 'Без названия'}</div>
-                                            <div class="update-date">${formatRelativeTime(upd.chapterDate)}</div>
-                                        </div>
-                                    `;
+                                                <img class="update-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="${upd.novelTitle}">
+                                                <div class="update-info">
+                                                    <div class="update-title">${upd.novelTitle}</div>
+                                                    <div class="update-chapter">${upd.chapterNumber ? upd.chapterNumber + " " : ""}${upd.chapterTitle || 'Без названия'}</div>
+                                                    <div class="update-date">${formatRelativeTime(upd.chapterDate)}</div>
+                                                </div>
+                                            `;
                     // Переход на страницу новеллы и попытка проскроллить к главе (если такой функционал нужен)
                     // или просто на страницу новеллы /novel/${upd.novelId}
                     // или на страницу главы /chapter/${upd.chapterId}
@@ -398,9 +521,9 @@
                     const card = document.createElement('div');
                     card.className = 'novelty-card';
                     card.innerHTML = `
-                                                                <img src="${getCover(novel)}" alt="${novel.title}">
-                                                                <div class="novelty-title" title="${novel.title}">${novel.title}</div>
-                                                            `;
+                                                                        <img src="${getCover(novel)}" alt="${novel.title}">
+                                                                        <div class="novelty-title" title="${novel.title}">${novel.title}</div>
+                                                                    `;
                     card.onclick = () => window.location.href = `/novel/${novel.id}`;
                     noveltiesList.appendChild(card);
                 }
@@ -502,9 +625,9 @@
                 const card = document.createElement('div');
                 card.className = 'slider-novel-card';
                 card.innerHTML = `
-                                                    <img src="${getCover(novel)}" alt="${novel.title}">
-                                                    <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
-                                                `;
+                                                            <img src="${getCover(novel)}" alt="${novel.title}">
+                                                            <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
+                                                        `;
                 card.onclick = () => window.location.href = `/novel/${novel.id}`;
                 mainSlider.appendChild(card);
             }
@@ -526,16 +649,23 @@
 
         // ======= MAIN LOAD =======
         async function mainLoad() {
-            await loadAllNovels();
-            await fillProfileButton();
+            await loadAllNovels(); // Load novels first as other functions might depend on allNovels
+            await setupUserActions(); // Setup user actions, including notification bell and profile
             await updateUpdatesList();
             await updateNoveltiesList();
-            await updateMainSlider(); // This is already await, no change needed here actually. The function itself was made async.
+            await updateMainSlider();
         }
         mainLoad();
 
-        // ======= После логина обновлять все =======
-        // если у тебя есть ajax-логин, после успешного логина вызови mainLoad()
+        // If you have a global event for login/logout, you can re-call setupUserActions()
+        // Example: $(document).on('userLoggedIn userLoggedOut', setupUserActions);
+
     </script>
+    @* CSRF Token for AJAX requests if not using forms for everything *@
+    @Html.AntiForgeryToken()
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    @* Ensure site.js (if used for global notification functions) is loaded if you refactor notification logic there *@
+    @* <script src="~/js/site.js" asp-append-version="true"></script> *@
 </body>
 </html>

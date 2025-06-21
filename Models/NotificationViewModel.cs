@@ -1,13 +1,17 @@
-﻿using BulbaLib.Models; // For Notification model
+﻿using System;
 
-namespace BulbaLib.Models // Or BulbaLib.Models.ViewModels
+namespace BulbaLib.Models
 {
     public class NotificationViewModel
     {
-        public Notification Notification { get; set; }
-        public string RelatedItemTitle { get; set; }
-        public string RelatedItemUrl { get; set; }
-        // Could add a friendly timestamp string here too, e.g., "5 minutes ago"
-        public string TimeAgo { get; set; }
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public string Type { get; set; } // Changed from NotificationType enum to string for display
+        public string Message { get; set; }
+        public string Link { get; set; }
+        public DateTime DateSent { get; set; }
+        public bool IsRead { get; set; }
+        // Optional: Add a property for "TimeAgo" if you prefer to calculate it in the backend.
+        // public string TimeAgo { get; set; } 
     }
 }

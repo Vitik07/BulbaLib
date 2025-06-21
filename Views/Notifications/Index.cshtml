@@ -1,156 +1,44 @@
-﻿@model List<BulbaLib.Models.NotificationViewModel>
+﻿@model IEnumerable<BulbaLib.Models.NotificationViewModel>
+
 @{
-    ViewData["Title"] = "Мои уведомления";
-    // Layout = "_Layout"; // Assuming your main layout
-    var currentPage = ViewData["CurrentPage"] as int? ?? 1;
-    var totalPages = ViewData["TotalPages"] as int? ?? 1;
-    var pageSize = ViewData["PageSize"] as int? ?? 10;
+    ViewData["Title"] = "Уведомления";
 }
 
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>@ViewData["Title"]</h1>
-        @if (Model.Any(n => !n.Notification.IsRead))
-        {
-            <form id="markAllAsReadForm" asp-action="MarkAllNotificationsAsRead" asp-controller="Notifications" method="post">
-                @Html.AntiForgeryToken()
-                <button type="submit" class="btn btn-sm btn-outline-primary">Пометить все как прочитанные</button>
-            </form>
-        }
-    </div>
+<h2>@ViewData["Title"]</h2>
 
-    @if (!Model.Any())
-    {
-        <p>У вас нет уведомлений.</p>
-    }
-    else
-    {
-        <ul class="list-group">
-            @foreach (var item in Model)
+@if (Model.Any())
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Тип</th>
+                <th>Сообщение</th>
+                <th>Дата</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var notification in Model)
             {
-                <li class="list-group-item d-flex justify-content-between align-items-center @(item.Notification.IsRead ? "list-group-item-light text-muted" : "list-group-item-info")">
-                    <div>
-                        <small class="text-muted">@item.TimeAgo (@item.Notification.CreatedAt.ToString("dd.MM.yyyy HH:mm"))</small><br />
-                        @item.Notification.Message
-                        @if (!string.IsNullOrEmpty(item.RelatedItemUrl) && !string.IsNullOrEmpty(item.RelatedItemTitle))
+                <tr>
+                    <td>@notification.Type</td>
+                    <td>@notification.Message</td>
+                    <td>@notification.DateSent.ToString("g")</td>
+                    <td>
+                        @if (!string.IsNullOrEmpty(notification.Link))
                         {
-                            <br />
-
-                            <small><a href="@item.RelatedItemUrl">Перейти к: @item.RelatedItemTitle</a></small>
+                            <a href="@notification.Link" class="btn btn-primary btn-sm">Перейти</a>
                         }
-                    </div>
-                    @if (!item.Notification.IsRead)
-                    {
-                        <form class="mark-as-read-form" asp-action="MarkNotificationAsRead" asp-controller="Notifications" method="post" data-notification-id="@item.Notification.Id">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="notificationId" value="@item.Notification.Id" />
-                            <button type="submit" class="btn btn-sm btn-link text-success" title="Пометить как прочитанное">✔️</button>
+                        <form asp-controller="Notifications" asp-action="MarkAsRead" asp-route-id="@notification.Id" method="post" style="display:inline;">
+                            <button type="submit" class="btn btn-secondary btn-sm">Прочитано</button>
                         </form>
-                    }
-                </li>
+                    </td>
+                </tr>
             }
-        </ul>
-
-        @if (totalPages > 1)
-        {
-            <nav aria-label="Page navigation" class="mt-4">
-                <ul class="pagination justify-content-center">
-                    @if (currentPage > 1)
-                    {
-                        <li class="page-item">
-                            <a class="page-link" href="@Url.Action("Index", "Notifications", new { page = currentPage - 1, pageSize = pageSize })">Предыдущая</a>
-                        </li>
-                    }
-                    else
-                    {
-                        <li class="page-item disabled"><span class="page-link">Предыдущая</span></li>
-                    }
-
-                    @for (int i = 1; i <= totalPages; i++)
-                    {
-                        <li class="page-item @(i == currentPage ? "active" : "")">
-                            @if (i == currentPage)
-                            {
-                                <span class="page-link">@i</span>
-                            }
-                            else
-                            {
-                                <a class="page-link" href="@Url.Action("Index", "Notifications", new { page = i, pageSize = pageSize })">@i</a>
-                            }
-                        </li>
-                    }
-
-                    @if (currentPage < totalPages)
-                    {
-                        <li class="page-item">
-                            <a class="page-link" href="@Url.Action("Index", "Notifications", new { page = currentPage + 1, pageSize = pageSize })">Следующая</a>
-                        </li>
-                    }
-                    else
-                    {
-                        <li class="page-item disabled"><span class="page-link">Следующая</span></li>
-                    }
-                </ul>
-            </nav>
-        }
-    }
-</div>
-
-@section Scripts {
-    <script>
-        $(document).ready(function () {
-            // AJAX for Mark As Read
-            $('.mark-as-read-form').submit(function (e) {
-                e.preventDefault();
-                var form = $(this);
-                var notificationId = form.data('notification-id');
-                var listItem = form.closest('li.list-group-item');
-
-                $.ajax({
-                    type: form.attr('method'),
-                    url: form.attr('action'),
-                    data: form.serialize(),
-                    success: function (response) {
-                        if (response.success) {
-                            listItem.removeClass('list-group-item-info').addClass('list-group-item-light text-muted');
-                            form.remove(); // Remove the button after marking as read
-                            // Optionally, update unread count in navbar via JS call
-                            updateNotificationCount();
-                        } else {
-                            alert('Ошибка: Не удалось пометить уведомление как прочитанное.');
-                        }
-                    },
-                    error: function () {
-                        alert('Произошла ошибка при отправке запроса.');
-                    }
-                });
-            });
-
-            // AJAX for Mark All As Read
-            $('#markAllAsReadForm').submit(function (e) {
-                e.preventDefault();
-                var form = $(this);
-                $.ajax({
-                    type: form.attr('method'),
-                    url: form.attr('action'),
-                    data: form.serialize(),
-                    success: function (response) {
-                        if (response.success) {
-                            // Reload the page or update UI to reflect all as read
-                            // For simplicity, reload. A more sophisticated UI update is also possible.
-                            location.reload();
-                        } else {
-                            alert('Ошибка: Не удалось пометить все уведомления как прочитанные.');
-                        }
-                    },
-                    error: function () {
-                        alert('Произошла ошибка при отправке запроса.');
-                    }
-                });
-            });
-
-            // Placeholder for function that would update count in navbar
-            // function updateNotificationCount() { /* See _Layout.cshtml part */ }
-        });
-    </script>
+        </tbody>
+    </table>
+}
+else
+{
+    <p>У вас нет новых уведомлений.</p>
 }

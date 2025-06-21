@@ -267,7 +267,7 @@ namespace BulbaLib.Controllers
                     }
                     _mySqlService.UpdateModerationRequest(request);
                     var finalNT = novelForNotification?.Title ?? originalNovelTitleForNotification ?? "?";
-                    _notificationService.CreateNotification(request.UserId, NotificationType.ModerationApproved, $"Запрос '{request.RequestType}' для новеллы '{finalNT}' одобрен.", request.NovelId, RelatedItemType.Novel);
+                    _notificationService.CreateNotification(request.UserId, NotificationType.RequestApproved, $"Запрос '{request.RequestType}' для новеллы '{finalNT}' одобрен.", request.NovelId, RelatedItemType.Novel);
                     return Json(new { success = true, message = $"Запрос ID {requestId} ({request.RequestType}) одобрен." });
                 }
                 catch (Exception ex) { _logger.LogError(ex, "Error approving req ID {Rid}", requestId); return Json(new { success = false, message = "Ошибка одобрения запроса" }); }
@@ -293,7 +293,7 @@ namespace BulbaLib.Controllers
                 else if (request.NovelId.HasValue) { rejNT = _mySqlService.GetNovel(request.NovelId.Value)?.Title ?? rejNT; }
                 else if (request.RequestType == ModerationRequestType.DeleteNovel && !string.IsNullOrEmpty(request.RequestData)) { try { rejNT = JsonDocument.Parse(request.RequestData).RootElement.GetProperty("Title").GetString() ?? rejNT; } catch { } }
                 var rejMsg = $"Запрос '{request.RequestType}' для новеллы '{rejNT}' отклонен."; if (!string.IsNullOrWhiteSpace(moderationComment)) rejMsg += $" Причина: {moderationComment}";
-                _notificationService.CreateNotification(request.UserId, NotificationType.ModerationRejected, rejMsg, request.NovelId, RelatedItemType.Novel);
+                _notificationService.CreateNotification(request.UserId, NotificationType.RequestRejected, rejMsg, request.NovelId, RelatedItemType.Novel);
                 return Json(new { success = true, message = $"Запрос ID {requestId} ({request.RequestType}) отклонен." });
             }
         }
@@ -507,7 +507,7 @@ namespace BulbaLib.Controllers
                 var chapterForNotification = request.ChapterId.HasValue ? await _mySqlService.GetChapterAsync(request.ChapterId.Value) : null;
                 string itemTitle = chapterForNotification?.Title ?? (JsonSerializer.Deserialize<Chapter>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })?.Title) ?? "N/A";
                 string novelTitleForNotification = novelForNotification?.Title ?? "N/A";
-                _notificationService.CreateNotification(request.UserId, NotificationType.ModerationApproved, $"Ваш запрос '{request.RequestType.ToString()}' для главы '{itemTitle}' (новелла '{novelTitleForNotification}') одобрен.", request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
+                _notificationService.CreateNotification(request.UserId, NotificationType.RequestApproved, $"Ваш запрос '{request.RequestType.ToString()}' для главы '{itemTitle}' (новелла '{novelTitleForNotification}') одобрен.", request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
 
                 return Json(new { success = true, message = "Запрос одобрен." });
             }
@@ -550,7 +550,7 @@ namespace BulbaLib.Controllers
                 string novelTitleForNotification = novelForNotification?.Title ?? "N/A";
                 string notificationMsg = $"Ваш запрос '{request.RequestType.ToString()}' для главы '{itemTitle}' (новелла '{novelTitleForNotification}') отклонен.";
                 if (!string.IsNullOrWhiteSpace(reason)) notificationMsg += $" Причина: {reason}";
-                _notificationService.CreateNotification(request.UserId, NotificationType.ModerationRejected, notificationMsg, request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
+                _notificationService.CreateNotification(request.UserId, NotificationType.RequestRejected, notificationMsg, request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
 
 
                 return Json(new { success = true, message = "Запрос отклонен." });

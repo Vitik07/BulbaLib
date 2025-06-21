@@ -1,0 +1,31 @@
+﻿@model IEnumerable<BulbaLib.Models.NotificationViewModel>
+
+@if (Model != null && Model.Any())
+{
+    <ul class="list-group list-group-flush">
+        @foreach (var notification in Model)
+        {
+            <li class="list-group-item @(notification.IsRead ? "" : "list-group-item-primary")">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">@notification.Type</h6>
+                    <small>@notification.DateSent.ToString("dd.MM.yyyy HH:mm")</small>
+                </div>
+                <p class="mb-1">@notification.Message</p>
+                <small>
+                    @if (!string.IsNullOrEmpty(notification.Link))
+                    {
+                        <a href="@notification.Link" class="btn btn-sm btn-outline-primary me-2 notification-link" target="_blank">Перейти</a>
+                    }
+                    @if (!notification.IsRead)
+                    {
+                        <button class="btn btn-sm btn-outline-secondary mark-notification-as-read" data-notification-id="@notification.Id">Прочитано</button>
+                    }
+                </small>
+            </li>
+        }
+    </ul>
+}
+else
+{
+    <p class="text-center p-3">У вас нет уведомлений.</p>
+}
