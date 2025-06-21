@@ -51,22 +51,16 @@ namespace BulbaLib.Services
         {
             if (currentUser == null || novel == null) return false;
             if (currentUser.Role == UserRole.Admin) return true;
-            if (currentUser.Role == UserRole.Author)
-            {
-                return novel.AuthorId == currentUser.Id;
-            }
-            return false;
+            // Non-admin users (Authors) can edit if they are the creator.
+            return novel.CreatorId == currentUser.Id;
         }
 
         public bool CanDeleteNovel(User currentUser, Novel novel)
         {
             if (currentUser == null || novel == null) return false;
             if (currentUser.Role == UserRole.Admin) return true;
-            if (currentUser.Role == UserRole.Author)
-            {
-                return novel.AuthorId == currentUser.Id;
-            }
-            return false;
+            // Non-admin users (Authors) can delete if they are the creator.
+            return novel.CreatorId == currentUser.Id;
         }
 
         public bool CanSubmitChapterForModeration(User currentUser, Novel novel)

@@ -41,14 +41,31 @@ namespace BulbaLib.Controllers
             var notificationViewModels = new List<NotificationViewModel>();
             foreach (var n in notifications)
             {
+                string rejectionReason = null;
+                if (n.Type == NotificationType.RequestRejected &&
+                    n.RelatedItemType == RelatedItemType.ModerationRequest &&
+                    n.RelatedItemId.HasValue)
+                {
+                    var moderationRequest = _mySqlService.GetModerationRequestById(n.RelatedItemId.Value);
+                    if (moderationRequest != null)
+                    {
+                        rejectionReason = moderationRequest.RejectionReason;
+                        if (string.IsNullOrEmpty(rejectionReason)) // Fallback if RejectionReason is empty but ModerationComment exists
+                        {
+                            rejectionReason = moderationRequest.ModerationComment;
+                        }
+                    }
+                }
+
                 notificationViewModels.Add(new NotificationViewModel
                 {
                     Id = n.Id,
                     UserId = n.UserId,
-                    Type = MapNotificationTypeToRussian(n.Type),
-                    Message = n.Message,
-                    Link = await GetNotificationLink(n),
-                    DateSent = n.CreatedAt
+                    Type = MapNotificationTypeToRussian(n.Type), // This now returns "Запрос одобрен" / "Запрос отклонен"
+                    Message = n.Message, // This is "Запрос на {действие} новеллы/главы '{Название}' {статус}."
+                    Link = await GetNotificationLink(n), // Link might need to go to moderation request details if rejected
+                    DateSent = n.CreatedAt,
+                    RejectionReason = rejectionReason
                     // IsRead property removed from NotificationViewModel and Notification model
                 });
             }
@@ -94,10 +111,11 @@ namespace BulbaLib.Controllers
             // Direct mapping for now:
             return type switch
             {
-                NotificationType.RequestApproved => "Запрос одобрен",
-                NotificationType.RequestRejected => "Запрос отклонен",
-                NotificationType.ModerationApproved => "Запрос на модерацию одобрен", // Added to match enum
-                NotificationType.ModerationRejected => "Запрос на модерацию отклонен", // Added to match enum
+                NotificationType.RequestApproved => "Запрос одобрен", // New general "approved" title
+                NotificationType.RequestRejected => "Запрос отклонен", // New general "rejected" title
+                // Старые типы, если они еще используются для других целей:
+                NotificationType.ModerationApproved => "Запрос на модерацию одобрен",
+                NotificationType.ModerationRejected => "Запрос на модерацию отклонен",
                 NotificationType.NewChapter => "Новая глава",
                 NotificationType.NovelUpdated => "Новелла обновлена",
                 _ => type.ToString(),

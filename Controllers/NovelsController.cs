@@ -133,7 +133,9 @@ namespace BulbaLib.Controllers
                 ReleaseYear = model.ReleaseYear,
                 AlternativeTitles = model.AlternativeTitles,
                 RelatedNovelIds = model.RelatedNovelIds, // Make sure this is handled if it's a list/array
-                AuthorId = currentUser.Id, // Default to current user, admin might change it later if UI allows
+                // AuthorId = currentUser.Id, // AuthorId will be set from model.AuthorId if provided, or null. CreatorId is current user.
+                CreatorId = currentUser.Id, // The user creating the record is the CreatorId
+                AuthorId = model.AuthorId, // This is the ID of the original author of the work, can be null
                 Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             };
 
@@ -528,7 +530,7 @@ namespace BulbaLib.Controllers
             else // UserRole.Author
             {
                 // Author is editing their own draft
-                if (existingNovel.Status == NovelStatus.Draft && existingNovel.AuthorId == currentUser.Id)
+                if (existingNovel.Status == NovelStatus.Draft && existingNovel.CreatorId == currentUser.Id)
                 {
                     existingNovel.Title = model.Title;
                     existingNovel.Description = model.Description;

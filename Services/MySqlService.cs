@@ -190,6 +190,25 @@ namespace BulbaLib.Services
                 Console.WriteLine($"Error checking/altering Novels table for Status column: {ex.Message}");
             }
 
+            // Check and add CreatorId column to Novels table
+            try
+            {
+                using var cmdCheckNovelCreatorIdColumn = conn.CreateCommand();
+                cmdCheckNovelCreatorIdColumn.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Novels' AND COLUMN_NAME = 'CreatorId'";
+                var creatorIdColumnExists = Convert.ToInt32(cmdCheckNovelCreatorIdColumn.ExecuteScalar()) > 0;
+                if (!creatorIdColumnExists)
+                {
+                    using var cmdAlterNovelCreatorId = conn.CreateCommand();
+                    cmdAlterNovelCreatorId.CommandText = "ALTER TABLE Novels ADD COLUMN CreatorId INT NULL AFTER AuthorId";
+                    cmdAlterNovelCreatorId.ExecuteNonQuery();
+                    Console.WriteLine("Successfully added CreatorId column to Novels table.");
+                }
+            }
+            catch (MySqlException ex)
+            {
+                Console.WriteLine($"Error checking/altering Novels table for CreatorId column: {ex.Message}");
+            }
+
 
             // Check and add CreatorId column to Chapters table
             try
@@ -595,7 +614,7 @@ namespace BulbaLib.Services
             _logger.LogInformation("Entering GetNovel method for Id: {NovelId}", id);
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, RelatedNovelIds, Date, Status FROM Novels WHERE Id = @id";
+            cmd.CommandText = "SELECT Id, Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, CreatorId, AlternativeTitles, RelatedNovelIds, Date, Status FROM Novels WHERE Id = @id";
             cmd.Parameters.AddWithValue("@id", id);
             using var reader = cmd.ExecuteReader();
             if (reader.Read())
@@ -611,6 +630,7 @@ namespace BulbaLib.Services
                     Format = reader.IsDBNull("Format") ? "" : reader.GetString("Format"),
                     ReleaseYear = reader.IsDBNull("ReleaseYear") ? (int?)null : reader.GetInt32("ReleaseYear"),
                     AuthorId = reader.IsDBNull("AuthorId") ? (int?)null : reader.GetInt32("AuthorId"),
+                    CreatorId = reader.IsDBNull("CreatorId") ? 0 : reader.GetInt32("CreatorId"),
                     AlternativeTitles = reader.IsDBNull("AlternativeTitles") ? "" : reader.GetString("AlternativeTitles"),
                     RelatedNovelIds = reader.IsDBNull("RelatedNovelIds") ? "" : reader.GetString("RelatedNovelIds"),
                     Status = reader.IsDBNull("Status") ? NovelStatus.Draft : Enum.Parse<NovelStatus>(reader.GetString("Status"), true)
@@ -666,10 +686,10 @@ namespace BulbaLib.Services
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT INTO Novels 
-                (Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, AlternativeTitles, Date, RelatedNovelIds, Status)
-                VALUES (@title, @desc, @covers, @genres, @tags, @type, @format, @releaseYear, @authorId, @altTitles, @date, @relatedNovelIds, @status);
+                (Title, Description, Covers, Genres, Tags, Type, Format, ReleaseYear, AuthorId, CreatorId, AlternativeTitles, Date, RelatedNovelIds, Status)
+                VALUES (@title, @desc, @covers, @genres, @tags, @type, @format, @releaseYear, @authorId, @creatorId, @altTitles, @date, @relatedNovelIds, @status);
                 SELECT LAST_INSERT_ID();";
-            _logger.LogDebug("CreateNovel parameters: Title={Title}, AuthorId={AuthorId}, Status={Status}", novel.Title, novel.AuthorId, novel.Status);
+            _logger.LogDebug("CreateNovel parameters: Title={Title}, AuthorId={AuthorId}, CreatorId={CreatorId}, Status={Status}", novel.Title, novel.AuthorId, novel.CreatorId, novel.Status);
             cmd.Parameters.AddWithValue("@title", novel.Title);
             cmd.Parameters.AddWithValue("@desc", novel.Description ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@covers", novel.Covers ?? "[]");
@@ -679,6 +699,7 @@ namespace BulbaLib.Services
             cmd.Parameters.AddWithValue("@format", novel.Format ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@releaseYear", novel.ReleaseYear.HasValue ? novel.ReleaseYear.Value : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@authorId", novel.AuthorId.HasValue ? novel.AuthorId.Value : (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@creatorId", novel.CreatorId);
             cmd.Parameters.AddWithValue("@altTitles", novel.AlternativeTitles ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@relatedNovelIds", string.IsNullOrEmpty(novel.RelatedNovelIds) ? (object)DBNull.Value : novel.RelatedNovelIds);
             cmd.Parameters.AddWithValue("@date", novel.Date);

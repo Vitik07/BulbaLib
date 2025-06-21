@@ -11,6 +11,8 @@ using System.Text.RegularExpressions;
 using System;
 using BulbaLib.Services; // Replaced BulbaLib.Interfaces
 using System.Linq;
+using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 
 namespace BulbaLib.Controllers
 {
@@ -30,6 +32,29 @@ namespace BulbaLib.Controllers
         {
             _mySqlService = mySqlService; _permissionService = permissionService; _currentUserService = currentUserService;
             _notificationService = notificationService; _fileService = fileService; _logger = logger;
+        }
+
+        private string GetActionDisplayName(ModerationRequestType requestType)
+        {
+            var memberInfo = typeof(ModerationRequestType).GetMember(requestType.ToString()).FirstOrDefault();
+            if (memberInfo != null)
+            {
+                var displayAttribute = memberInfo.GetCustomAttribute<DisplayAttribute>();
+                if (displayAttribute != null)
+                {
+                    string name = displayAttribute.Name;
+                    if (name.Contains(" новеллы"))
+                    {
+                        name = name.Substring(0, name.IndexOf(" новеллы", StringComparison.OrdinalIgnoreCase));
+                    }
+                    else if (name.Contains(" главы"))
+                    {
+                        name = name.Substring(0, name.IndexOf(" главы", StringComparison.OrdinalIgnoreCase));
+                    }
+                    return name.ToLowerInvariant();
+                }
+            }
+            return requestType.ToString().ToLowerInvariant();
         }
 
         public IActionResult Index()
@@ -199,8 +224,28 @@ namespace BulbaLib.Controllers
                     {
                         case ModerationRequestType.AddNovel:
                             var createData = JsonSerializer.Deserialize<Novel>(request.RequestData); if (createData == null) throw new JsonException("Null data AddNovel");
-                            novelForNotification = createData; createData.AuthorId = request.UserId; createData.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds(); createData.Status = NovelStatus.Approved;
-                            var dbNovel = new Novel { Title = createData.Title, Description = createData.Description, AuthorId = createData.AuthorId, Genres = createData.Genres, Tags = createData.Tags, Type = createData.Type, Format = createData.Format, ReleaseYear = createData.ReleaseYear, AlternativeTitles = createData.AlternativeTitles, RelatedNovelIds = createData.RelatedNovelIds, Date = createData.Date, Status = createData.Status, Covers = "[]" };
+                            novelForNotification = createData;
+                            // createData.AuthorId = request.UserId; // AuthorId is now original author from data
+                            createData.CreatorId = request.UserId; // UserId (who sent the request) is the CreatorId
+                            createData.Date = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                            createData.Status = NovelStatus.Approved;
+                            var dbNovel = new Novel
+                            {
+                                Title = createData.Title,
+                                Description = createData.Description,
+                                AuthorId = createData.AuthorId, // This is the original author, from the submitted data
+                                CreatorId = createData.CreatorId, // This is the user who submitted the request
+                                Genres = createData.Genres,
+                                Tags = createData.Tags,
+                                Type = createData.Type,
+                                Format = createData.Format,
+                                ReleaseYear = createData.ReleaseYear,
+                                AlternativeTitles = createData.AlternativeTitles,
+                                RelatedNovelIds = createData.RelatedNovelIds,
+                                Date = createData.Date,
+                                Status = createData.Status,
+                                Covers = "[]"
+                            };
                             int newId = _mySqlService.CreateNovel(dbNovel);
                             List<string> tempP = new List<string>(); if (!string.IsNullOrEmpty(createData.Covers)) { try { tempP = JsonSerializer.Deserialize<List<string>>(createData.Covers); } catch { } }
                             List<string> finalP = new List<string>(); if (tempP != null) { foreach (var p in tempP) { if (!string.IsNullOrEmpty(p) && p.Contains("/temp_covers/")) { string fp = await _fileService.CommitTempCoverAsync(p, newId); if (!string.IsNullOrEmpty(fp)) finalP.Add(fp); } else if (!string.IsNullOrEmpty(p)) { finalP.Add(p); } } }
@@ -265,16 +310,20 @@ namespace BulbaLib.Controllers
                             break;
                         default: throw new InvalidOperationException("Unsupported type");
                     }
-                    _mySqlService.UpdateModerationRequest(request);
+                    _mySqlService.UpdateModerationRequest(request); // This updates status, moderatorId, comment, updatedAt
+                    string actionDisplayName = GetActionDisplayName(request.RequestType);
                     var finalNT = novelForNotification?.Title ?? originalNovelTitleForNotification ?? "?";
-                    _notificationService.CreateNotification(request.UserId, NotificationType.RequestApproved, $"Запрос '{request.RequestType}' для новеллы '{finalNT}' одобрен.", request.NovelId, RelatedItemType.Novel);
+                    _notificationService.CreateNotification(request.UserId, NotificationType.RequestApproved, $"Запрос на {actionDisplayName} новеллы '{finalNT}' одобрен.", request.NovelId, RelatedItemType.Novel);
                     return Json(new { success = true, message = $"Запрос ID {requestId} ({request.RequestType}) одобрен." });
                 }
                 catch (Exception ex) { _logger.LogError(ex, "Error approving req ID {Rid}", requestId); return Json(new { success = false, message = "Ошибка одобрения запроса" }); }
             }
-            else
+            else // Reject
             {
-                request.Status = ModerationStatus.Rejected; _mySqlService.UpdateModerationRequest(request);
+                // request.Status = ModerationStatus.Rejected; // This is handled by UpdateModerationRequestStatusAsync
+                await _mySqlService.UpdateModerationRequestStatusAsync(request.Id, ModerationStatus.Rejected, currentAdminUser.Id, moderationComment);
+                // request.RejectionReason = moderationComment; // This is handled by UpdateModerationRequestStatusAsync
+
                 if (request.RequestType == ModerationRequestType.AddNovel || request.RequestType == ModerationRequestType.EditNovel)
                 {
                     if (!string.IsNullOrEmpty(request.RequestData))
@@ -289,11 +338,24 @@ namespace BulbaLib.Controllers
                         catch (Exception ex) { _logger.LogError(ex, "Error deleting temp covers for rejected req ID {Rid}", requestId); }
                     }
                 }
-                string rejNT = "?"; if (request.RequestType == ModerationRequestType.AddNovel && !string.IsNullOrEmpty(request.RequestData)) { try { var nt = JsonSerializer.Deserialize<Novel>(request.RequestData); rejNT = nt?.Title ?? rejNT; } catch { } }
-                else if (request.NovelId.HasValue) { rejNT = _mySqlService.GetNovel(request.NovelId.Value)?.Title ?? rejNT; }
-                else if (request.RequestType == ModerationRequestType.DeleteNovel && !string.IsNullOrEmpty(request.RequestData)) { try { rejNT = JsonDocument.Parse(request.RequestData).RootElement.GetProperty("Title").GetString() ?? rejNT; } catch { } }
-                var rejMsg = $"Запрос '{request.RequestType}' для новеллы '{rejNT}' отклонен."; if (!string.IsNullOrWhiteSpace(moderationComment)) rejMsg += $" Причина: {moderationComment}";
-                _notificationService.CreateNotification(request.UserId, NotificationType.RequestRejected, rejMsg, request.NovelId, RelatedItemType.Novel);
+                string actionDisplayName = GetActionDisplayName(request.RequestType);
+                string rejNT = "?";
+                if (request.RequestType == ModerationRequestType.AddNovel && !string.IsNullOrEmpty(request.RequestData))
+                {
+                    try { var nt = JsonSerializer.Deserialize<Novel>(request.RequestData); rejNT = nt?.Title ?? rejNT; } catch { }
+                }
+                else if (request.NovelId.HasValue)
+                {
+                    rejNT = _mySqlService.GetNovel(request.NovelId.Value)?.Title ?? rejNT;
+                }
+                else if (request.RequestType == ModerationRequestType.DeleteNovel && !string.IsNullOrEmpty(request.RequestData))
+                {
+                    try { rejNT = JsonDocument.Parse(request.RequestData).RootElement.GetProperty("Title").GetString() ?? rejNT; } catch { }
+                }
+                var rejMsg = $"Запрос на {actionDisplayName} новеллы '{rejNT}' отклонен.";
+                // Причина (moderationComment) теперь будет в отдельном поле в UI, если есть.
+                // Основное сообщение не включает причину, но уведомление будет ссылаться на ModerationRequest, где причина хранится.
+                _notificationService.CreateNotification(request.UserId, NotificationType.RequestRejected, rejMsg, request.Id, RelatedItemType.ModerationRequest);
                 return Json(new { success = true, message = $"Запрос ID {requestId} ({request.RequestType}) отклонен." });
             }
         }
@@ -505,9 +567,23 @@ namespace BulbaLib.Controllers
                 // Generic notification for the user who made the request
                 var novelForNotification = request.NovelId.HasValue ? _mySqlService.GetNovel(request.NovelId.Value) : null;
                 var chapterForNotification = request.ChapterId.HasValue ? await _mySqlService.GetChapterAsync(request.ChapterId.Value) : null;
-                string itemTitle = chapterForNotification?.Title ?? (JsonSerializer.Deserialize<Chapter>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })?.Title) ?? "N/A";
+
+                // Try to get chapter title from existing chapter if available, otherwise from request data (for AddChapter)
+                string itemTitle = chapterForNotification?.Title;
+                if (string.IsNullOrEmpty(itemTitle) && request.RequestType == ModerationRequestType.AddChapter && !string.IsNullOrEmpty(request.RequestData))
+                {
+                    try
+                    {
+                        var chapterDetails = JsonSerializer.Deserialize<Chapter>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        itemTitle = chapterDetails?.Title;
+                    }
+                    catch (JsonException) { /* ignore, fallback to N/A */ }
+                }
+                itemTitle = itemTitle ?? "N/A";
+
                 string novelTitleForNotification = novelForNotification?.Title ?? "N/A";
-                _notificationService.CreateNotification(request.UserId, NotificationType.RequestApproved, $"Ваш запрос '{request.RequestType.ToString()}' для главы '{itemTitle}' (новелла '{novelTitleForNotification}') одобрен.", request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
+                string actionDisplayName = GetActionDisplayName(request.RequestType);
+                _notificationService.CreateNotification(request.UserId, NotificationType.RequestApproved, $"Запрос на {actionDisplayName} главы '{itemTitle}' (новелла '{novelTitleForNotification}') одобрен.", request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
 
                 return Json(new { success = true, message = "Запрос одобрен." });
             }
@@ -546,12 +622,25 @@ namespace BulbaLib.Controllers
                 // Notification
                 var novelForNotification = request.NovelId.HasValue ? _mySqlService.GetNovel(request.NovelId.Value) : null;
                 var chapterForNotification = request.ChapterId.HasValue ? await _mySqlService.GetChapterAsync(request.ChapterId.Value) : null;
-                string itemTitle = chapterForNotification?.Title ?? (JsonSerializer.Deserialize<Chapter>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })?.Title) ?? "N/A";
-                string novelTitleForNotification = novelForNotification?.Title ?? "N/A";
-                string notificationMsg = $"Ваш запрос '{request.RequestType.ToString()}' для главы '{itemTitle}' (новелла '{novelTitleForNotification}') отклонен.";
-                if (!string.IsNullOrWhiteSpace(reason)) notificationMsg += $" Причина: {reason}";
-                _notificationService.CreateNotification(request.UserId, NotificationType.RequestRejected, notificationMsg, request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
 
+                string itemTitle = chapterForNotification?.Title;
+                if (string.IsNullOrEmpty(itemTitle) && (request.RequestType == ModerationRequestType.AddChapter || request.RequestType == ModerationRequestType.EditChapter) && !string.IsNullOrEmpty(request.RequestData))
+                {
+                    try
+                    {
+                        var chapterDetails = JsonSerializer.Deserialize<Chapter>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        itemTitle = chapterDetails?.Title;
+                    }
+                    catch (JsonException) { /* ignore, fallback to N/A */ }
+                }
+                itemTitle = itemTitle ?? "N/A";
+
+                string novelTitleForNotification = novelForNotification?.Title ?? "N/A";
+                string actionDisplayName = GetActionDisplayName(request.RequestType);
+                string notificationMsg = $"Запрос на {actionDisplayName} главы '{itemTitle}' (новелла '{novelTitleForNotification}') отклонен.";
+                // Причина (reason) теперь будет в отдельном поле в UI, если есть.
+                // Основное сообщение не включает причину, но уведомление будет ссылаться на ModerationRequest, где причина хранится.
+                _notificationService.CreateNotification(request.UserId, NotificationType.RequestRejected, notificationMsg, request.Id, RelatedItemType.ModerationRequest);
 
                 return Json(new { success = true, message = "Запрос отклонен." });
             }

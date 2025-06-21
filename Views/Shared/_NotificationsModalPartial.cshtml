@@ -7,10 +7,14 @@
         {
             <li class="list-group-item">
                 <div class="d-flex w-100 justify-content-between">
-                    <h6 class="mb-1">@notification.Type</h6>
+                    <h6 class="mb-1">@notification.Type</h6> <!-- Теперь "Запрос одобрен" / "Запрос отклонен" -->
                     <small>@notification.DateSent.ToString("dd.MM.yyyy HH:mm")</small>
                 </div>
-                <p class="mb-1">@notification.Message</p>
+                <p class="mb-1">@notification.Message</p> <!-- Теперь "Запрос на {действие} новеллы/главы '{Название}' {статус}." -->
+                @if (!string.IsNullOrEmpty(notification.RejectionReason))
+                {
+                    <p class="mb-1 text-danger"><small><strong>Причина:</strong> @notification.RejectionReason</small></p>
+                }
                 <small>
                     @if (!string.IsNullOrEmpty(notification.Link))
                     {

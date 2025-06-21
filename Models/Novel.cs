@@ -18,6 +18,7 @@ namespace BulbaLib.Models
         public string? RelatedNovelIds { get; set; }
         public long Date { get; set; }
         public NovelStatus Status { get; set; }
+        public int CreatorId { get; set; } // ID пользователя, создавшего/добавившего новеллу
 
         public List<string> CoversList
         {
