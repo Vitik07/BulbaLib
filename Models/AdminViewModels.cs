@@ -17,6 +17,7 @@ namespace BulbaLib.Models
         public string NovelTitle { get; set; }
         public string Status { get; set; }
         public string RequestDataJson { get; set; }
+        public string ModerationComment { get; set; } // Added for admin comment
 
         public Novel ProposedNovelData { get; set; }
         public Novel ExistingNovelData { get; set; }

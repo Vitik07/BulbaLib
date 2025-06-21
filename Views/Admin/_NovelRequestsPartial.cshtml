@@ -15,9 +15,10 @@
             <tr>
                 <th style="width: 15%;">Тип запроса</th>
                 <th style="width: 20%;">Пользователь</th>
-                <th style="width: 15%;">Дата запроса</th>
-                <th style="width: 15%;">Статус</th>
-                <th style="width: 25%;">Новелла</th> 
+                <th style="width: 10%;">Дата запроса</th>
+                <th style="width: 10%;">Статус</th>
+                <th style="width: 20%;">Новелла (Клик для предпросмотра)</th> 
+                <th style="width: 20%;">Комментарий админа</th>
                 <th style="width: 10%;">Действия</th>
             </tr>
         </thead>
@@ -36,9 +37,22 @@
                             </span>
                         </td>
                         <td>
-                            <a asp-controller="Admin" asp-action="NovelRequestDetails" asp-route-requestId="@item.RequestId" title="Просмотреть детали новеллы: @item.NovelTitle">
-                                @(item.NovelTitle ?? "N/A")
-                            </a>
+                            @if (!string.IsNullOrEmpty(item.NovelTitle))
+                            {
+                                <a href="#" class="novel-preview-link" data-bs-toggle="modal" data-bs-target="#novelPreviewModal_@item.RequestId" title="Предпросмотр: @item.NovelTitle">
+                                    @item.NovelTitle
+                                </a>
+                            }
+                            else if (item.NovelId.HasValue)
+                            {
+                                <a href="#" class="novel-preview-link" data-bs-toggle="modal" data-bs-target="#novelPreviewModal_@item.RequestId" title="Предпросмотр новеллы ID: @item.NovelId.Value">
+                                    Новелла ID: @item.NovelId.Value (Предпросмотр)
+                                </a>
+                            }
+                            else
+                            {
+                                <span>N/A</span>
+                            }
                             <div>
                                 <small class="text-muted">ID Запроса: @item.RequestId</small>
                                 @if (item.NovelId.HasValue)
@@ -46,6 +60,12 @@
                                     <small class="text-muted d-block">ID Новеллы: @item.NovelId.Value</small>
                                 }
                             </div>
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(item.ModerationComment))
+                            {
+                                <span title="@item.ModerationComment">@TruncateString(item.ModerationComment, 50)</span>
+                            }
                         </td>
                         <td>
                             <a asp-controller="Admin" asp-action="NovelRequestDetails" asp-route-requestId="@item.RequestId" class="btn btn-sm btn-primary mb-1" title="Просмотреть детали запроса">
@@ -96,12 +116,43 @@
                             </div>
                         </td>
                     </tr>
-                }
+
+                    <!-- Modal for Novel Preview (placed INSIDE the loop for each item) -->
+                    <div class="modal fade" id="novelPreviewModal_@item.RequestId" tabindex="-1" aria-labelledby="novelPreviewModalLabel_@item.RequestId" aria-hidden="true">
+                        <div class="modal-dialog modal-lg novel-preview-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="novelPreviewModalLabel_@item.RequestId">Предпросмотр Новеллы: @(item.NovelTitle ?? "Без названия")</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body novel-preview-body">
+                                    <p><strong>Тип запроса:</strong> @item.RequestTypeFriendlyName</p>
+                                    <p><strong>Название:</strong> <span class="preview-title">Загрузка...</span></p>
+                                    <p><strong>Автор:</strong> <span class="preview-author">Загрузка...</span></p>
+                                    <p><strong>Описание:</strong></p>
+                                    <div class="preview-description" style="white-space: pre-wrap; max-height: 200px; overflow-y: auto; border: 1px solid #eee; padding: 10px; margin-bottom:10px;">Загрузка...</div>
+                                    <p><strong>Обложка:</strong></p>
+                                    <img class="preview-cover" src="/Resource/default.jpg" alt="Обложка" style="max-width: 150px; height: auto; margin-bottom:10px;" />
+                                    <p><strong>Жанры:</strong> <span class="preview-genres">Загрузка...</span></p>
+                                    <p><strong>Теги:</strong> <span class="preview-tags">Загрузка...</span></p>
+                                    <p><strong>Статус перевода:</strong> <span class="preview-translation-status">Загрузка...</span></p>
+                                    <p><strong>Год выпуска:</strong> <span class="preview-year">Загрузка...</span></p>
+                                    
+                                    <p><strong>Полные данные запроса (JSON):</strong></p>
+                                    <pre class="request-data-json" style="max-height: 200px; overflow: auto; background-color: #f5f5f5; border: 1px solid #ccc; padding: 10px;">@item.RequestDataJson</pre>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                } // End of foreach loop
             }
             else
             {
                 <tr>
-                    <td colspan="6" class="text-center">Нет ожидающих запросов на модерацию новелл.</td>
+                    <td colspan="7" class="text-center">Нет ожидающих запросов на модерацию новелл.</td> <!-- Corrected colspan to 7 -->
                 </tr>
             }
         </tbody>
@@ -109,6 +160,13 @@
 </div>
 
 @functions {
+    string TruncateString(string str, int maxLength)
+    {
+        if (string.IsNullOrEmpty(str))
+            return str;
+        return str.Length <= maxLength ? str : str.Substring(0, maxLength) + "...";
+    }
+
     string GetStatusBadgeClass(string statusString)
     {
         if (Enum.TryParse<ModerationStatus>(statusString, true, out var status))
@@ -172,6 +230,67 @@
 <script>
     $(function () {
         var contentAreaNovel = $('#novel-requests-content-area'); 
+
+        // ----- START Novel Preview Modal Population -----
+        contentAreaNovel.off('show.bs.modal', '.modal[id^="novelPreviewModal_"]').on('show.bs.modal', '.modal[id^="novelPreviewModal_"]', function (event) {
+            var modal = $(this);
+            var triggerButton = $(event.relatedTarget); // Button that triggered the modal
+            var requestId = triggerButton.closest('tr').find('a[asp-action="NovelRequestDetails"]').attr('asp-route-requestId'); 
+            
+            // Find the corresponding request data. This is a bit inefficient if the list is huge.
+            // A better way would be to embed the JSON directly in a data attribute of the button or modal.
+            // For now, we'll retrieve it from the displayed <pre> tag if needed, or find the item in the model.
+            // Let's assume `item.RequestDataJson` is accessible or we add it to a data attribute.
+            // For simplicity, let's find the <pre> tag specific to this modal.
+            var rawJsonData = modal.find('.request-data-json').text();
+
+            if (rawJsonData) {
+                try {
+                    var novelData = JSON.parse(rawJsonData);
+                    // Populate common fields
+                    modal.find('.preview-title').text(novelData.Title || 'Нет данных');
+                    modal.find('.preview-author').text(novelData.AuthorLogin || (novelData.AuthorId ? `ID: ${novelData.AuthorId}` : 'Нет данных'));
+                    modal.find('.preview-description').text(novelData.Description || 'Нет данных');
+                    modal.find('.preview-genres').text(novelData.Genres || 'Нет данных');
+                    modal.find('.preview-tags').text(novelData.Tags || 'Нет данных');
+                    modal.find('.preview-translation-status').text(novelData.Type || 'Нет данных'); // Assuming Type maps to Translation Status in this context
+                    modal.find('.preview-year').text(novelData.ReleaseYear || 'Нет данных');
+
+                    // Handle cover image
+                    var coverPath = '/Resource/default.jpg'; // Default
+                    if (novelData.ExistingCoverPaths && novelData.ExistingCoverPaths.length > 0) {
+                        // Use the first existing cover path. Make sure it's a usable URL.
+                        // Paths might be relative to wwwroot or need base URL. Assuming they are direct paths from wwwroot.
+                        coverPath = novelData.ExistingCoverPaths[0]; 
+                        if (!coverPath.startsWith('/')) {
+                            coverPath = '/' + coverPath;
+                        }
+                    } else if (novelData.CoverFile && typeof novelData.CoverFile === 'string') { 
+                        // For CreateModel, CoverFile might be just a name. This won't be a URL.
+                        // This part is tricky as the actual file isn't in JSON.
+                        // The request might include a temporary URL if uploaded during the request creation process.
+                        // For now, if it's a string, it's likely not a direct URL to display.
+                        // We might need a specific field in RequestDataJson like "TemporaryCoverUrl"
+                        modal.find('.preview-cover').attr('alt', 'Обложка (имя файла: ' + novelData.CoverFile + ')');
+                    }
+                    // else if (novelData.NewCovers && novelData.NewCovers.length > 0 && typeof novelData.NewCovers[0] === 'string') {
+                        // Similar to CoverFile, if NewCovers store names or temporary info.
+                    // }
+                    modal.find('.preview-cover').attr('src', coverPath);
+                    modal.find('.preview-cover').on('error', function() {
+                        $(this).attr('src', '/Resource/default.jpg'); // Fallback if loaded path is invalid
+                    });
+
+                } catch (e) {
+                    console.error("Error parsing novel data JSON for preview:", e);
+                    modal.find('.modal-body novel-preview-body').prepend('<p class="text-danger">Ошибка загрузки данных для предпросмотра.</p>');
+                }
+            } else {
+                 modal.find('.modal-body novel-preview-body').prepend('<p class="text-warning">Данные для предпросмотра не найдены.</p>');
+            }
+        });
+        // ----- END Novel Preview Modal Population -----
+
 
         contentAreaNovel.off('click', '.novel-request-page-link').on('click', '.novel-request-page-link', function (e) {
             e.preventDefault();

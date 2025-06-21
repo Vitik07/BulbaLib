@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿@{
+﻿@{
     ViewData["Title"] = "BulbaLib";
 
     Layout = null;
@@ -9,50 +9,79 @@
     <meta charset="UTF-8" />
     <title>BulbaLib</title>
     <link rel="stylesheet" href="~/css/Index.css" />
+    <style>
+        /* Notification popover override styles */
+        .notifications-popover {
+            position: absolute;
+            z-index: 6000;
+            top: 110%;
+            right: 0;
+            min-width: 320px;
+            max-width: 425px;
+            background: var(--fg, #23232a);
+            color: var(--text-primary, #e1e1e6);
+            border-radius: 14px;
+            border: 1.5px solid var(--border-base, #252538);
+            box-shadow: 0 6px 32px var(--shadow, rgba(0,0,0,0.7)), 0 2px 0 #363657;
+            padding: 0;
+            display: none;
+        }
+
+            .notifications-popover.active {
+                display: block;
+                animation: fadeIn 0.2s;
+            }
+
+            .notifications-popover .notifications-list {
+                max-height: 55vh;
+                overflow-y: auto;
+                padding: 12px 10px 10px 10px;
+            }
+
+            .notifications-popover .list-group-item {
+                background: none;
+                border: none;
+                border-bottom: 1.3px solid #232337;
+                color: var(--text-primary, #e1e1e6);
+                padding: 15px 8px 11px 8px;
+                border-radius: 0;
+                font-size: 1em;
+                transition: background 0.13s;
+            }
+
+                .notifications-popover .list-group-item:last-child {
+                    border-bottom: none;
+                }
+
+            .notifications-popover .list-group-item-primary {
+                background: #24244b !important;
+                color: #fff !important;
+            }
+    </style>
 </head>
 <body>
     <!-- Top nav bar -->
     <div class="main-nav">
         <div class="main-nav-left">
             <div class="logo-dropdown-container">
-                <!-- Wrapper for logo and dropdown -->
                 <div class="logo">
                     <img src="favicon.ico" alt="BulbaLib" />
                     <span>BulbaLib</span>
                 </div>
                 <div class="dropdown-panel logo-dropdown-panel">
-                    <!-- Dropdown menu -->
                     <button class="dropdown-item nav-catalog" onclick="location.href='/catalog'">Каталог</button>
-                    <!-- Other dropdown items can be added here later -->
                 </div>
             </div>
         </div>
         <div class="main-nav-center">
-            <!-- Only searchInput -->
             <input id="searchInput" type="text" placeholder="Введите название новеллы..." autocomplete="off" />
         </div>
-        <div class="main-nav-right">
-            @* Этот блок будет управляться JavaScript в зависимости от статуса аутентификации *@
-            <div id="userActionsContainer" class="d-flex align-items-center">
-                @* Сюда будет вставлен либо колокольчик и профиль, либо кнопка входа *@
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal for Notifications (структура) -->
-    <div class="modal fade" id="notificationsModal" tabindex="-1" aria-labelledby="notificationsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="notificationsModalLabel">Уведомления</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="notificationsModalBody">
-                    <p>Загрузка уведомлений...</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-                    <button type="button" class="btn btn-primary" id="markAllNotificationsAsReadBtnIndex">Пометить все как прочитанные</button>
+        <div class="main-nav-right" style="position: relative;">
+            <div id="userActionsContainer" class="d-flex align-items-center"></div>
+            <!-- Notification Popover (hidden by default) -->
+            <div class="notifications-popover" id="notificationsPopover">
+                <div class="notifications-list" id="notificationsPopoverBody">
+                    <p class="text-center">Загрузка уведомлений...</p>
                 </div>
             </div>
         </div>
@@ -91,90 +120,16 @@
             </div>
         </div>
     </div>
+    @Html.AntiForgeryToken()
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         const baseUrl = window.location.origin;
 
-        function calculateSearchScore(novelTitle, term) {
-            novelTitle = novelTitle.toLowerCase();
-            term = term.toLowerCase();
-
-            let scores = {
-                totalScore: 0,
-                exactMatchBonus: 0,
-                startWordBonus: 0,
-                sequentialBonus: 0,
-                charCountBonus: 0
-            };
-
-            // A. Bonus for full substring match of term
-            const idx = novelTitle.indexOf(term);
-            if (idx !== -1) {
-                scores.exactMatchBonus = 10000 / (1 + idx);
-            }
-
-            // B. Bonus for term matching the start of a word in novelTitle
-            // const words = novelTitle.split(/[\s-_:,.]+/); // Original split
-            const words = novelTitle.split(/[\s-_]+/); // Split by space, hyphen, underscore as per new req
-            for (const word of words) {
-                if (word.startsWith(term)) {
-                    scores.startWordBonus += 5000; // Accumulate if multiple words start with term
-                }
-            }
-
-            // C. Bonus for sequential character matching of term in novelTitle
-            let maxSequentialScore = 0;
-            if (term.length > 0) { // Ensure term is not empty
-                for (let i = 0; i < novelTitle.length; i++) {
-                    let currentSequentialScore = 0;
-                    let termCharIndex = 0;
-                    let continuityBonus = 1.0;
-                    // Iterate from current position i in novelTitle
-                    for (let j = i; j < novelTitle.length && termCharIndex < term.length; j++) {
-                        if (novelTitle[j] === term[termCharIndex]) {
-                            let charScore = (100 + (termCharIndex * 50)) / (1 + j); // j is the title index
-                            currentSequentialScore += charScore * continuityBonus;
-                            continuityBonus *= 1.5;
-                            termCharIndex++;
-                        }
-                    }
-                    // Only count if at least one character of the term was matched sequentially
-                    if (termCharIndex > 0) {
-                        maxSequentialScore = Math.max(maxSequentialScore, currentSequentialScore);
-                    }
-                }
-            }
-            scores.sequentialBonus = maxSequentialScore;
-
-            // D. Bonus for count of unique term characters found in novelTitle
-            const uniqueTermChars = new Set(term.split(''));
-            let foundCharsBonus = 0;
-            if (term.length > 0) { // Ensure term is not empty for uniqueTermChars
-                for (const char of uniqueTermChars) {
-                    if (char === '') continue; // Skip empty char if term was e.g. ' '
-                    // const occurrences = novelTitle.split(char).length - 1; // Alternative way to count
-                    let occurrences = 0;
-                    for (let k = 0; k < novelTitle.length; k++) {
-                        if (novelTitle[k] === char) {
-                            occurrences++;
-                        }
-                    }
-                    foundCharsBonus += occurrences * 3; // Small bonus per occurrence
-                }
-            }
-            scores.charCountBonus = foundCharsBonus;
-
-            // Calculate total score
-            scores.totalScore = scores.exactMatchBonus + scores.startWordBonus + scores.sequentialBonus + scores.charCountBonus;
-
-            return scores;
-        }
-
         // ======= Profile, Notifications Bell, and Auth Button Logic =======
-        const userActionsContainer = document.getElementById('userActionsContainer');
-
         async function setupUserActions() {
-            userActionsContainer.innerHTML = ''; // Clear previous content
-
+            const userActionsContainer = document.getElementById('userActionsContainer');
+            userActionsContainer.innerHTML = '';
             try {
                 const res = await fetch(`${baseUrl}/api/users/me`, { credentials: "include" });
                 if (!res.ok) throw new Error('User not authenticated');
@@ -182,69 +137,40 @@
 
                 // User is authenticated - setup notification bell and profile
                 const notificationBell = document.createElement('a');
-                notificationBell.className = 'nav-link text-dark me-2'; // Added me-2 for spacing
+                notificationBell.className = 'nav-link notification-bell-icon';
                 notificationBell.href = "#";
-                notificationBell.id = "notificationBellIndex"; // Unique ID for this page
+                notificationBell.id = "notificationBellIndex";
                 notificationBell.setAttribute('role', 'button');
-                notificationBell.setAttribute('data-bs-toggle', 'modal');
-                notificationBell.setAttribute('data-bs-target', '#notificationsModal');
+                notificationBell.style.position = "relative";
                 notificationBell.innerHTML = `
-                            <img src="/Resource/bookmark-icon.png" alt="Уведомления" style="width: 24px; height: 24px; vertical-align: middle;" />
-                            <span class="badge bg-danger" id="notification-unread-count-index" style="display:none; vertical-align: top; margin-left: -8px; margin-top: -2px;">0</span>
-                        `;
+                                    <span>&#x1F514;</span>
+                                    <span class="badge" id="notification-unread-count-index" style="display:none;">0</span>
+                                `;
                 userActionsContainer.appendChild(notificationBell);
 
                 const profileLink = document.createElement('a');
                 profileLink.className = 'nav-link text-dark';
                 profileLink.href = `/profile/${user.id}`;
                 profileLink.innerHTML = `
-                            <img src="${baseUrl}/api/users/avatar" alt="Avatar" class="rounded-circle" width="30" height="30" style="object-fit: cover;"
-                                 onerror="this.onerror=null; this.src='/Resource/default-avatar.jpg';" />
-                            <span class="profile-login-text ms-1">${user.login}</span>
-                        `;
+                                    <img src="${baseUrl}/api/users/avatar" alt="Avatar" class="rounded-circle" width="30" height="30" style="object-fit: cover;"
+                                         onerror="this.onerror=null; this.src='/Resource/default-avatar.jpg';" />
+                                    <span class="profile-login-text ms-1">${user.login}</span>
+                                `;
                 userActionsContainer.appendChild(profileLink);
 
-                // Initialize notification bell functionality for this specific bell
-                initializeNotificationBellFunctionality('#notificationBellIndex', '#notificationsModalBody', '#notification-unread-count-index', '#markAllNotificationsAsReadBtnIndex');
-                updateNotificationCountForIndex(); // Initial count update
-
-                // Add Admin Panel button if user is Admin (similar to existing logic)
-                if (user.role === 'Admin' || user.role === 'Moderator') { // Also check for Moderator
-                    const logoDropdownPanel = document.querySelector('.logo-dropdown-panel');
-                    if (logoDropdownPanel && !logoDropdownPanel.querySelector('.nav-admin-panel')) { // Check if not already added
-                        const adminPanelButton = document.createElement('button');
-                        adminPanelButton.className = 'dropdown-item nav-admin-panel';
-                        adminPanelButton.textContent = 'Админ панель';
-                        adminPanelButton.onclick = () => window.location.href = '/admin';
-
-                        const catalogButton = logoDropdownPanel.querySelector('.nav-catalog');
-                        if (catalogButton && catalogButton.nextSibling) {
-                            logoDropdownPanel.insertBefore(adminPanelButton, catalogButton.nextSibling);
-                        } else if (catalogButton) {
-                            logoDropdownPanel.appendChild(adminPanelButton);
-                        } else {
-                            logoDropdownPanel.appendChild(adminPanelButton);
-                        }
-                    }
-                }
-
+                // Initialize notification bell functionality
+                initializeNotificationPopover();
+                updateNotificationCountForIndex();
             } catch (error) {
-                // User is not authenticated or error occurred
+                userActionsContainer.innerHTML = '';
                 const loginButton = document.createElement('a');
-                loginButton.className = 'btn btn-primary'; // Or nav-link style
-                loginButton.href = '/login'; // Assuming /login is your login page
+                loginButton.className = 'btn btn-primary';
+                loginButton.href = '/login';
                 loginButton.textContent = 'Авторизоваться/Зарегистрироваться';
                 userActionsContainer.appendChild(loginButton);
-
-                // Ensure Admin Panel button is not shown
-                const existingAdminButton = document.querySelector('.nav-admin-panel');
-                if (existingAdminButton) {
-                    existingAdminButton.remove();
-                }
             }
         }
 
-        // Function to update notification count specifically for Index page
         function updateNotificationCountForIndex() {
             $.get('/Notifications/GetUnreadCount', function (data) {
                 var countBadge = $('#notification-unread-count-index');
@@ -256,21 +182,47 @@
             });
         }
 
-        // Generic function to initialize notification bell, modal loading, and actions
-        // This can be called if you have multiple notification bells on different pages but same modal structure
-        function initializeNotificationBellFunctionality(bellSelector, modalBodySelector, badgeSelector, markAllReadBtnSelector) {
-            $(bellSelector).off('click').on('click', function (e) {
+        // ======= Notification Popover Custom Logic =======
+        function initializeNotificationPopover() {
+            const bell = document.getElementById('notificationBellIndex');
+            const popover = document.getElementById('notificationsPopover');
+            const popoverBody = document.getElementById('notificationsPopoverBody');
+            const container = bell.parentElement;
+
+            // Show/hide popover on bell click
+            bell.addEventListener('click', function (e) {
                 e.preventDefault();
-                $(modalBodySelector).html('<p class="text-center">Загрузка уведомлений...</p>');
-                $(modalBodySelector).load('/Notifications/GetNotificationsModal', function (response, status, xhr) {
+                // Toggle
+                if (popover.classList.contains('active')) {
+                    popover.classList.remove('active');
+                    return;
+                }
+                // Position popover under bell
+                const bellRect = bell.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                popover.style.right = (containerRect.right - bellRect.right) + "px";
+                popover.classList.add('active');
+                // Load notifications
+                popoverBody.innerHTML = '<p class="text-center">Загрузка уведомлений...</p>';
+                $(popoverBody).load('/Notifications/GetNotificationsModal', function (response, status, xhr) {
                     if (status == "error") {
-                        $(modalBodySelector).html('<p class="text-center text-danger">Не удалось загрузить уведомления.</p>');
+                        popoverBody.innerHTML = '<p class="text-center text-danger">Не удалось загрузить уведомления.</p>';
                     }
+                    // Remove modal header and close button from loaded html (if any)
+                    // This is only relevant if you did not update the server-side partial
+                    $(popoverBody).find('.modal-header, .btn-close').remove();
                 });
             });
 
-            // Mark one as read
-            $(modalBodySelector).off('click', '.mark-notification-as-read').on('click', '.mark-notification-as-read', function () {
+            // Hide on click outside
+            document.addEventListener('mousedown', function (e) {
+                if (!popover.contains(e.target) && !bell.contains(e.target)) {
+                    popover.classList.remove('active');
+                }
+            });
+
+            // Mark notification as read (delegated)
+            $(popoverBody).off('click', '.mark-notification-as-read').on('click', '.mark-notification-as-read', function () {
                 var button = $(this);
                 var notificationId = button.data('notification-id');
                 var token = $('input[name="__RequestVerificationToken"]').first().val();
@@ -284,7 +236,7 @@
                         if (response.success) {
                             button.closest('li.list-group-item').removeClass('list-group-item-primary').addClass('list-group-item-light');
                             button.remove();
-                            updateNotificationCountForIndex(); // Update count
+                            updateNotificationCountForIndex();
                         } else {
                             alert(response.message || 'Ошибка.');
                         }
@@ -293,51 +245,21 @@
                 });
             });
 
-            // Mark all as read
-            $(markAllReadBtnSelector).off('click').on('click', function () {
-                var token = $('input[name="__RequestVerificationToken"]').first().val();
-                $.ajax({
-                    url: '/Notifications/MarkAllNotificationsAsRead',
-                    type: 'POST',
-                    headers: { "RequestVerificationToken": token },
-                    success: function (response) {
-                        if (response.success) {
-                            $(modalBodySelector).load('/Notifications/GetNotificationsModal'); // Reload modal
-                            updateNotificationCountForIndex(); // Update count
-                        } else {
-                            alert(response.message || 'Ошибка.');
-                        }
-                    },
-                    error: function () { alert('Ошибка сервера.'); }
-                });
-            });
-
-            // Links inside modal
-            $(modalBodySelector).off('click', 'a.notification-link').on('click', 'a.notification-link', function (e) {
-                var notificationsModalElement = document.getElementById('notificationsModal'); // Assuming this ID for the modal
-                if (notificationsModalElement) {
-                    var modalInstance = bootstrap.Modal.getInstance(notificationsModalElement);
-                    if (modalInstance) {
-                        modalInstance.hide();
-                    }
-                }
+            // Close popover on notification link click
+            $(popoverBody).off('click', 'a.notification-link').on('click', 'a.notification-link', function (e) {
+                popover.classList.remove('active');
             });
         }
 
-
-        // ======= Search Panel =======
+        // ======= Search Panel Logic =======
+        // ... (Остальной js код остается без изменений)
+        // (оставьте весь имеющийся JS ниже без изменений)
+        // ======= Search Panel Logic =======
         const searchPanel = document.getElementById('searchPanel');
         const searchPanelContent = document.getElementById('searchPanelContent');
-        const openSearchPanel = document.getElementById('openSearchPanel');
         const searchInput = document.getElementById('searchInput');
         const searchResultsList = document.getElementById('searchResultsList');
         const recentlyReadList = document.getElementById('recentlyReadList');
-
-        // openSearchPanel.addEventListener('click', () => { // Button is now hidden
-        // searchPanel.style.display = 'block';
-        // searchInput.focus();
-        // updateRecentlyRead();
-        // });
 
         searchInput.addEventListener('focus', () => {
             searchPanel.style.display = 'block';
@@ -345,13 +267,10 @@
         });
 
         searchPanel.addEventListener('mousedown', function (e) {
-            // If the click is outside the content area of the panel,
-            // and also not on the searchInput itself (which is now in the nav bar),
-            // then close the panel.
             if (searchPanelContent && !searchPanelContent.contains(e.target) && e.target !== searchInput) {
                 searchPanel.style.display = 'none';
-                searchInput.value = ''; // Clear search input on close (as per original logic)
-                if (searchResultsList) searchResultsList.innerHTML = ''; // Clear results on close
+                searchInput.value = '';
+                if (searchResultsList) searchResultsList.innerHTML = '';
             }
         });
 
@@ -369,8 +288,6 @@
                 return;
             }
 
-            // const term is already defined and lowercased above.
-            // calculateSearchScore handles its own lowercasing internally.
             const novelScores = allNovels.map(novel => ({
                 novel: novel,
                 scores: calculateSearchScore(novel.title, term)
@@ -386,9 +303,6 @@
             if (strongMatches.length > 0) {
                 finalFilteredNovels = strongMatches;
             } else {
-                // Only filter by percentage if maxTotalScore is meaningfully positive
-                // and relevantNovels exist. If relevantNovels is empty, maxTotalScore is 0,
-                // and finalFilteredNovels should be empty.
                 if (maxTotalScore > 0 && relevantNovels.length > 0) {
                     finalFilteredNovels = relevantNovels.filter(item => item.scores.totalScore >= maxTotalScore * 0.40);
                 } else {
@@ -405,15 +319,80 @@
                 const card = document.createElement('div');
                 card.className = 'search-novel-card';
                 card.innerHTML = `
-                                                                            <img src="${getCover(novel)}" alt="${novel.title}">
-                                                                            <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
-                                                                        `;
+                                    <img src="${getCover(novel)}" alt="${novel.title}">
+                                    <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
+                                `;
                 card.onclick = () => window.location.href = `/novel/${novel.id}`;
                 searchResultsList.appendChild(card);
             }
         });
 
-        // ======= Recently Read =======
+        function calculateSearchScore(novelTitle, term) {
+            novelTitle = novelTitle.toLowerCase();
+            term = term.toLowerCase();
+
+            let scores = {
+                totalScore: 0,
+                exactMatchBonus: 0,
+                startWordBonus: 0,
+                sequentialBonus: 0,
+                charCountBonus: 0
+            };
+
+            const idx = novelTitle.indexOf(term);
+            if (idx !== -1) {
+                scores.exactMatchBonus = 10000 / (1 + idx);
+            }
+
+            const words = novelTitle.split(/[\s-_]+/);
+            for (const word of words) {
+                if (word.startsWith(term)) {
+                    scores.startWordBonus += 5000;
+                }
+            }
+
+            let maxSequentialScore = 0;
+            if (term.length > 0) {
+                for (let i = 0; i < novelTitle.length; i++) {
+                    let currentSequentialScore = 0;
+                    let termCharIndex = 0;
+                    let continuityBonus = 1.0;
+                    for (let j = i; j < novelTitle.length && termCharIndex < term.length; j++) {
+                        if (novelTitle[j] === term[termCharIndex]) {
+                            let charScore = (100 + (termCharIndex * 50)) / (1 + j);
+                            currentSequentialScore += charScore * continuityBonus;
+                            continuityBonus *= 1.5;
+                            termCharIndex++;
+                        }
+                    }
+                    if (termCharIndex > 0) {
+                        maxSequentialScore = Math.max(maxSequentialScore, currentSequentialScore);
+                    }
+                }
+            }
+            scores.sequentialBonus = maxSequentialScore;
+
+            const uniqueTermChars = new Set(term.split(''));
+            let foundCharsBonus = 0;
+            if (term.length > 0) {
+                for (const char of uniqueTermChars) {
+                    if (char === '') continue;
+                    let occurrences = 0;
+                    for (let k = 0; k < novelTitle.length; k++) {
+                        if (novelTitle[k] === char) {
+                            occurrences++;
+                        }
+                    }
+                    foundCharsBonus += occurrences * 3;
+                }
+            }
+            scores.charCountBonus = foundCharsBonus;
+
+            scores.totalScore = scores.exactMatchBonus + scores.startWordBonus + scores.sequentialBonus + scores.charCountBonus;
+
+            return scores;
+        }
+
         async function updateRecentlyRead() {
             const section = document.getElementById('recentlyReadSection');
             const recentlyReadList = document.getElementById('recentlyReadList');
@@ -429,10 +408,8 @@
                 }
                 const bookmarks = await res.json();
 
-                // Собираем только последние закладки по новелле (одна новелла = одна закладка)
                 let all = [];
                 Object.entries(bookmarks).forEach(([novelId, arr]) => {
-                    // .date с маленькой буквы!
                     const lastBookmark = arr.reduce((prev, curr) => (!prev || curr.date > prev.date) ? curr : prev, null);
                     if (lastBookmark) all.push({ novelId: +novelId, ...lastBookmark });
                 });
@@ -454,9 +431,9 @@
                     const card = document.createElement('div');
                     card.className = 'recent-novel-card';
                     card.innerHTML = `
-                                                                        <img src="${getCover(novel)}" alt="${novel.title}">
-                                                                        <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
-                                                                    `;
+                                        <img src="${getCover(novel)}" alt="${novel.title}">
+                                        <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
+                                    `;
                     card.onclick = () => window.location.href = `/novel/${novel.id}`;
                     recentlyReadList.appendChild(card);
                 }
@@ -468,40 +445,32 @@
 
         async function updateUpdatesList() {
             const updatesList = document.getElementById('updatesList');
-            updatesList.innerHTML = ''; // Очищаем старый список
+            updatesList.innerHTML = '';
             try {
-                // Запрос к новому API
-                const res = await fetch(`${baseUrl}/api/chapters/recentupdates?count=6`); // Используем count=6 или другое значение
+                const res = await fetch(`${baseUrl}/api/chapters/recentupdates?count=6`);
                 if (!res.ok) throw new Error(`API request failed with status ${res.status}`);
-                const updates = await res.json(); // Получаем уже готовые данные
+                const updates = await res.json();
 
                 if (!updates || updates.length === 0) {
                     updatesList.innerHTML = '<span>нет обновлений</span>';
                     return;
                 }
 
-                for (let upd of updates) { // upd теперь содержит RecentUpdateViewModel
+                for (let upd of updates) {
                     const item = document.createElement('div');
                     item.className = 'update-item';
-                    // Используем поля из RecentUpdateViewModel
-                    // novelCovers is a list, use the first one or a default.
-                    // Ensure path is correct (e.g., if it's relative, prepend server/base path if needed, but usually full paths or client-handleable relative paths are sent)
                     const coverUrl = (upd.novelCovers && upd.novelCovers.length > 0 && upd.novelCovers[0])
                         ? upd.novelCovers[0]
-                        : '/Resource/default.jpg'; // Default image
-
+                        : '/Resource/default.jpg';
                     item.innerHTML = `
-                                                <img class="update-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="${upd.novelTitle}">
-                                                <div class="update-info">
-                                                    <div class="update-title">${upd.novelTitle}</div>
-                                                    <div class="update-chapter">${upd.chapterNumber ? upd.chapterNumber + " " : ""}${upd.chapterTitle || 'Без названия'}</div>
-                                                    <div class="update-date">${formatRelativeTime(upd.chapterDate)}</div>
-                                                </div>
-                                            `;
-                    // Переход на страницу новеллы и попытка проскроллить к главе (если такой функционал нужен)
-                    // или просто на страницу новеллы /novel/${upd.novelId}
-                    // или на страницу главы /chapter/${upd.chapterId}
-                    item.onclick = () => window.location.href = `/novel/${upd.novelId}?chapter=${upd.chapterId}`; // Or simply /novel/${upd.novelId} or /chapter/${upd.chapterId}
+                                        <img class="update-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="${upd.novelTitle}">
+                                        <div class="update-info">
+                                            <div class="update-title">${upd.novelTitle}</div>
+                                            <div class="update-chapter">${upd.chapterNumber ? upd.chapterNumber + " " : ""}${upd.chapterTitle || 'Без названия'}</div>
+                                            <div class="update-date">${formatRelativeTime(upd.chapterDate)}</div>
+                                        </div>
+                                    `;
+                    item.onclick = () => window.location.href = `/novel/${upd.novelId}?chapter=${upd.chapterId}`;
                     updatesList.appendChild(item);
                 }
             } catch (error) {
@@ -521,9 +490,9 @@
                     const card = document.createElement('div');
                     card.className = 'novelty-card';
                     card.innerHTML = `
-                                                                        <img src="${getCover(novel)}" alt="${novel.title}">
-                                                                        <div class="novelty-title" title="${novel.title}">${novel.title}</div>
-                                                                    `;
+                                        <img src="${getCover(novel)}" alt="${novel.title}">
+                                        <div class="novelty-title" title="${novel.title}">${novel.title}</div>
+                                    `;
                     card.onclick = () => window.location.href = `/novel/${novel.id}`;
                     noveltiesList.appendChild(card);
                 }
@@ -540,9 +509,8 @@
             const mainSliderTitle = document.querySelector('.main-slider-title');
             const centralBlock = mainSlider.closest('.central-block');
 
-            mainSlider.innerHTML = ''; // Clear previous content
+            mainSlider.innerHTML = '';
 
-            // Initially hide all parts. If any condition below fails, they remain hidden.
             if (mainSliderTitle) mainSliderTitle.style.display = 'none';
             if (centralBlock) centralBlock.style.display = 'none';
             mainSlider.style.display = 'none';
@@ -596,7 +564,7 @@
                             const novelDetails = allNovels.find(n => n.id === novelId);
                             if (novelDetails) {
                                 novelsForSlider.push({
-                                    ...novelDetails, // Spread novel properties
+                                    ...novelDetails,
                                     lastBookmarkDate: lastBookmark.date
                                 });
                             }
@@ -608,26 +576,23 @@
             }
 
             if (novelsForSlider.length === 0) {
-                mainSlider.innerHTML = ''; // Already cleared at the beginning, but good practice
+                mainSlider.innerHTML = '';
                 mainSlider.style.display = 'none';
-                console.log('Main slider hidden: No valid bookmarked novels to display.');
                 return;
             }
 
-            // Ensure mainSlider and its related components are visible if we have novels.
-            if (centralBlock) centralBlock.style.display = ''; // Reset to default
-            if (mainSliderTitle) mainSliderTitle.style.display = ''; // Reset to default
-            mainSlider.style.display = ''; // Reset to default display (e.g., 'flex', 'block' as per CSS)
+            if (centralBlock) centralBlock.style.display = '';
+            if (mainSliderTitle) mainSliderTitle.style.display = '';
+            mainSlider.style.display = '';
 
-            // Render novel cards
             const novelsToDisplay = novelsForSlider.slice(0, 7);
             for (let novel of novelsToDisplay) {
                 const card = document.createElement('div');
                 card.className = 'slider-novel-card';
                 card.innerHTML = `
-                                                            <img src="${getCover(novel)}" alt="${novel.title}">
-                                                            <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
-                                                        `;
+                                    <img src="${getCover(novel)}" alt="${novel.title}">
+                                    <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
+                                `;
                 card.onclick = () => window.location.href = `/novel/${novel.id}`;
                 mainSlider.appendChild(card);
             }
@@ -647,25 +612,14 @@
             return `${Math.floor(diff / 86400)} дн. назад`;
         }
 
-        // ======= MAIN LOAD =======
         async function mainLoad() {
-            await loadAllNovels(); // Load novels first as other functions might depend on allNovels
-            await setupUserActions(); // Setup user actions, including notification bell and profile
+            await loadAllNovels();
+            await setupUserActions();
             await updateUpdatesList();
             await updateNoveltiesList();
             await updateMainSlider();
         }
         mainLoad();
-
-        // If you have a global event for login/logout, you can re-call setupUserActions()
-        // Example: $(document).on('userLoggedIn userLoggedOut', setupUserActions);
-
     </script>
-    @* CSRF Token for AJAX requests if not using forms for everything *@
-    @Html.AntiForgeryToken()
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    @* Ensure site.js (if used for global notification functions) is loaded if you refactor notification logic there *@
-    @* <script src="~/js/site.js" asp-append-version="true"></script> *@
 </body>
 </html>

@@ -52,17 +52,14 @@ body {
     box-shadow: 0 2px 16px var(--shadow-soft);
     position: sticky;
     top: 0;
-    z-index: 5001; /* Value higher than .search-panel's z-index */
-    padding: 8px 25px; /* Adjusted padding */
+    z-index: 5001;
+    padding: 8px 25px;
 }
 
-/* New main-nav structure styles */
 .main-nav-left {
     display: flex;
     align-items: center;
 }
-
-/* REMOVED: .main-nav-left .nav-catalog (button moved) */
 
 .main-nav-center {
     flex-grow: 1;
@@ -71,13 +68,9 @@ body {
     align-items: center;
 }
 
-/* Rule for .main-nav-center .nav-catalog is REMOVED as button moved to dropdown */
-
 .main-nav-right {
     display: flex;
     align-items: center;
-    /* gap: 15px; /* Removed as only one child now */ */
-    /* flex-shrink: 0; */ /* Let it size by content */
 }
 
 .logo {
@@ -100,14 +93,11 @@ body {
         text-shadow: 0 2px 8px var(--shadow-soft);
     }
 
-/* .nav-actions rule can be removed or commented if no longer used elsewhere */
-/* For now, assume it might be used by other elements or can be cleaned later */
 .nav-actions {
     display: flex;
     align-items: center;
     gap: 16px;
 }
-
 
 .nav-btn {
     background: #232337;
@@ -133,17 +123,17 @@ body {
     border: none;
     cursor: pointer;
     margin-left: 12px;
-    display: flex; /* Arrange items in a row */
-    align-items: center; /* Vertically align items in the center */
-    background-color: transparent; /* Ensure button background is not interfering */
-    padding: 0; /* Reset padding if any was inherited */
+    display: flex;
+    align-items: center;
+    background-color: transparent;
+    padding: 0;
 }
 
 .profile-login-text {
-    margin-right: 8px; /* Space between login name and avatar */
-    color: var(--text-primary); /* Use existing variable for text color */
-    font-weight: 600; /* Slightly bolder */
-    font-size: 1.4em; /* Apply user's specified font size */
+    margin-right: 8px;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1.4em;
 }
 
 #profileAvatar {
@@ -153,7 +143,6 @@ body {
     box-shadow: 0 2px 8px #0006;
 }
 
-/* --- ��������� --- */
 .main-content-container {
     max-width: 1200px;
     margin: 38px auto 0 auto;
@@ -168,7 +157,6 @@ body {
     margin-bottom: 34px;
 }
 
-/* --- TOP slider --- */
 .main-slider {
     display: flex;
     gap: 20px;
@@ -186,17 +174,15 @@ body {
     padding: 8px 7px 11px 7px;
     cursor: pointer;
     text-align: center;
-    transition: background 0.13s, box-shadow 0.13s, border-color 0.13s; /* Adjusted to match update-item more closely */
+    transition: background 0.13s, box-shadow 0.13s, border-color 0.13s;
     box-shadow: 0 4px 22px #0004;
     border: 1.5px solid #27273a;
 }
 
     .slider-novel-card:hover {
-        background: #2c3140; /* From update-item:hover */
-        /* color: #fff; Removed to match update-item */
-        border-color: var(--accent-blue-light); /* From update-item:hover */
-        /* transform: scale(1.08); Removed to match update-item */
-        box-shadow: 0 4px 22px #2360d199, 0 2px 8px #0004; /* From update-item:hover */
+        background: #2c3140;
+        border-color: var(--accent-blue-light);
+        box-shadow: 0 4px 22px #2360d199, 0 2px 8px #0004;
     }
 
     .slider-novel-card img {
@@ -218,7 +204,6 @@ body {
     text-overflow: ellipsis;
 }
 
-/* --- ������� --- */
 .main-row {
     display: flex;
     gap: 38px;
@@ -247,7 +232,6 @@ body {
     letter-spacing: 0.01em;
 }
 
-/* --- ���������� --- */
 .updates-list {
     display: flex;
     flex-direction: column;
@@ -312,12 +296,10 @@ body {
     margin-top: 1px;
 }
 
-/* --- ������� --- */
 .novelties-list {
     display: grid;
-    /* Adjusted to prevent overflow by allowing column count to adapt */
     grid-template-columns: repeat(auto-fit, minmax(162px, 1fr));
-    gap: 32px 15px; /* Apply user's specified gap */
+    gap: 32px 15px;
     justify-items: center;
     align-items: stretch;
 }
@@ -329,7 +311,7 @@ body {
     text-align: center;
     padding: 14px 7px 17px 7px;
     cursor: pointer;
-    transition: background 0.13s, box-shadow 0.13s, border-color 0.13s; /* Adjusted to match update-item */
+    transition: background 0.13s, box-shadow 0.13s, border-color 0.13s;
     margin-bottom: 6px;
     border: 1.3px solid #232337;
     box-shadow: 0 2px 8px #0004;
@@ -341,11 +323,9 @@ body {
 }
 
     .novelty-card:hover {
-        background: #2c3140; /* From update-item:hover */
-        /* color: #fff; Removed to match update-item */
-        border-color: var(--accent-blue-light); /* From update-item:hover */
-        /* transform: scale(1.07); Removed to match update-item */
-        box-shadow: 0 4px 22px #2360d199, 0 2px 8px #0004; /* From update-item:hover */
+        background: #2c3140;
+        border-color: var(--accent-blue-light);
+        box-shadow: 0 4px 22px #2360d199, 0 2px 8px #0004;
     }
 
     .novelty-card img {
@@ -390,7 +370,6 @@ body {
         opacity: 0.98;
     }
 
-/* --- Search panel --- */
 .search-panel {
     display: none;
     position: fixed;
@@ -400,8 +379,8 @@ body {
     width: 100vw;
     height: 100vh;
     background: rgba(24,24,28,0.98);
-    animation: fadeIn 0.3s; /* Keep animation */
-    overflow-y: auto; /* Allow scrolling if content is long */
+    animation: fadeIn 0.3s;
+    overflow-y: auto;
 }
 
 .search-panel-content {
@@ -413,7 +392,7 @@ body {
     max-width: 750px;
     margin: 70px auto 30px auto;
     padding: 25px;
-    background-color: #232337; /* Theme-appropriate background */
+    background-color: #232337;
     border-radius: 8px;
     box-shadow: 0 5px 25px rgba(0,0,0,0.3);
 }
@@ -422,9 +401,8 @@ body {
     display: block;
     width: 100%;
     max-width: 550px;
-    /* position: relative; /* REMOVED */ */ height: 40px;
-    padding: 8px 15px; /* Symmetrical padding */
-
+    height: 40px;
+    padding: 8px 15px;
     font-size: 16px;
     border-radius: 20px;
     background: #252530;
@@ -442,7 +420,6 @@ body {
         box-shadow: 0 0 0 2px rgba(58, 139, 253, 0.3);
     }
 
-/* New Dropdown Styles */
 .logo-dropdown-container {
     position: relative;
     display: inline-block;
@@ -484,16 +461,6 @@ body {
     .dropdown-item:hover {
         background-color: var(--fg);
     }
-
-    .dropdown-item.nav-catalog {
-        /* Potentially different font-weight or color if needed */
-    }
-
-/* Adjustments for items in .main-nav-right if needed */
-.main-nav-right .nav-catalog {
-    /* margin-right: 15px; /* This is handled by the gap in .main-nav-right now */
-}
-/* .main-nav-right .nav-profile can have margin-left if gap is not enough or preferred */
 
 .search-section {
     margin-bottom: 16px;
@@ -563,7 +530,144 @@ body {
     }
 }
 
-/* --- ������������ --- */
+/* ---- Notification bell ---- */
+.notification-bell-icon {
+    position: relative;
+    margin-right: 16px;
+    margin-left: 2px;
+}
+
+    .notification-bell-icon span:first-child {
+        color: #cccccc !important;
+        filter: grayscale(1) brightness(0.86);
+        opacity: 0.74;
+        font-size: 23px;
+        display: inline-block;
+        vertical-align: middle;
+        transition: color 0.15s, opacity 0.13s, transform 0.2s;
+    }
+
+    .notification-bell-icon:hover span:first-child {
+        color: #fff !important;
+        opacity: 0.95;
+        filter: none;
+        transform: rotate(13deg);
+    }
+
+    .notification-bell-icon .badge,
+    #notification-unread-count-index {
+        position: absolute;
+        right: -2px;
+        top: 0;
+        font-size: 0.63em !important;
+        font-weight: bold;
+        background: #2d1a1a !important;
+        color: #ea4957 !important;
+        padding: 2px 5px !important;
+        border-radius: 7px;
+        border: 1px solid #2d2d3f;
+        min-width: 18px;
+        min-height: 18px;
+        line-height: 1;
+        box-shadow: 0 2px 8px #0005;
+        display: inline-block;
+        text-align: center;
+        z-index: 5;
+        opacity: 0.95;
+        vertical-align: top;
+    }
+
+/* ---- Notifications modal ---- */
+#notificationsModal .modal-dialog {
+    margin-top: 6vh;
+    max-width: 425px;
+    min-width: 320px;
+}
+
+#notificationsModal .modal-content {
+    background: var(--fg);
+    color: var(--text-primary);
+    border-radius: 14px;
+    border: 1.5px solid var(--border-base);
+    box-shadow: 0 6px 32px var(--shadow), 0 2px 0 #363657;
+}
+
+#notificationsModal .modal-header {
+    background: var(--card-bg);
+    color: #fff;
+    border-bottom: 1.5px solid var(--border-base);
+    border-radius: 14px 14px 0 0;
+    padding: 13px 18px;
+}
+
+#notificationsModal .modal-title {
+    font-size: 1.14em;
+    font-weight: 700;
+    color: #fff;
+}
+
+#notificationsModal .modal-body {
+    background: var(--fg);
+    color: var(--text-primary);
+    padding: 18px 16px 14px 16px;
+    max-height: 55vh;
+    overflow-y: auto;
+}
+
+#notificationsModal .list-group-item {
+    background: none;
+    border: none;
+    border-bottom: 1.3px solid #232337;
+    color: var(--text-primary);
+    padding: 15px 8px 11px 8px;
+    border-radius: 0;
+    font-size: 1em;
+    transition: background 0.13s;
+}
+
+    #notificationsModal .list-group-item:last-child {
+        border-bottom: none;
+    }
+
+#notificationsModal .list-group-item-primary {
+    background: #24244b !important;
+    color: #fff !important;
+}
+
+#notificationsModal .btn-outline-primary,
+#notificationsModal .btn-outline-secondary {
+    border-radius: 7px;
+    font-size: 0.97em;
+    padding: 7px 14px;
+}
+
+#notificationsModal .btn-outline-primary {
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+    background: none !important;
+}
+
+    #notificationsModal .btn-outline-primary:hover {
+        background: var(--accent-blue);
+        color: #fff;
+    }
+
+#notificationsModal .btn-outline-secondary {
+    border-color: var(--text-secondary);
+    color: var(--text-secondary);
+    background: none !important;
+}
+
+    #notificationsModal .btn-outline-secondary:hover {
+        background: var(--text-secondary);
+        color: #23232a;
+    }
+
+#notificationsModal .notification-link {
+    margin-right: 8px;
+}
+
+/* --- Responsive (unchanged) --- */
 @media (max-width: 1200px) {
     .central-block {
         padding: 18px 7px 13px 7px;
