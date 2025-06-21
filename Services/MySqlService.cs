@@ -750,15 +750,16 @@ namespace BulbaLib.Services
         WHERE Id=@id";
             _logger.LogInformation("UpdateNovel: Received Novel Id {NovelId}, Title: \"{NovelTitle}\", Input novel.Tags: \"{InputTags}\"", novel.Id, novel.Title, novel.Tags);
 
-            List<string> parsedTags = ParseTagsStringForSavingInternal(novel.Tags);
-            string tagsJsonToSave = parsedTags.Any() ? JsonSerializer.Serialize(parsedTags) : "[]";
-            _logger.LogInformation("UpdateNovel: For Novel Id {NovelId}, tagsJsonToSave: \"{TagsJson}\"", novel.Id, tagsJsonToSave);
+            // The novel.Genres and novel.Tags are expected to be correctly formatted JSON array strings
+            // by the time they reach this service method (e.g. "[]" or "[\"tag1\", \"tag2\"]"),
+            // or null if that's the intended state.
+            // The controller (NovelsController) is responsible for this preparation using SerializeTagsOrGenres.
 
             cmd.Parameters.AddWithValue("@title", novel.Title);
             cmd.Parameters.AddWithValue("@desc", novel.Description ?? (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@covers", novel.Covers ?? "[]");
-            cmd.Parameters.AddWithValue("@genres", novel.Genres ?? (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@tags", tagsJsonToSave);
+            cmd.Parameters.AddWithValue("@covers", novel.Covers ?? "[]"); // Assumes novel.Covers is the final JSON string
+            cmd.Parameters.AddWithValue("@genres", novel.Genres ?? (object)DBNull.Value); // Expects JSON array string or null
+            cmd.Parameters.AddWithValue("@tags", novel.Tags ?? (object)DBNull.Value); // Expects JSON array string or null
             cmd.Parameters.AddWithValue("@type", novel.Type ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@format", novel.Format ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@releaseYear", novel.ReleaseYear.HasValue ? novel.ReleaseYear.Value : (object)DBNull.Value);
@@ -2082,4 +2083,4 @@ namespace BulbaLib.Services
             return result;
         }
     }
-}
+}   

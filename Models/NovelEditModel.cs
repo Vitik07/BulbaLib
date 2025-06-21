@@ -55,7 +55,7 @@ namespace BulbaLib.Models
         [DataType(DataType.MultilineText)]
         public string? AlternativeTitles { get; set; }
 
-        public string RelatedNovelIds { get; set; }
+        public string? RelatedNovelIds { get; set; }
 
         [Display(Name = "Автор")]
         public int? AuthorId { get; set; }

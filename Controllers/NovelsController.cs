@@ -411,13 +411,19 @@ namespace BulbaLib.Controllers
                 return RedirectToAction("Details", "Novel", new { id = model.Id });
             }
 
-                
+
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("ModelState is invalid for novel Id: {NovelId}. Errors: {ModelStateErrors}", model.Id, JsonSerializer.Serialize(ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
                 // Repopulate ExistingCoverPaths if model state is invalid and we return to view
                 model.ExistingCoverPaths = existingNovel.CoversList ?? new List<string>();
+                // Repopulate ViewData for dropdowns
+                ViewData["AllGenres"] = _mySqlService.GetAllGenres();
+                ViewData["AllTags"] = _mySqlService.GetAllTags();
                 return View("~/Views/Novel/Edit.cshtml", model);
             }
+
+            _logger.LogInformation("ModelState IS VALID for novel Id: {NovelId}. Proceeding with update.", model.Id);
 
             // Prepare the NovelUpdateRequest or directly update existingNovel for Admin
             // For Authors, NovelUpdateRequest is serialized for moderation.
@@ -629,6 +635,7 @@ namespace BulbaLib.Controllers
                         model.ReleaseYear,
                         model.AlternativeTitles,
                         model.RelatedNovelIds,
+                        model.AuthorId, // Include AuthorId in the updated fields for moderation
                         // Note: Covers are handled by KeptExistingCovers and NewTempCoverPaths, not directly in UpdatedFields here.
                         // If Covers were part of NovelEditModel in a way that they should be in UpdatedFields,
                         // they would need to be handled here as well (e.g., model.CoversList if it existed and was updated).

@@ -252,16 +252,68 @@ namespace BulbaLib.Controllers
                             if (finalP.Any()) { var utN = _mySqlService.GetNovel(newId); if (utN != null) { utN.Covers = JsonSerializer.Serialize(finalP); _mySqlService.UpdateNovel(utN); } }
                             request.NovelId = newId; break;
                         case ModerationRequestType.EditNovel:
-                            var updateData = JsonSerializer.Deserialize<NovelUpdateRequest>(request.RequestData); if (updateData == null) throw new JsonException("Null data EditNovel");
-                            var novelTU = _mySqlService.GetNovel(request.NovelId.Value); if (novelTU == null) throw new Exception("Novel to update not found");
-                            originalNovelTitleForNotification = novelTU.Title; novelForNotification = novelTU;
-                            novelTU.Title = updateData.Title ?? novelTU.Title; novelTU.Description = updateData.Description ?? novelTU.Description; novelTU.Genres = updateData.Genres ?? novelTU.Genres; novelTU.Tags = updateData.Tags ?? novelTU.Tags; novelTU.Type = updateData.Type ?? novelTU.Type; novelTU.Format = updateData.Format ?? novelTU.Format; novelTU.ReleaseYear = updateData.ReleaseYear ?? novelTU.ReleaseYear; novelTU.AuthorId = updateData.AuthorId ?? novelTU.AuthorId; novelTU.AlternativeTitles = updateData.AlternativeTitles ?? novelTU.AlternativeTitles;
-                            List<string> pathsFromReq = updateData.Covers ?? new List<string>(); List<string> finalUpdP = new List<string>(); List<string> tempToCommit = new List<string>();
-                            foreach (var pIR in pathsFromReq) { if (!string.IsNullOrEmpty(pIR)) { if (pIR.Contains("/temp_covers/")) tempToCommit.Add(pIR); else finalUpdP.Add(pIR); } }
-                            foreach (var tP in tempToCommit) { string fP = await _fileService.CommitTempCoverAsync(tP, novelTU.Id); if (!string.IsNullOrEmpty(fP)) finalUpdP.Add(fP); }
-                            List<string> existingCDB = new List<string>(); if (!string.IsNullOrWhiteSpace(novelTU.Covers)) { try { existingCDB = JsonSerializer.Deserialize<List<string>>(novelTU.Covers); } catch { } }
-                            foreach (var oCP in existingCDB) { if (!finalUpdP.Contains(oCP) && !tempToCommit.Contains(oCP)) { await _fileService.DeleteCoverAsync(oCP); } }
-                            novelTU.Covers = JsonSerializer.Serialize(finalUpdP.Distinct().ToList()); _mySqlService.UpdateNovel(novelTU); break;
+                            var moderationPayload = JsonSerializer.Deserialize<NovelEditModerationData>(request.RequestData);
+                            if (moderationPayload == null || moderationPayload.UpdatedFields == null) throw new JsonException("Invalid or null data for EditNovel moderation.");
+
+                            var novelToUpdate = _mySqlService.GetNovel(request.NovelId.Value);
+                            if (novelToUpdate == null) throw new Exception($"Novel with Id {request.NovelId.Value} not found for update.");
+
+                            originalNovelTitleForNotification = novelToUpdate.Title;
+                            novelForNotification = novelToUpdate; // For notification context
+
+                            // Apply updated fields from moderationPayload.UpdatedFields
+                            novelToUpdate.Title = moderationPayload.UpdatedFields.Title ?? novelToUpdate.Title;
+                            novelToUpdate.Description = moderationPayload.UpdatedFields.Description ?? novelToUpdate.Description;
+                            novelToUpdate.Genres = moderationPayload.UpdatedFields.Genres ?? novelToUpdate.Genres; // Already processed JSON string
+                            novelToUpdate.Tags = moderationPayload.UpdatedFields.Tags ?? novelToUpdate.Tags;       // Already processed JSON string
+                            novelToUpdate.Type = moderationPayload.UpdatedFields.Type ?? novelToUpdate.Type;
+                            novelToUpdate.Format = moderationPayload.UpdatedFields.Format ?? novelToUpdate.Format;
+                            novelToUpdate.ReleaseYear = moderationPayload.UpdatedFields.ReleaseYear ?? novelToUpdate.ReleaseYear;
+                            novelToUpdate.AuthorId = moderationPayload.UpdatedFields.AuthorId ?? novelToUpdate.AuthorId;
+                            novelToUpdate.AlternativeTitles = moderationPayload.UpdatedFields.AlternativeTitles ?? novelToUpdate.AlternativeTitles;
+                            novelToUpdate.RelatedNovelIds = moderationPayload.UpdatedFields.RelatedNovelIds ?? novelToUpdate.RelatedNovelIds;
+
+                            // Revised Cover Handling
+                            var keptCovers = moderationPayload.KeptExistingCovers ?? new List<string>();
+                            var tempCoversToCommit = moderationPayload.NewTempCoverPaths ?? new List<string>();
+
+                            List<string> finalNovelCoverPaths = new List<string>(keptCovers);
+
+                            foreach (var tempPath in tempCoversToCommit)
+                            {
+                                if (!string.IsNullOrEmpty(tempPath) && tempPath.Contains("/temp_covers/"))
+                                {
+                                    string committedPath = await _fileService.CommitTempCoverAsync(tempPath, novelToUpdate.Id);
+                                    if (!string.IsNullOrEmpty(committedPath))
+                                    {
+                                        finalNovelCoverPaths.Add(committedPath);
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning("Failed to commit temporary cover {TempPath} for novel {NovelId} during admin approval.", tempPath, novelToUpdate.Id);
+                                    }
+                                }
+                            }
+
+                            List<string> currentDatabaseCovers = new List<string>();
+                            if (!string.IsNullOrWhiteSpace(novelToUpdate.Covers))
+                            {
+                                try { currentDatabaseCovers = JsonSerializer.Deserialize<List<string>>(novelToUpdate.Covers); }
+                                catch (JsonException ex) { _logger.LogError(ex, "Error deserializing current novel covers for novel {NovelId}", novelToUpdate.Id); }
+                            }
+
+                            foreach (var dbCoverPath in currentDatabaseCovers)
+                            {
+                                if (!finalNovelCoverPaths.Contains(dbCoverPath))
+                                {
+                                    _logger.LogInformation("Admin approval: Deleting cover {CoverPath} as it's not in the final list for novel {NovelId}.", dbCoverPath, novelToUpdate.Id);
+                                    await _fileService.DeleteCoverAsync(dbCoverPath);
+                                }
+                            }
+
+                            novelToUpdate.Covers = JsonSerializer.Serialize(finalNovelCoverPaths.Distinct().ToList());
+                            _mySqlService.UpdateNovel(novelToUpdate);
+                            break;
                         case ModerationRequestType.DeleteNovel:
                             int? novelIdToDelete = request.NovelId;
                             if (!novelIdToDelete.HasValue && !string.IsNullOrEmpty(request.RequestData))
