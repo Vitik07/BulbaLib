@@ -704,11 +704,15 @@ namespace BulbaLib.Services
                 VALUES (@title, @desc, @covers, @genres, @tags, @type, @format, @releaseYear, @authorId, @creatorId, @altTitles, @date, @relatedNovelIds, @status);
                 SELECT LAST_INSERT_ID();";
             _logger.LogDebug("CreateNovel parameters: Title={Title}, AuthorId={AuthorId}, CreatorId={CreatorId}, Status={Status}", novel.Title, novel.AuthorId, novel.CreatorId, novel.Status);
+
+            List<string> parsedTags = ParseTagsStringForSavingInternal(novel.Tags);
+            string tagsJsonToSave = parsedTags.Any() ? JsonSerializer.Serialize(parsedTags) : "[]";
+
             cmd.Parameters.AddWithValue("@title", novel.Title);
             cmd.Parameters.AddWithValue("@desc", novel.Description ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@covers", novel.Covers ?? "[]");
             cmd.Parameters.AddWithValue("@genres", novel.Genres ?? (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@tags", novel.Tags ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@tags", tagsJsonToSave);
             cmd.Parameters.AddWithValue("@type", novel.Type ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@format", novel.Format ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@releaseYear", novel.ReleaseYear.HasValue ? novel.ReleaseYear.Value : (object)DBNull.Value);
@@ -744,12 +748,17 @@ namespace BulbaLib.Services
         RelatedNovelIds=@relatedNovelIds,
         Status=@status 
         WHERE Id=@id";
-            _logger.LogDebug("UpdateNovel parameters for Id={NovelId}: Title={Title}, AuthorId={AuthorId}, Status={Status}", novel.Id, novel.Title, novel.AuthorId, novel.Status);
+            _logger.LogInformation("UpdateNovel: Received Novel Id {NovelId}, Title: \"{NovelTitle}\", Input novel.Tags: \"{InputTags}\"", novel.Id, novel.Title, novel.Tags);
+
+            List<string> parsedTags = ParseTagsStringForSavingInternal(novel.Tags);
+            string tagsJsonToSave = parsedTags.Any() ? JsonSerializer.Serialize(parsedTags) : "[]";
+            _logger.LogInformation("UpdateNovel: For Novel Id {NovelId}, tagsJsonToSave: \"{TagsJson}\"", novel.Id, tagsJsonToSave);
+
             cmd.Parameters.AddWithValue("@title", novel.Title);
             cmd.Parameters.AddWithValue("@desc", novel.Description ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@covers", novel.Covers ?? "[]");
             cmd.Parameters.AddWithValue("@genres", novel.Genres ?? (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@tags", novel.Tags ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@tags", tagsJsonToSave);
             cmd.Parameters.AddWithValue("@type", novel.Type ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@format", novel.Format ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@releaseYear", novel.ReleaseYear.HasValue ? novel.ReleaseYear.Value : (object)DBNull.Value);
@@ -758,8 +767,8 @@ namespace BulbaLib.Services
             cmd.Parameters.AddWithValue("@authorId", novel.AuthorId.HasValue ? novel.AuthorId.Value : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@relatedNovelIds", string.IsNullOrEmpty(novel.RelatedNovelIds) ? (object)DBNull.Value : novel.RelatedNovelIds);
             cmd.Parameters.AddWithValue("@status", novel.Status.ToString());
-            int rowsAffected = cmd.ExecuteNonQuery();
-            _logger.LogInformation("UpdateNovel for Id: {NovelId} affected {RowsAffected} row(s).", novel.Id, rowsAffected);
+            int rowsAffected = cmd.ExecuteNonQuery(); // Выполняем запрос
+            _logger.LogInformation("UpdateNovel for Id: {NovelId} affected {RowsAffected} row(s). SQL: {SQL}", novel.Id, rowsAffected, cmd.CommandText);
         }
 
         public void DeleteNovel(int id)
@@ -1181,48 +1190,105 @@ namespace BulbaLib.Services
         public List<string> GetAllTags()
         {
             _logger.LogInformation("Entering GetAllTags method to collect all unique tags from novels.");
-            var novels = GetNovels(); // This already logs internally
+            var novels = GetNovels();
             var uniqueTags = new HashSet<string>();
             foreach (var n in novels)
             {
                 if (string.IsNullOrWhiteSpace(n.Tags))
                 {
-                    // _logger.LogDebug("Novel Id {NovelId} has null or empty Tags string.", n.Id); // Optional: too verbose?
                     continue;
                 }
 
+                List<string> tagList = null;
                 try
                 {
-                    var tagList = JsonSerializer.Deserialize<List<string>>(n.Tags);
-                    if (tagList != null)
-                    {
-                        foreach (var t in tagList)
-                        {
-                            if (!string.IsNullOrWhiteSpace(t))
-                            {
-                                uniqueTags.Add(t.Trim());
-                            }
-                        }
-                    }
+                    // Прямая попытка десериализации, как в GetAllGenres
+                    tagList = JsonSerializer.Deserialize<List<string>>(n.Tags);
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogWarning("Failed to deserialize Tags JSON for Novel Id {NovelId}. JSON: \"{TagJson}\". Error: {ErrorMessage}. Treating as comma-separated string.", n.Id, n.Tags, ex.Message);
-                    // Fallback: treat as comma-separated string
+                    // Логгируем ошибку JSON, но передаем n.Id и n.Tags как есть, без correctedTagsString
+                    _logger.LogWarning(ex, "GetAllTags: Failed to deserialize Tags JSON for Novel Id {NovelId}. JSON: \"{TagJson}\". Treating as comma-separated string.", n.Id, n.Tags);
+                    // Fallback: treat as comma-separated string, как в GetAllGenres
                     var tagParts = n.Tags.Split(',');
+                    tagList = new List<string>();
                     foreach (var part in tagParts)
                     {
                         var trimmedPart = part.Trim();
                         if (!string.IsNullOrWhiteSpace(trimmedPart))
                         {
-                            uniqueTags.Add(trimmedPart);
+                            tagList.Add(trimmedPart);
+                        }
+                    }
+                }
+
+                if (tagList != null)
+                {
+                    foreach (var t in tagList)
+                    {
+                        // Финальная очистка и добавление
+                        var trimmedTag = t.Trim();
+                        if (!string.IsNullOrWhiteSpace(trimmedTag))
+                        {
+                            uniqueTags.Add(trimmedTag);
                         }
                     }
                 }
             }
-            var result = uniqueTags.OrderBy(t => t).ToList();
+            var result = uniqueTags.OrderBy(g => g).ToList(); // Сортировка по алфавиту
             _logger.LogInformation("Successfully collected {TagCount} unique tags.", result.Count);
             return result;
+        }
+
+        // Вспомогательный метод для парсинга строки тегов перед сохранением (без ForceUTF8)
+        private List<string> ParseTagsStringForSavingInternal(string tagsString)
+        {
+            if (string.IsNullOrWhiteSpace(tagsString))
+            {
+                return new List<string>();
+            }
+
+            List<string> tagList = null;
+            try
+            {
+                // Попытка 1: Десериализовать как JSON-массив
+                _logger.LogDebug("ParseTagsStringForSavingInternal: Attempting to deserialize as JSON array. Input: \"{InputString}\"", tagsString);
+                tagList = JsonSerializer.Deserialize<List<string>>(tagsString);
+                _logger.LogDebug("ParseTagsStringForSavingInternal: Successfully deserialized as JSON array.");
+            }
+            catch (JsonException ex1)
+            {
+                _logger.LogWarning(ex1, "ParseTagsStringForSavingInternal: Failed to deserialize as JSON array. Input: \"{InputString}\". Attempting as single JSON string or comma-separated.", tagsString);
+                // Попытка 2: Если не JSON-массив, и строка в кавычках, попробовать как одиночную JSON-строку
+                if (tagsString.StartsWith("\"") && tagsString.EndsWith("\"") && tagsString.Length > 1)
+                {
+                    try
+                    {
+                        _logger.LogDebug("ParseTagsStringForSavingInternal: Attempting to deserialize as single JSON string. Input: \"{InputString}\"", tagsString);
+                        string singleJsonString = JsonSerializer.Deserialize<string>(tagsString);
+                        _logger.LogDebug("ParseTagsStringForSavingInternal: Successfully deserialized as single JSON string. Content: \"{Content}\". Splitting by comma.", singleJsonString);
+                        // Если внутри этой строки есть запятые, считаем их разделителями
+                        tagList = singleJsonString.Split(',').Select(tag => tag.Trim()).Where(tag => !string.IsNullOrWhiteSpace(tag)).ToList();
+                    }
+                    catch (JsonException ex2)
+                    {
+                        _logger.LogWarning(ex2, "ParseTagsStringForSavingInternal: Failed to deserialize as single JSON string. Input: \"{InputString}\". Treating as raw comma-separated string.", tagsString);
+                        // Если и это не удалось, значит это просто строка с запятыми (или без)
+                        tagList = tagsString.Split(',').Select(tag => tag.Trim()).Where(tag => !string.IsNullOrWhiteSpace(tag)).ToList();
+                    }
+                }
+                else
+                {
+                    _logger.LogDebug("ParseTagsStringForSavingInternal: Not a quoted string. Treating as raw comma-separated string. Input: \"{InputString}\"", tagsString);
+                    // Попытка 3: Просто строка, разделенная запятыми
+                    tagList = tagsString.Split(',').Select(tag => tag.Trim()).Where(tag => !string.IsNullOrWhiteSpace(tag)).ToList();
+                }
+            }
+
+            // Финальная очистка: тримминг, удаление пустых строк и дубликатов
+            var finalTagList = tagList?.Select(t => t.Trim()).Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().ToList() ?? new List<string>();
+            _logger.LogDebug("ParseTagsStringForSavingInternal: Parsed tags for input \"{InputString}\": [{ParsedTags}]", tagsString, string.Join(", ", finalTagList));
+            return finalTagList;
         }
 
         public List<Novel> GetNovelsByIds(List<int> ids)
