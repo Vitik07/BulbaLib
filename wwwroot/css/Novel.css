@@ -1,4 +1,4 @@
-﻿@charset "UTF-8";
+﻿﻿@charset "UTF-8";
 /* === 1. Переменные и сброс стилей === */
 :root {
     --bg: #18181c;
@@ -912,4 +912,94 @@ body {
     box-sizing: border-box;
     text-align: left;
     padding-right: 0;
+}
+
+/* === 11. Стили для страницы предпросмотра запроса === */
+
+/* Общий стиль для баннера с информацией о запросе на странице предпросмотра */
+.request-info-banner {
+    background: var(--fg); /* Темный фон, как у novel-info-panel */
+    border: 1.5px solid var(--border-base); /* Граница, как у novel-info-panel */
+    padding: 16px 20px;
+    margin-bottom: 16px; /* Отступ снизу, как у других блоков в сайдбаре */
+    border-radius: var(--radius-card, 16px); /* Скругление, как у novel-info-panel */
+    box-shadow: 0 4px 32px #000a, 0 1.5px 0 #363657; /* Тень, как у novel-info-panel */
+    color: var(--text-primary); /* Основной цвет текста */
+}
+
+    .request-info-banner h3 {
+        margin-top: 0;
+        margin-bottom: 12px; /* Отступ под заголовком */
+        color: var(--text-primary); /* Цвет заголовка, чтобы был виден на темном фоне */
+        font-size: 1.1em; /* Размер шрифта заголовка */
+    }
+
+    .request-info-banner p {
+        margin-bottom: 8px; /* Отступ между параграфами */
+        font-size: 0.97rem; /* Размер шрифта текста */
+        color: var(--text-secondary); /* Вторичный цвет текста для обычной информации */
+    }
+
+        .request-info-banner p strong {
+            color: var(--text-primary); /* Основной цвет для жирного текста (меток) */
+            font-weight: 600;
+        }
+
+/* Стили для информационного блока о запросе, аналогичные novel-info-panel */
+.request-info-details {
+    width: 100%;
+    margin: 18px auto 0 auto; /* Это может быть уже не нужно, если request-info-banner используется как основной контейнер */
+    background: var(--fg);
+    border-radius: var(--radius-card, 16px);
+    box-shadow: 0 4px 32px #000a, 0 1.5px 0 #363657;
+    padding: 16px 20px 14px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-size: 0.97rem;
+    border: 1.5px solid #282845;
+    box-sizing: border-box;
+}
+
+/* Стили для отдельных элементов информации о запросе, аналогичные novel-info-row */
+.request-info-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.99em;
+    color: var(--text-secondary, #8a8a8e);
+    font-family: inherit;
+    margin-bottom: 4px;
+}
+
+/* Стили для метки (например, "Тип запроса:"), аналогичные novel-info-label */
+.request-info-label {
+    font-weight: 500;
+    color: #b2c4d8;
+}
+
+/* Стили для значения (например, "Добавление главы"), аналогичные novel-info-value */
+.request-info-value {
+    color: var(--text-primary, #e1e1e6);
+    font-weight: 500;
+    text-align: right;
+}
+
+.request-info-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Адаптивность для блока информации о запросе */
+@media (max-width: 1024px) {
+    .request-info-details {
+        width: 80%; /* Или другая подходящая ширина */
+        min-width: 180px;
+        max-width: 210px; /* Или другая подходящая ширина */
+    }
+}
+
+@media (max-width: 600px) {
+    .request-info-details {
+        max-width: 100%;
+        padding: 12px 8px;
+    }
 }

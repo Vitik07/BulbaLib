@@ -16,33 +16,76 @@
     <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/animations/shift-away.css" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <style>
-        /* Стили из Novel.cshtml для ссылок на автора и модального окна обложек */
-        .novel-author-link { color: var(--link, #369bf6); text-decoration: none; font-weight: 600; transition: color 0.15s; }
-        .novel-author-link:hover { color: var(--accent-blue-light, #3a8bfd); text-decoration: underline; }
-        .cover-modal { display: none; position: fixed; z-index: 10001; padding-top: 40px; left: 0; top: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.87); text-align: center; }
-        .cover-modal-content { margin: auto; display: block; max-width: 90vw; max-height: 85vh; border-radius: 12px; box-shadow: 0 8px 40px #000a; }
-        .cover-modal-close { position: absolute; top: 18px; right: 40px; color: #fff; font-size: 40px; font-weight: bold; cursor: pointer; z-index: 10002; }
-        .cover-modal-prev, .cover-modal-next { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.3); color: #fff; border: none; font-size: 48px; padding: 16px 20px; border-radius: 50%; cursor: pointer; z-index: 10002; }
-        .cover-modal-prev { left: 60px; }
-        .cover-modal-next { right: 60px; }
+        /* Стили из Novel.cshtml для ссылок на автора и модального окна обложек (оставляем, если они специфичны только для этой страницы или как временное решение) */
+        .novel-author-link {
+            color: var(--link, #369bf6);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.15s;
+        }
 
-        /* Дополнительные стили для информационного блока о запросе */
-        .request-info-banner {
-            background-color: #f0f8ff; /* AliceBlue */
-            border: 1px solid #add8e6; /* LightBlue */
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            .novel-author-link:hover {
+                color: var(--accent-blue-light, #3a8bfd);
+                text-decoration: underline;
+            }
+
+        .cover-modal {
+            display: none;
+            position: fixed;
+            z-index: 10001;
+            padding-top: 40px;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.87);
+            text-align: center;
         }
-        .request-info-banner h3 {
-            margin-top: 0;
-            color: #31708f; /* Darker blue for heading */
+
+        .cover-modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90vw;
+            max-height: 85vh;
+            border-radius: 12px;
+            box-shadow: 0 8px 40px #000a;
         }
-        .request-info-banner p {
-            margin-bottom: 5px;
+
+        .cover-modal-close {
+            position: absolute;
+            top: 18px;
+            right: 40px;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10002;
         }
-         .deletion-warning {
+
+        .cover-modal-prev, .cover-modal-next {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            border: none;
+            font-size: 48px;
+            padding: 16px 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10002;
+        }
+
+        .cover-modal-prev {
+            left: 60px;
+        }
+
+        .cover-modal-next {
+            right: 60px;
+        }
+
+        /* Стили для .deletion-warning можно оставить здесь, если они используются только на этой странице */
+        .deletion-warning {
             background-color: #fff3cd; /* Light yellow */
             color: #856404; /* Dark yellow */
             padding: 10px;
@@ -52,6 +95,7 @@
             text-align: center;
             font-weight: bold;
         }
+        /* Старые стили для .request-info-banner удалены, так как они теперь в Novel.css */
     </style>
 </head>
 <body>
@@ -84,17 +128,38 @@
                 @* Кнопки "Читать", "Добавить в планы" и действия (Редактировать/Удалить/Добавить главу) здесь не нужны, так как это предпросмотр *@
                 <div class="request-info-banner">
                     <h3>Информация о запросе</h3>
-                    <p><strong>Тип запроса:</strong> @Model.GetFriendlyRequestTypeName()</p>
-                    <p><strong>Запросил:</strong> @Model.RequesterLogin</p>
+                    <div class="request-info-details">
+                        <div class="request-info-item">
+                            <span class="request-info-label">Тип запроса:</span>
+                            <span class="request-info-value">
+                                @if (Model.RequestType == ModerationRequestType.AddNovel)
+                                {
+                                    <span style="color: green;">Добавление новеллы</span>
+                                }
+                                else if (Model.RequestType == ModerationRequestType.EditNovel)
+                                {
+                                    <span style="color: var(--accent-blue-light);">Изменение новеллы</span>
+                                }
+                                else if (Model.RequestType == ModerationRequestType.DeleteNovel)
+                                {
+                                    <span style="color: var(--accent-pink);">Удаление новеллы</span>
+                                }
+                                else
+                                {
+                                    @Model.GetFriendlyRequestTypeName()
+                                }
+                            </span>
+                        </div>
+                        <div class="request-info-item">
+                            <span class="request-info-label">Запросил:</span>
+                            <span class="request-info-value">@Model.RequesterLogin</span>
+                        </div>
+                    </div>
                     @if (Model.IsPendingDeletion)
                     {
-                        <div class="deletion-warning">
+                        <div class="deletion-warning" style="margin-top: 16px;">
                             Эта новелла предложена к УДАЛЕНИЮ!
                         </div>
-                    }
-                    else if (Model.RequestType == ModerationRequestType.EditNovel && !string.IsNullOrEmpty(Model.OriginalNovelTitle))
-                    {
-                        <p><strong>Редактируется новелла:</strong> @Model.OriginalNovelTitle</p>
                     }
                 </div>
 
@@ -193,16 +258,12 @@
                                     </div>
                                 }
                             </div>
-                            @if (!string.IsNullOrWhiteSpace(Model.RelatedNovelIds) && Model.RelatedNovelIds != "null" && Model.RelatedNovelIds != "[]")
-                            {
-                                <div class="related-block">
-                                    <div class="block-title">Связанное (ID)</div>
-                                    @* Для предпросмотра просто покажем ID, без загрузки карточек *@
-                                    <div class="related-list" id="related-list">
-                                        @Model.RelatedNovelIds
-                                    </div>
+                            <div class="related-block">
+                                <div class="block-title">Связанное</div>
+                                <div class="related-list" id="related-list-preview">
+                                    <!-- Карточки связанного будут вставляться тут -->
                                 </div>
-                            }
+                            </div>
                         </div>
                         @* Вкладка "Главы" удалена для предпросмотра *@
                     </div>
@@ -213,6 +274,7 @@
     <script src="https://unpkg.com/@@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
     <script src="https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js"></script>
     <script>
+        const baseUrl = window.location.origin;
         // JavaScript из Novel.cshtml, адаптированный для предпросмотра
         // Обложки
         let covers = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CoversList ?? new List<string>()));
@@ -230,11 +292,94 @@
             }
         }
 
+        async function renderRelatedNovelsPreview(relatedNovelIdsString) {
+            console.log("Entering renderRelatedNovelsPreview, relatedNovelIdsString:", relatedNovelIdsString);
+            const relatedList = document.getElementById('related-list-preview');
+            if (!relatedList) {
+                console.error("Element with ID 'related-list-preview' not found.");
+                return;
+            }
+            relatedList.innerHTML = '';
+            let idsArray = [];
+
+            if (relatedNovelIdsString) {
+                try {
+                    const parsed = JSON.parse(relatedNovelIdsString);
+                    if (Array.isArray(parsed)) {
+                        idsArray = parsed.map(id => parseInt(id, 10)).filter(id => !isNaN(id) && id > 0);
+                    } else if (!isNaN(parseInt(parsed, 10))) {
+                        idsArray = [parseInt(parsed, 10)].filter(id => !isNaN(id) && id > 0);
+                    } else {
+                        console.warn("RelatedNovelIds JSON parsed but is not an array or a single number string:", parsed);
+                    }
+                } catch (e) {
+                    idsArray = relatedNovelIdsString.split(',')
+                        .map(idStr => parseInt(idStr.trim(), 10))
+                        .filter(id => !isNaN(id) && id > 0);
+                }
+            }
+            console.log("renderRelatedNovelsPreview: Parsed idsArray:", idsArray);
+
+            if (!idsArray || !idsArray.length) {
+                relatedList.innerHTML = '<div style="color:#888;">Нет связанных новелл</div>';
+                console.log("renderRelatedNovelsPreview: No valid IDs found.");
+                return;
+            }
+
+            try {
+                const idString = idsArray.join(',');
+                const requestUrl = `${baseUrl}/api/Novels/detailsByIds?ids=${idString}`;
+                console.log("renderRelatedNovelsPreview: Fetching related novels from URL:", requestUrl);
+                const response = await fetch(requestUrl);
+                if (!response.ok) {
+                    console.error(`renderRelatedNovelsPreview: Failed to fetch related novels, status: ${response.status}, URL: ${requestUrl}`);
+                    throw new Error(`Failed to fetch related novels, status: ${response.status}`);
+                }
+                const novels = await response.json();
+                console.log("renderRelatedNovelsPreview: Received novels from API:", novels);
+
+                if (!novels || !novels.length) {
+                    relatedList.innerHTML = '<div style="color:#888;">Связанные новеллы не найдены.</div>';
+                    console.log("renderRelatedNovelsPreview: No novels found from API.");
+                    return;
+                }
+
+                for (const novel of novels) {
+                    if (!novel) continue;
+                    const card = document.createElement('div');
+                    card.className = 'related-card';
+                    const coverUrl = novel.firstCoverUrl || '/img/no-cover.png';
+                    // Для предпросмотра ссылки на новеллы неактивны
+                    card.innerHTML = `
+                                <div style="text-decoration:none;">
+                                    <img class="related-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="Обложка ${novel.title || ''}">
+                                    <div class="related-title">${novel.title ? novel.title : 'Название не найдено'}</div>
+                                    <div class="related-type">${novel.type || ''}</div>
+                                </div>
+                            `;
+                    relatedList.appendChild(card);
+                }
+                if (!relatedList.children.length) {
+                    relatedList.innerHTML = '<div style="color:#888;">Нет связанных новелл для отображения.</div>';
+                }
+            } catch (error) {
+                console.error("Error rendering related novels for preview:", error);
+                relatedList.innerHTML = '<div style="color:red;">Ошибка загрузки связанных новелл.</div>';
+            }
+            console.log("Exiting renderRelatedNovelsPreview");
+        }
+
+
         document.addEventListener('DOMContentLoaded', () => {
             setSidebarCover(currentCoverIdx); // Set initial cover
 
+            // Инициализация отображения связанных новелл
+            const relatedIds = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.RelatedNovelIds ?? "[]"));
+            renderRelatedNovelsPreview(relatedIds);
+
+
             const coverImg = document.getElementById('novel-cover-img');
-            if(coverImg) {
+            if (coverImg) {
                 coverImg.onclick = function () {
                     if (!covers.length) return;
                     modalCoverIdx = currentCoverIdx;
@@ -244,14 +389,14 @@
             }
 
             const closeModalBtn = document.getElementById('cover-modal-close');
-            if(closeModalBtn) {
+            if (closeModalBtn) {
                 closeModalBtn.onclick = function () {
                     document.getElementById('cover-modal').style.display = 'none';
                 };
             }
 
             const prevCoverBtn = document.getElementById('cover-modal-prev');
-            if(prevCoverBtn) {
+            if (prevCoverBtn) {
                 prevCoverBtn.onclick = function () {
                     if (!covers.length) return;
                     modalCoverIdx = (modalCoverIdx - 1 + covers.length) % covers.length;
@@ -260,7 +405,7 @@
             }
 
             const nextCoverBtn = document.getElementById('cover-modal-next');
-            if(nextCoverBtn) {
+            if (nextCoverBtn) {
                 nextCoverBtn.onclick = function () {
                     if (!covers.length) return;
                     modalCoverIdx = (modalCoverIdx + 1) % covers.length;
@@ -278,8 +423,8 @@
 
         function showModalCover(idx) {
             if (covers && covers.length > 0 && covers[idx]) {
-                 const modalImg = document.getElementById('cover-modal-img');
-                 if(modalImg) modalImg.src = covers[idx];
+                const modalImg = document.getElementById('cover-modal-img');
+                if (modalImg) modalImg.src = covers[idx];
             }
         }
 
