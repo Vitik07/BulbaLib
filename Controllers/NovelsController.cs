@@ -132,7 +132,7 @@ namespace BulbaLib.Controllers
                 else
                 {
                     _logger.LogWarning("Failed to save temporary main cover for novel: {Title}", model.Title);
-                    ModelState.AddModelError("CoverFile", "Не удалось сохранить основную обложку.");
+                    ModelState.AddModelError("CoverFile", $"Не удалось сохранить основную обложку ('{model.CoverFile.FileName}'). Пожалуйста, попробуйте другой файл или проверьте его.");
                     return View("~/Views/Novel/Create.cshtml", model);
                 }
             }
@@ -174,7 +174,7 @@ namespace BulbaLib.Controllers
             {
                 // This check is if neither CoverFile nor NewCovers yielded any paths.
                 _logger.LogWarning("No covers were uploaded for novel: {Title}", model.Title);
-                ModelState.AddModelError("", "Необходимо загрузить хотя бы одну обложку.");
+                ModelState.AddModelError("", "Не удалось сохранить ни одну обложку. Убедитесь, что файл выбран и не поврежден.");
                 return View("~/Views/Novel/Create.cshtml", model);
             }
             _logger.LogInformation("Temporary cover paths for novel {Title}: {TempCoverPaths}", model.Title, JsonSerializer.Serialize(tempCoverPaths));

@@ -2,6 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace BulbaLib.Models
 {
@@ -18,6 +19,7 @@ namespace BulbaLib.Models
         public IFormFile CoverFile { get; set; } // Оставляем, если используется для главной обложки
 
         [Display(Name = "Дополнительные обложки")]
+        [ValidateNever]
         public List<IFormFile> NewCovers { get; set; } // Для загрузки нескольких обложек
 
         [Display(Name = "Автор")]
