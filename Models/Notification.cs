@@ -11,5 +11,6 @@ namespace BulbaLib.Models
         public int? RelatedItemId { get; set; }
         public RelatedItemType RelatedItemType { get; set; }
         public DateTime CreatedAt { get; set; }
+        public string Reason { get; set; } // Причина для уведомления (например, при отклонении)
     }
 }

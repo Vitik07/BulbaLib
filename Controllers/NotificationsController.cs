@@ -49,23 +49,34 @@ namespace BulbaLib.Controllers
                     var moderationRequest = _mySqlService.GetModerationRequestById(n.RelatedItemId.Value);
                     if (moderationRequest != null)
                     {
-                        rejectionReason = moderationRequest.RejectionReason;
-                        if (string.IsNullOrEmpty(rejectionReason)) // Fallback if RejectionReason is empty but ModerationComment exists
+                        // Используем поле Reason из самого уведомления, если оно есть.
+                        // Если нет, то пытаемся получить из ModerationRequest.RejectionReason или ModerationComment.
+                        rejectionReason = n.Reason;
+                        if (string.IsNullOrEmpty(rejectionReason))
                         {
-                            rejectionReason = moderationRequest.ModerationComment;
+                            rejectionReason = moderationRequest.RejectionReason;
+                            if (string.IsNullOrEmpty(rejectionReason))
+                            {
+                                rejectionReason = moderationRequest.ModerationComment;
+                            }
                         }
                     }
                 }
+                else if (!string.IsNullOrEmpty(n.Reason)) // Если это не ModerationRequest, но причина есть в уведомлении
+                {
+                    rejectionReason = n.Reason;
+                }
+
 
                 notificationViewModels.Add(new NotificationViewModel
                 {
                     Id = n.Id,
                     UserId = n.UserId,
-                    Type = MapNotificationTypeToRussian(n.Type), // This now returns "Запрос одобрен" / "Запрос отклонен"
-                    Message = n.Message, // This is "Запрос на {действие} новеллы/главы '{Название}' {статус}."
-                    Link = await GetNotificationLink(n), // Link might need to go to moderation request details if rejected
+                    Type = MapNotificationTypeToRussian(n.Type),
+                    Message = n.Message,
+                    Link = await GetNotificationLink(n),
                     DateSent = n.CreatedAt,
-                    RejectionReason = rejectionReason
+                    RejectionReason = rejectionReason // Это поле теперь содержит причину из Notification.Reason или из ModerationRequest
                     // IsRead property removed from NotificationViewModel and Notification model
                 });
             }

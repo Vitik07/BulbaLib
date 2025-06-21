@@ -18,7 +18,7 @@ namespace BulbaLib.Services
             _logger = logger;
         }
 
-        public Task CreateNotification(int userId, NotificationType type, string message, int? relatedItemId = null, RelatedItemType? relatedItemType = null)
+        public Task CreateNotification(int userId, NotificationType type, string message, int? relatedItemId = null, RelatedItemType? relatedItemType = null, string reason = null)
         {
             try
             {
@@ -29,10 +29,11 @@ namespace BulbaLib.Services
                     Message = message,
                     RelatedItemId = relatedItemId,
                     RelatedItemType = relatedItemType ?? RelatedItemType.None, // Default if null
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    Reason = reason // Добавляем причину
                 };
                 _mySqlService.CreateNotification(notification);
-                _logger.LogInformation("Notification created for User {UserId}, Type {Type}, Message {Message}", userId, type, message);
+                _logger.LogInformation("Notification created for User {UserId}, Type {Type}, Message {Message}, Reason {Reason}", userId, type, message, reason);
             }
             catch (Exception ex)
             {
@@ -54,7 +55,8 @@ namespace BulbaLib.Services
             foreach (var userId in userIds)
             {
                 string message = $"Вышла новая глава ({chapterNumberOrTitle}) новеллы \"{novelTitle}\".";
-                await CreateNotification(userId, NotificationType.NewChapter, message, chapterId, RelatedItemType.Chapter);
+                // Для уведомлений о новых главах причина не нужна, поэтому передаем null или не передаем вовсе, если параметр опциональный
+                await CreateNotification(userId, NotificationType.NewChapter, message, chapterId, RelatedItemType.Chapter, reason: null);
             }
         }
 

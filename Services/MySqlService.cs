@@ -112,16 +112,30 @@ namespace BulbaLib.Services
                             Message TEXT NOT NULL,
                             RelatedItemId INT NULL,
                             RelatedItemType VARCHAR(50) NULL,
-                            IsRead BOOLEAN NOT NULL DEFAULT FALSE,
+                            IsRead BOOLEAN NOT NULL DEFAULT FALSE, -- Будет удалено позже, если подтвердится ненадобность
                             CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            Reason TEXT NULL, -- Новое поле для причины
                             FOREIGN KEY (UserId) REFERENCES Users(Id) ON DELETE CASCADE
                         );";
                     cmdCreateNotificationTable.ExecuteNonQuery();
                 }
+                else // Таблица существует, проверяем наличие колонки Reason
+                {
+                    using var cmdCheckReasonColumn = conn.CreateCommand();
+                    cmdCheckReasonColumn.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Notifications' AND COLUMN_NAME = 'Reason'";
+                    var reasonColumnExists = Convert.ToInt32(cmdCheckReasonColumn.ExecuteScalar()) > 0;
+                    if (!reasonColumnExists)
+                    {
+                        using var cmdAddReasonColumn = conn.CreateCommand();
+                        cmdAddReasonColumn.CommandText = "ALTER TABLE Notifications ADD COLUMN Reason TEXT NULL";
+                        cmdAddReasonColumn.ExecuteNonQuery();
+                        Console.WriteLine("Successfully added Reason column to Notifications table.");
+                    }
+                }
             }
             catch (MySqlException ex)
             {
-                Console.WriteLine($"Error creating Notifications table: {ex.Message}");
+                Console.WriteLine($"Error creating or altering Notifications table: {ex.Message}");
             }
 
             // Check and create NovelTranslators table
@@ -1453,8 +1467,8 @@ namespace BulbaLib.Services
             using var conn = GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT INTO Notifications 
-                                (UserId, Type, Message, RelatedItemId, RelatedItemType, CreatedAt) 
-                                VALUES (@userId, @type, @message, @relatedItemId, @relatedItemType, @createdAt);
+                                (UserId, Type, Message, RelatedItemId, RelatedItemType, CreatedAt, Reason) 
+                                VALUES (@userId, @type, @message, @relatedItemId, @relatedItemType, @createdAt, @reason);
                                 SELECT LAST_INSERT_ID();";
 
             cmd.Parameters.AddWithValue("@userId", notification.UserId);
@@ -1463,6 +1477,7 @@ namespace BulbaLib.Services
             cmd.Parameters.AddWithValue("@relatedItemId", notification.RelatedItemId.HasValue ? (object)notification.RelatedItemId.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("@relatedItemType", notification.RelatedItemType == RelatedItemType.None ? DBNull.Value : (object)notification.RelatedItemType.ToString());
             cmd.Parameters.AddWithValue("@createdAt", notification.CreatedAt);
+            cmd.Parameters.AddWithValue("@reason", string.IsNullOrEmpty(notification.Reason) ? DBNull.Value : (object)notification.Reason); // Добавляем Reason
 
             return Convert.ToInt32(cmd.ExecuteScalar());
         }
@@ -1499,6 +1514,7 @@ namespace BulbaLib.Services
             int relatedItemTypeOrdinal = reader.GetOrdinal("RelatedItemType");
             // int isReadOrdinal = reader.GetOrdinal("IsRead"); // Removed
             int createdAtOrdinal = reader.GetOrdinal("CreatedAt");
+            int reasonOrdinal = reader.GetOrdinal("Reason"); // Получаем индекс для Reason
 
             return new Notification
             {
@@ -1509,7 +1525,8 @@ namespace BulbaLib.Services
                 RelatedItemId = reader.IsDBNull(relatedItemIdOrdinal) ? (int?)null : reader.GetInt32(relatedItemIdOrdinal),
                 RelatedItemType = reader.IsDBNull(relatedItemTypeOrdinal) ? RelatedItemType.None : Enum.Parse<RelatedItemType>(reader.GetString(relatedItemTypeOrdinal)),
                 // IsRead = reader.GetBoolean(isReadOrdinal), // Removed
-                CreatedAt = reader.GetDateTime(createdAtOrdinal)
+                CreatedAt = reader.GetDateTime(createdAtOrdinal),
+                Reason = reader.IsDBNull(reasonOrdinal) ? null : reader.GetString(reasonOrdinal) // Читаем Reason
             };
         }
 
