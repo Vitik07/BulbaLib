@@ -150,8 +150,10 @@ namespace BulbaLib.Controllers
             bool canProceed = false;
             if (currentUser != null)
             {
-                if (currentUser.Role == UserRole.Admin) canProceed = _permissionService.CanAddChapterDirectly(currentUser);
-                else if (currentUser.Role == UserRole.Translator) canProceed = _permissionService.CanSubmitChapterForModeration(currentUser, novel);
+                if (currentUser.Role == UserRole.Admin)
+                    canProceed = _permissionService.CanAddChapterDirectly(currentUser);
+                else if (currentUser.Role == UserRole.Translator)
+                    canProceed = _permissionService.CanSubmitChapterForModeration(currentUser, novel);
             }
 
             if (!canProceed)
@@ -162,6 +164,7 @@ namespace BulbaLib.Controllers
 
             if (!ModelState.IsValid)
             {
+                model.NovelTitle = novel.Title; // обязательно для возврата View
                 return View("~/Views/Chapter/Create.cshtml", model);
             }
 
@@ -174,41 +177,23 @@ namespace BulbaLib.Controllers
                 CreatorId = currentUser.Id
             };
 
-            string chapterContent = model.Content; // По умолчанию используем то, что в textarea
-
-            if (model.ChapterTextFile != null && model.ChapterTextFile.Length > 0)
-            {
-                _logger.LogInformation("ChapterTextFile provided, reading content from file.");
-                try
-                {
-                    using (var reader = new StreamReader(model.ChapterTextFile.OpenReadStream()))
-                    {
-                        chapterContent = await reader.ReadToEndAsync();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error reading content from ChapterTextFile.");
-                    ModelState.AddModelError("ChapterTextFile", "Не удалось прочитать содержимое файла.");
-                    // Повторно заполняем NovelTitle, так как он теряется при возврате View с ошибкой модели
-                    model.NovelTitle = novel.Title;
-                    return View("~/Views/Chapter/Create.cshtml", model);
-                }
-            }
+            // Используем только текст, который пришел из textarea (model.Content)
+            string chapterContent = model.Content ?? string.Empty;
 
             if (currentUser.Role == UserRole.Admin)
             {
-                string filePath = await _fileService.SaveChapterContentAsync(chapter.NovelId, chapter.Number, chapter.Title, chapterContent); // Используем chapterContent
+                string filePath = await _fileService.SaveChapterContentAsync(
+                    chapter.NovelId, chapter.Number, chapter.Title, chapterContent);
+
                 if (string.IsNullOrEmpty(filePath))
                 {
                     ModelState.AddModelError(string.Empty, "Ошибка сохранения содержимого главы.");
-                    // Повторно заполняем NovelTitle
                     model.NovelTitle = novel.Title;
                     return View("~/Views/Chapter/Create.cshtml", model);
                 }
-                // chapter.ContentFilePath = filePath; // If Chapter model has this field
-                chapter.ContentFilePath = filePath; // Assign the path
-                _mySqlService.CreateChapter(chapter); // chapter.Content (внутри объекта chapter) не используется для сохранения в файл, filePath - да
+
+                chapter.ContentFilePath = filePath;
+                _mySqlService.CreateChapter(chapter);
 
                 var translators = _mySqlService.GetTranslatorsForNovel(novel.Id);
                 if (!translators.Any(t => t.Id == currentUser.Id))
@@ -226,7 +211,7 @@ namespace BulbaLib.Controllers
                     NovelId = model.NovelId,
                     Number = model.Number,
                     Title = model.Title,
-                    Content = chapterContent, // Используем chapterContent
+                    Content = chapterContent,
                     Date = chapter.Date,
                     CreatorId = currentUser.Id
                 };
@@ -406,7 +391,30 @@ namespace BulbaLib.Controllers
 
             if (!ModelState.IsValid)
             {
+                // Ensure NovelTitle is repopulated if returning to view due to invalid ModelState
+                model.NovelTitle = novel.Title;
                 return View("~/Views/Chapter/Edit.cshtml", model);
+            }
+
+            string chapterContent = model.Content; // Default to content from textarea
+
+            if (model.ChapterTextFile != null && model.ChapterTextFile.Length > 0)
+            {
+                _logger.LogInformation("ChapterTextFile provided in Edit, reading content from file.");
+                try
+                {
+                    using (var reader = new StreamReader(model.ChapterTextFile.OpenReadStream()))
+                    {
+                        chapterContent = await reader.ReadToEndAsync(); // Overwrite with file content
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error reading content from ChapterTextFile during Edit.");
+                    ModelState.AddModelError("ChapterTextFile", "Не удалось прочитать содержимое файла.");
+                    model.NovelTitle = novel.Title; // Repopulate NovelTitle
+                    return View("~/Views/Chapter/Edit.cshtml", model);
+                }
             }
 
             // Logic for Admins: Direct edit
@@ -425,7 +433,7 @@ namespace BulbaLib.Controllers
 
                 string oldFilePath = existingChapter.ContentFilePath; // Get existing path BEFORE updating chapter details
 
-                string newFilePath = await _fileService.SaveChapterContentAsync(existingChapter.NovelId, model.Number, model.Title, model.Content);
+                string newFilePath = await _fileService.SaveChapterContentAsync(existingChapter.NovelId, model.Number, model.Title, chapterContent);
                 if (string.IsNullOrEmpty(newFilePath))
                 {
                     ModelState.AddModelError(string.Empty, "Ошибка сохранения содержимого главы.");
@@ -462,7 +470,7 @@ namespace BulbaLib.Controllers
                     NovelId = existingChapter.NovelId,
                     Number = model.Number,
                     Title = model.Title,
-                    Content = model.Content, // New proposed content
+                    Content = chapterContent, // New proposed content
                     Date = existingChapter.Date, // Keep original creation date or update? Typically original.
                     CreatorId = existingChapter.CreatorId // Creator does not change
                 };
@@ -849,8 +857,9 @@ namespace BulbaLib.Controllers
             if (image == null || image.Length == 0)
                 return BadRequest(new { error = "Файл не выбран" });
 
-            var uploadDir = Path.Combine("wwwroot", "uploads", "chapters", chapterId.ToString());
-            Directory.CreateDirectory(uploadDir);
+            var novelId = chapterForUpload.NovelId; // Get NovelId
+            var uploadDir = Path.Combine("wwwroot", "uploads", "images", novelId.ToString(), chapterId.ToString());
+            Directory.CreateDirectory(uploadDir); // Ensures NovelId/ChapterId subdirectories are created
             var fileName = Guid.NewGuid() + Path.GetExtension(image.FileName);
             var filePath = Path.Combine(uploadDir, fileName);
 
@@ -858,7 +867,7 @@ namespace BulbaLib.Controllers
             {
                 await image.CopyToAsync(stream);
             }
-            var url = $"/uploads/chapters/{chapterId}/{fileName}";
+            var url = $"/uploads/images/{novelId}/{chapterId}/{fileName}"; // Update URL
             return Ok(new { url });
         }
 

@@ -22,8 +22,9 @@ namespace BulbaLib.Models
         [Required(ErrorMessage = "Пожалуйста, введите содержимое главы.")]
         [DataType(DataType.MultilineText)]
         public string Content { get; set; }
+
         public string NovelTitle { get; set; }
 
-        public IFormFile ChapterTextFile { get; set; }
+        public IFormFile? ChapterTextFile { get; set; }
     }
 }
