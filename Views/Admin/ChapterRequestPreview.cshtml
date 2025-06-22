@@ -1,4 +1,4 @@
-﻿@{
+﻿﻿@{
     ViewData["Title"] = "Предпросмотр Главы";
     Layout = null; // This page will not use the main layout
 }
@@ -17,15 +17,26 @@
             text-align: center;
             font-size: 0.9em;
         }
-        .header-bar .bookmark-icon { display: none; } /* Hide bookmark icon */
-        .chapter-nav-btn { display: none; } /* Hide prev/next chapter buttons */
+
+        .header-bar .bookmark-icon {
+            display: none;
+        }
+        /* Hide bookmark icon */
+        .chapter-nav-btn {
+            display: none;
+        }
+        /* Hide prev/next chapter buttons */
     </style>
 </head>
 <body>
 
-    <div class="admin-preview-info">
-        Предпросмотр запроса на модерацию главы. <a href="@Url.Action("Index", "Admin")#chapter-requests-tab">Вернуться к списку запросов</a>.
+    <div class="preview-banner">
+        <p class="preview-banner-text">Это предпросмотр главы</p>
     </div>
+
+    @* <div class="admin-preview-info">
+    Предпросмотр запроса на модерацию главы. <a href="@Url.Action("Index", "Admin")#chapter-requests-tab">Вернуться к списку запросов</a>.
+    </div> *@
 
     <div class="header-bar" id="headerBar">
         <button class="back-button" id="backButton" title="К списку запросов">←</button>

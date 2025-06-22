@@ -276,3 +276,20 @@ body {
         height: 22px;
     }
 }
+
+/* --- Preview Banner --- */
+.preview-banner {
+    background-color: var(--accent-orange);
+    color: var(--bg);
+    text-align: center;
+    padding: 10px 0;
+    font-weight: bold;
+    border-bottom: 1.5px solid var(--border-base);
+    box-shadow: 0 2px 8px var(--shadow-soft);
+    margin-bottom: 20px;
+}
+
+.preview-banner-text {
+    font-size: 1.1em;
+    margin: 0;
+}

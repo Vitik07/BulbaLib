@@ -1,4 +1,4 @@
-﻿﻿@charset "UTF-8";
+﻿@charset "UTF-8";
 /* === 1. Переменные и сброс стилей === */
 :root {
     --bg: #18181c;
@@ -918,88 +918,73 @@ body {
 
 /* Общий стиль для баннера с информацией о запросе на странице предпросмотра */
 .request-info-banner {
-    background: var(--fg); /* Темный фон, как у novel-info-panel */
-    border: 1.5px solid var(--border-base); /* Граница, как у novel-info-panel */
+    background: var(--fg);
+    border: 1.5px solid var(--border-base);
     padding: 16px 20px;
-    margin-bottom: 16px; /* Отступ снизу, как у других блоков в сайдбаре */
-    border-radius: var(--radius-card, 16px); /* Скругление, как у novel-info-panel */
-    box-shadow: 0 4px 32px #000a, 0 1.5px 0 #363657; /* Тень, как у novel-info-panel */
-    color: var(--text-primary); /* Основной цвет текста */
+    margin-bottom: 16px;
+    border-radius: var(--radius-card, 16px);
+    box-shadow: 0 4px 32px #000a, 0 1.5px 0 #363657;
+    color: var(--text-primary);
+    display: flex; /* Добавлено для управления расположением дочерних элементов */
+    flex-direction: column; /* Дочерние элементы будут располагаться в столбец */
+    gap: 8px; /* Промежуток между дочерними элементами (заголовком и элементами информации) */
 }
 
     .request-info-banner h3 {
         margin-top: 0;
-        margin-bottom: 12px; /* Отступ под заголовком */
-        color: var(--text-primary); /* Цвет заголовка, чтобы был виден на темном фоне */
-        font-size: 1.1em; /* Размер шрифта заголовка */
+        margin-bottom: 4px; /* Уменьшен отступ под заголовком, так как gap уже есть */
+        color: var(--text-primary);
+        font-size: 1.1em;
     }
 
-    .request-info-banner p {
-        margin-bottom: 8px; /* Отступ между параграфами */
-        font-size: 0.97rem; /* Размер шрифта текста */
-        color: var(--text-secondary); /* Вторичный цвет текста для обычной информации */
-    }
-
-        .request-info-banner p strong {
-            color: var(--text-primary); /* Основной цвет для жирного текста (меток) */
-            font-weight: 600;
-        }
-
-/* Стили для информационного блока о запросе, аналогичные novel-info-panel */
-.request-info-details {
-    width: 100%;
-    margin: 18px auto 0 auto; /* Это может быть уже не нужно, если request-info-banner используется как основной контейнер */
-    background: var(--fg);
-    border-radius: var(--radius-card, 16px);
-    box-shadow: 0 4px 32px #000a, 0 1.5px 0 #363657;
-    padding: 16px 20px 14px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    font-size: 0.97rem;
-    border: 1.5px solid #282845;
-    box-sizing: border-box;
-}
-
-/* Стили для отдельных элементов информации о запросе, аналогичные novel-info-row */
+/* Стили для отдельных элементов информации о запросе, теперь непосредственно в .request-info-banner */
 .request-info-item {
     display: flex;
     justify-content: space-between;
-    font-size: 0.99em;
+    font-size: 0.99em; /* Был 0.99em */
     color: var(--text-secondary, #8a8a8e);
     font-family: inherit;
-    margin-bottom: 4px;
+    /* margin-bottom: 4px; Удалено, так как используется gap в родителе */
 }
 
-/* Стили для метки (например, "Тип запроса:"), аналогичные novel-info-label */
+/* Стили для метки (например, "Тип запроса:") */
 .request-info-label {
     font-weight: 500;
     color: #b2c4d8;
+    margin-right: 8px; /* Добавлен отступ справа для разделения с значением */
 }
 
-/* Стили для значения (например, "Добавление главы"), аналогичные novel-info-value */
+/* Стили для значения (например, "Добавление главы") */
 .request-info-value {
     color: var(--text-primary, #e1e1e6);
     font-weight: 500;
     text-align: right;
+    flex-grow: 1; /* Позволяет значению занимать оставшееся пространство */
+    word-break: break-word; /* Для переноса длинных значений */
 }
 
-.request-info-item:last-child {
-    margin-bottom: 0;
-}
+/* .request-info-item:last-child { Удалено, так как gap в родителе управляет отступами } */
 
-/* Адаптивность для блока информации о запросе */
-@media (max-width: 1024px) {
-    .request-info-details {
-        width: 80%; /* Или другая подходящая ширина */
+/* Стили для .deletion-warning остаются как есть, если они определены в другом месте или в <style> теге страницы */
+
+/* Адаптивность для .request-info-banner (если нужно, но обычно наследуется от сайдбара) */
+/* @media (max-width: 1024px) {
+    .request-info-banner {
+        width: 80%;
         min-width: 180px;
-        max-width: 210px; /* Или другая подходящая ширина */
+        max-width: 210px;
     }
 }
 
 @media (max-width: 600px) {
-    .request-info-details {
+    .request-info-banner {
         max-width: 100%;
-        padding: 12px 8px;
-    }
+        padding: 12px 15px; /* Немного скорректирован padding для меньших экранов */
 }
+
+.request-info-item {
+    font-size: 0.95em; /* Можно немного уменьшить шрифт на маленьких экранах */
+}
+
+}
+*/

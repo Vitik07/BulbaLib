@@ -128,36 +128,35 @@
                 @* Кнопки "Читать", "Добавить в планы" и действия (Редактировать/Удалить/Добавить главу) здесь не нужны, так как это предпросмотр *@
                 <div class="request-info-banner">
                     <h3>Информация о запросе</h3>
-                    <div class="request-info-details">
-                        <div class="request-info-item">
-                            <span class="request-info-label">Тип запроса:</span>
-                            <span class="request-info-value">
-                                @if (Model.RequestType == ModerationRequestType.AddNovel)
-                                {
-                                    <span style="color: green;">Добавление новеллы</span>
-                                }
-                                else if (Model.RequestType == ModerationRequestType.EditNovel)
-                                {
-                                    <span style="color: var(--accent-blue-light);">Изменение новеллы</span>
-                                }
-                                else if (Model.RequestType == ModerationRequestType.DeleteNovel)
-                                {
-                                    <span style="color: var(--accent-pink);">Удаление новеллы</span>
-                                }
-                                else
-                                {
-                                    @Model.GetFriendlyRequestTypeName()
-                                }
-                            </span>
-                        </div>
-                        <div class="request-info-item">
-                            <span class="request-info-label">Запросил:</span>
-                            <span class="request-info-value">@Model.RequesterLogin</span>
-                        </div>
+                    @* Блок request-info-details удален *@
+                    <div class="request-info-item">
+                        <span class="request-info-label">Тип запроса:</span>
+                        <span class="request-info-value">
+                            @if (Model.RequestType == ModerationRequestType.AddNovel)
+                            {
+                                <span style="color: green;">Добавление новеллы</span>
+                            }
+                            else if (Model.RequestType == ModerationRequestType.EditNovel)
+                            {
+                                <span style="color: var(--accent-blue-light);">Изменение новеллы</span>
+                            }
+                            else if (Model.RequestType == ModerationRequestType.DeleteNovel)
+                            {
+                                <span style="color: var(--accent-pink);">Удаление новеллы</span>
+                            }
+                            else
+                            {
+                                @Model.GetFriendlyRequestTypeName()
+                            }
+                        </span>
+                    </div>
+                    <div class="request-info-item">
+                        <span class="request-info-label">Запросил:</span>
+                        <span class="request-info-value">@Model.RequesterLogin</span>
                     </div>
                     @if (Model.IsPendingDeletion)
                     {
-                        <div class="deletion-warning" style="margin-top: 16px;">
+                        <div class="deletion-warning" style="margin-top: 10px;"> @* Уменьшен margin-top *@
                             Эта новелла предложена к УДАЛЕНИЮ!
                         </div>
                     }

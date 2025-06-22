@@ -56,18 +56,18 @@
                              <small class="d-block text-muted">ID Запроса: @req.RequestId</small>
                         </td>
                         <td>
-                            <a asp-action="ChapterRequestPreview" asp-controller="Admin" asp-route-requestId="@req.RequestId" class="btn btn-sm btn-info" title="Предпросмотр главы">
-                                <i class="fas fa-eye"></i> Детали
+                            <a asp-action="ChapterRequestPreview" asp-controller="Admin" asp-route-requestId="@req.RequestId" target="_blank" class="btn btn-sm btn-info" title="Предпросмотр главы">
+                                <i class="fas fa-eye"></i> Предпросмотр
                             </a>
                             <form asp-action="ApproveChapterRequest" asp-controller="Admin" method="post" class="d-inline form-approve-chapter-request" data-request-id="@req.RequestId">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="requestId" value="@req.RequestId" />
                                 <button type="submit" class="btn btn-sm btn-success" title="Одобрить">
-                                    <i class="fas fa-check"></i> Одобрить
+                                    <i class="fas fa-check"></i>
                                 </button>
                             </form>
                             <button type="button" class="btn btn-sm btn-danger btn-reject-chapter" data-bs-toggle="modal" data-bs-target="#rejectChapterModal" data-request-id="@req.RequestId" title="Отклонить">
-                                <i class="fas fa-times"></i> Отклонить
+                                <i class="fas fa-times"></i>
                             </button>
                         </td>
                     </tr>
