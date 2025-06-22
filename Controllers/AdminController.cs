@@ -496,6 +496,132 @@ namespace BulbaLib.Controllers
             return View("~/Views/Admin/ChapterRequestDetails.cshtml", viewModel);
         }
 
+        public async Task<IActionResult> ChapterRequestPreview(int requestId)
+        {
+            var currentUser = _currentUserService.GetCurrentUser();
+            if (currentUser == null || !_permissionService.CanModerateChapterRequests(currentUser)) // Assuming same permission as details
+            {
+                return RedirectToAction("AccessDenied", "AuthView");
+            }
+
+            ModerationRequest request = await _mySqlService.GetModerationRequestByIdAsync(requestId);
+            if (request == null)
+            {
+                return NotFound("Запрос на модерацию не найден.");
+            }
+
+            if (!request.NovelId.HasValue)
+            {
+                _logger.LogWarning("ChapterRequestPreview: ModerationRequest {RequestId} does not have a NovelId.", requestId);
+                return BadRequest("Запрос не связан с новеллой.");
+            }
+
+            Novel parentNovel = _mySqlService.GetNovel(request.NovelId.Value);
+            if (parentNovel == null)
+            {
+                return NotFound("Связанная новелла не найдена.");
+            }
+
+            string chapterContentForPreview = "[Контент не определен]";
+            string chapterNumber = "N/A";
+            string chapterTitle = "N/A";
+
+            Chapter proposedChapterData = null;
+            Chapter existingChapterData = null;
+
+            if (!string.IsNullOrEmpty(request.RequestData))
+            {
+                try
+                {
+                    proposedChapterData = JsonSerializer.Deserialize<Chapter>(request.RequestData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, "ChapterRequestPreview: Error deserializing RequestData for request ID {RequestId}", requestId);
+                    // Continue, but content might be unavailable or fallback
+                }
+            }
+
+            switch (request.RequestType)
+            {
+                case ModerationRequestType.AddChapter:
+                    if (proposedChapterData != null)
+                    {
+                        chapterContentForPreview = proposedChapterData.Content ?? "[Контент отсутствует в запросе]";
+                        chapterNumber = proposedChapterData.Number ?? "N/A";
+                        chapterTitle = proposedChapterData.Title ?? "N/A";
+                    }
+                    else
+                    {
+                        chapterContentForPreview = "[Ошибка: не удалось загрузить данные предлагаемой главы]";
+                    }
+                    break;
+
+                case ModerationRequestType.EditChapter:
+                    if (proposedChapterData != null)
+                    {
+                        chapterContentForPreview = proposedChapterData.Content ?? "[Контент отсутствует в предлагаемых изменениях]";
+                        chapterNumber = proposedChapterData.Number ?? "N/A";
+                        chapterTitle = proposedChapterData.Title ?? "N/A";
+                    }
+                    else
+                    {
+                        chapterContentForPreview = "[Ошибка: не удалось загрузить предлагаемые изменения]";
+                    }
+                    // If we need to show original chapter number/title if not in proposed, fetch existing:
+                    if (request.ChapterId.HasValue && (string.IsNullOrEmpty(proposedChapterData?.Number) || string.IsNullOrEmpty(proposedChapterData?.Title)))
+                    {
+                        existingChapterData = await _mySqlService.GetChapterAsync(request.ChapterId.Value);
+                        if (existingChapterData != null)
+                        {
+                            if (string.IsNullOrEmpty(proposedChapterData?.Number)) chapterNumber = existingChapterData.Number ?? chapterNumber;
+                            if (string.IsNullOrEmpty(proposedChapterData?.Title)) chapterTitle = existingChapterData.Title ?? chapterTitle;
+                        }
+                    }
+                    break;
+
+                case ModerationRequestType.DeleteChapter:
+                    if (request.ChapterId.HasValue)
+                    {
+                        existingChapterData = await _mySqlService.GetChapterAsync(request.ChapterId.Value);
+                        if (existingChapterData != null)
+                        {
+                            // Content for DeleteChapter is the existing chapter's content
+                            chapterContentForPreview = existingChapterData.Content ?? "[Контент удаляемой главы отсутствует или не может быть загружен]";
+                            chapterNumber = existingChapterData.Number ?? "N/A";
+                            chapterTitle = existingChapterData.Title ?? "N/A";
+                        }
+                        else
+                        {
+                            chapterContentForPreview = "[Ошибка: не удалось загрузить данные удаляемой главы]";
+                        }
+                    }
+                    else
+                    {
+                        chapterContentForPreview = "[Ошибка: ID главы для удаления не указан в запросе]";
+                    }
+                    break;
+
+                default:
+                    _logger.LogWarning("ChapterRequestPreview: Unsupported RequestType {RequestType} for request ID {RequestId}", request.RequestType, requestId);
+                    return BadRequest("Неподдерживаемый тип запроса для предпросмотра главы.");
+            }
+
+            // Basic rendering of [img:...] tags, can be expanded if needed
+            string renderedContentHtml = Regex.Replace(chapterContentForPreview, @"\[img:([^\]]+)\]",
+                match => $"<img src=\"{match.Groups[1].Value.Trim()}\" alt=\"изображение из главы\" style=\"max-width:100%; display:block; margin:10px auto;\">");
+
+
+            var previewViewModel = new ChapterPreviewViewModel
+            {
+                NovelTitle = parentNovel.Title,
+                ChapterFullTitle = $"{parentNovel.Title}. {chapterNumber}{(string.IsNullOrWhiteSpace(chapterTitle) || chapterTitle == "N/A" ? "" : " - " + chapterTitle)}",
+                RenderedContent = renderedContentHtml
+            };
+
+            return View("~/Views/Admin/ChapterRequestPreview.cshtml", previewViewModel);
+        }
+
         // This method might still be used by Approve/Reject logic if it needs to reconstruct paths for deletion
         // for chapters that might not have had ContentFilePath populated during moderation request creation (older data).
         // However, with ContentFilePath now part of Chapter model and MySqlService, direct use of stored paths is preferred.

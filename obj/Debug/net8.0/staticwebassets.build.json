@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "n09gA3wmPvd2kssigIZjS033PhwkD2cYtmwW2rsdUQk=",
+  "Hash": "29olGrZOKGR2806bcav+Tw+p4g/fTaACqTltShj8bX8=",
   "Source": "BulbaLib",
   "BasePath": "_content/BulbaLib",
   "Mode": "Default",
@@ -12061,6 +12061,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\uploads\\content\\1\\Том 9 Глава 380.1 - Эпилог 9-го Тома.txt"
+    },
+    {
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark11\\BulbaLib\\wwwroot\\uploads\\content\\22\\Глава 3 - Биба.txt",
+      "SourceId": "BulbaLib",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark11\\BulbaLib\\wwwroot\\",
+      "BasePath": "_content/BulbaLib",
+      "RelativePath": "uploads/content/22/Глава 3 - Биба.txt",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\content\\22\\Глава 3 - Биба.txt"
     },
     {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark11\\BulbaLib\\wwwroot\\uploads\\content\\22\\Том 1 Глава 0.5 - Ясно.txt",

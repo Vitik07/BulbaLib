@@ -123,4 +123,13 @@ namespace BulbaLib.Models
             AllRoles = Enum.GetValues(typeof(UserRole)).Cast<UserRole>().ToList();
         }
     }
+
+    public class ChapterPreviewViewModel
+    {
+        public string NovelTitle { get; set; }
+        public string ChapterFullTitle { get; set; }
+        public string RenderedContent { get; set; }
+        // public int RequestId { get; set; } // Optional: if needed in the view for any reason
+        // public ModerationRequestType RequestType { get; set; } // Optional
+    }
 }

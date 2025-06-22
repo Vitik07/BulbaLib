@@ -1,0 +1,78 @@
+﻿@{
+    ViewData["Title"] = "Предпросмотр Главы";
+    Layout = null; // This page will not use the main layout
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>@ViewData["Title"] - @Model.NovelTitle</title>
+    <link rel="stylesheet" href="~/css/Chapter.css" /> @* Assuming same styles as regular chapter view *@
+    <style>
+        /* Admin-specific styles or overrides can go here */
+        .admin-preview-info {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+            text-align: center;
+            font-size: 0.9em;
+        }
+        .header-bar .bookmark-icon { display: none; } /* Hide bookmark icon */
+        .chapter-nav-btn { display: none; } /* Hide prev/next chapter buttons */
+    </style>
+</head>
+<body>
+
+    <div class="admin-preview-info">
+        Предпросмотр запроса на модерацию главы. <a href="@Url.Action("Index", "Admin")#chapter-requests-tab">Вернуться к списку запросов</a>.
+    </div>
+
+    <div class="header-bar" id="headerBar">
+        <button class="back-button" id="backButton" title="К списку запросов">←</button>
+        <div class="header-title-wrap">
+            @* Prev/Next buttons removed for preview *@
+            <div class="header-title" id="chapterFullTitle" title="@Model.ChapterFullTitle">@Model.ChapterFullTitle</div>
+        </div>
+        @* Bookmark button removed for preview *@
+    </div>
+
+    <div class="scroll-view" id="chapterContent">
+        @Html.Raw(Model.RenderedContent)
+    </div>
+
+    <script>
+        // Simplified script for admin preview
+        const headerBar = document.getElementById('headerBar');
+        let lastScrollY = window.scrollY;
+
+        function handleScroll() {
+            const currentScrollY = window.scrollY;
+            if (currentScrollY <= 0 || currentScrollY < lastScrollY) {
+                headerBar.classList.remove('hidden');
+            } else {
+                headerBar.classList.add('hidden');
+            }
+            lastScrollY = currentScrollY;
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            if (e.clientY < 60) { // Show header if mouse is near the top
+                headerBar.classList.remove('hidden');
+            }
+        });
+
+        window.addEventListener('scroll', handleScroll);
+
+        document.getElementById('backButton').addEventListener('click', () => {
+            // Construct the URL to go back to the admin panel's chapter requests tab
+            window.location.href = '@Url.Action("Index", "Admin")#chapter-requests-tab';
+        });
+
+        // No dynamic loading needed as content is passed via Model
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial scroll setup if needed, though less critical without dynamic loading
+            handleScroll();
+        });
+    </script>
+</body>
+</html>
