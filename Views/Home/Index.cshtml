@@ -1,5 +1,7 @@
-﻿﻿﻿@{
+﻿﻿﻿﻿@{
     ViewData["Title"] = "BulbaLib";
+
+
 
     Layout = null;
 }
@@ -131,6 +133,8 @@
         async function setupUserActions() {
             const userActionsContainer = document.getElementById('userActionsContainer');
             userActionsContainer.innerHTML = ''; // Очищаем контейнер перед добавлением элементов
+            userActionsContainer.style.display = 'flex'; // Устанавливаем Flexbox
+            userActionsContainer.style.alignItems = 'center'; // Выравниваем по центру вертикально
             const adminPanelButton = document.querySelector('.nav-admin-panel'); // Находим кнопку админ-панели
 
             try {
@@ -150,22 +154,28 @@
                 notificationBell.href = "#";
                 notificationBell.id = "notificationBellIndex";
                 notificationBell.setAttribute('role', 'button');
-                notificationBell.style.position = "relative";
+                notificationBell.style.marginRight = '8px'; // Добавляем отступ справа от колокольчика
+                // notificationBell.style.position = "relative"; // Этот стиль уже есть в CSS для .notification-bell-icon
                 notificationBell.innerHTML = `
-                                                            <span>&#x1F514;</span>
-                                                            <span class="badge" id="notification-unread-count-index" style="display:none;">0</span>
-                                                        `;
+                                                                    <span>&#x1F514;</span>
+                                                                    <span class="badge" id="notification-unread-count-index" style="display:none;">0</span>
+                                                                `;
                 userActionsContainer.appendChild(notificationBell);
 
                 const profileLink = document.createElement('a');
                 profileLink.className = 'nav-link text-dark'; // Может быть, сделать его не text-dark, если админская ссылка text-warning
                 profileLink.href = `/profile/${user.id}`;
+                profileLink.style.textDecoration = 'none'; // Убираем подчеркивание
+                profileLink.style.display = 'flex';
+                profileLink.style.alignItems = 'center';
+                // profileLink.style.marginRight = '8px'; // Отступ теперь у колокольчика
                 profileLink.innerHTML = `
-                                                            <img src="${baseUrl}/api/users/avatar" alt="Avatar" class="rounded-circle" width="30" height="30" style="object-fit: cover;"
-                                                                 onerror="this.onerror=null; this.src='/Resource/default-avatar.jpg';" />
-                                                            <span class="profile-login-text ms-1">${user.login}</span>
-                                                        `;
+                                                                    <img src="${baseUrl}/api/users/avatar" alt="Avatar" class="rounded-circle" width="40" height="40" style="object-fit: cover; border-radius: 50%;"
+                                                                         onerror="this.onerror=null; this.src='/Resource/default-avatar.jpg';" />
+                                                                    <span class="profile-login-text" style="margin-left: 4px; line-height: normal;">${user.login}</span>
+                                                                `;
                 userActionsContainer.appendChild(profileLink);
+
 
                 // Initialize notification bell functionality
                 initializeNotificationPopover();
@@ -330,9 +340,9 @@
                 const card = document.createElement('div');
                 card.className = 'search-novel-card';
                 card.innerHTML = `
-                                                    <img src="${getCover(novel)}" alt="${novel.title}">
-                                                    <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
-                                                `;
+                                                            <img src="${getCover(novel)}" alt="${novel.title}">
+                                                            <div class="search-novel-title" title="${novel.title}">${novel.title}</div>
+                                                        `;
                 card.onclick = () => window.location.href = `/novel/${novel.id}`;
                 searchResultsList.appendChild(card);
             }
@@ -442,9 +452,9 @@
                     const card = document.createElement('div');
                     card.className = 'recent-novel-card';
                     card.innerHTML = `
-                                                        <img src="${getCover(novel)}" alt="${novel.title}">
-                                                        <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
-                                                    `;
+                                                                <img src="${getCover(novel)}" alt="${novel.title}">
+                                                                <div class="recent-novel-title" title="${novel.title}">${novel.title}</div>
+                                                            `;
                     card.onclick = () => window.location.href = `/novel/${novel.id}`;
                     recentlyReadList.appendChild(card);
                 }
@@ -474,13 +484,13 @@
                         ? upd.novelCovers[0]
                         : '/Resource/default.jpg';
                     item.innerHTML = `
-                                                        <img class="update-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="${upd.novelTitle}">
-                                                        <div class="update-info">
-                                                            <div class="update-title">${upd.novelTitle}</div>
-                                                            <div class="update-chapter">${upd.chapterNumber ? upd.chapterNumber + " " : ""}${upd.chapterTitle || 'Без названия'}</div>
-                                                            <div class="update-date">${formatRelativeTime(upd.chapterDate)}</div>
-                                                        </div>
-                                                    `;
+                                                                <img class="update-cover" src="${coverUrl.startsWith('http') || coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl}" alt="${upd.novelTitle}">
+                                                                <div class="update-info">
+                                                                    <div class="update-title">${upd.novelTitle}</div>
+                                                                    <div class="update-chapter">${upd.chapterNumber ? upd.chapterNumber + " " : ""}${upd.chapterTitle || 'Без названия'}</div>
+                                                                    <div class="update-date">${formatRelativeTime(upd.chapterDate)}</div>
+                                                                </div>
+                                                            `;
                     item.onclick = () => window.location.href = `/novel/${upd.novelId}?chapter=${upd.chapterId}`;
                     updatesList.appendChild(item);
                 }
@@ -501,9 +511,9 @@
                     const card = document.createElement('div');
                     card.className = 'novelty-card';
                     card.innerHTML = `
-                                                        <img src="${getCover(novel)}" alt="${novel.title}">
-                                                        <div class="novelty-title" title="${novel.title}">${novel.title}</div>
-                                                    `;
+                                                                <img src="${getCover(novel)}" alt="${novel.title}">
+                                                                <div class="novelty-title" title="${novel.title}">${novel.title}</div>
+                                                            `;
                     card.onclick = () => window.location.href = `/novel/${novel.id}`;
                     noveltiesList.appendChild(card);
                 }
@@ -601,9 +611,9 @@
                 const card = document.createElement('div');
                 card.className = 'slider-novel-card';
                 card.innerHTML = `
-                                                    <img src="${getCover(novel)}" alt="${novel.title}">
-                                                    <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
-                                                `;
+                                                            <img src="${getCover(novel)}" alt="${novel.title}">
+                                                            <div class="slider-novel-title" title="${novel.title}">${novel.title}</div>
+                                                        `;
                 card.onclick = () => window.location.href = `/novel/${novel.id}`;
                 mainSlider.appendChild(card);
             }

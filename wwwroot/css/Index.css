@@ -540,8 +540,11 @@ body {
 /* ---- Notification bell ---- */
 .notification-bell-icon {
     position: relative;
-    margin-right: 16px;
-    margin-left: 2px;
+    /* margin-right: 8px; /* Убрали отступ отсюда, он теперь у profileLink */
+    /* margin-left: 2px; */ /* Убрали отступ отсюда */
+    text-decoration: none !important; /* Убираем подчеркивание */
+    display: flex; /* Для выравнивания содержимого */
+    align-items: center; /* Для выравнивания содержимого */
 }
 
     .notification-bell-icon span:first-child {

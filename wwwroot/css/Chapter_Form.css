@@ -1,105 +1,283 @@
-﻿/* General styles for chapter create/edit forms */
-body {
-    font-family: Arial, sans-serif;
-    background-color: #f4f4f4;
-    color: #333;
-    margin: 20px;
+﻿@charset "UTF-8";
+
+:root {
+    --bg: #18181c;
+    --fg: #23232a;
+    --card-bg: #202026;
+    --border-base: #252538;
+    --text-primary: #e1e1e6;
+    --text-secondary: #8a8a8e;
+    --link: #369bf6;
+    --accent-blue: #2360d1;
+    --accent-blue-light: #3a8bfd;
+    --accent-pink: #fa6565;
+    --accent-orange: #ffb47b;
+    --radius: 12px;
+    --radius-card: 16px;
+    --shadow: rgba(0,0,0,0.7);
+    --shadow-soft: rgba(0,0,0,0.4);
+    --gap: 16px;
+    --font: "Open Sans", sans-serif;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
     padding: 0;
 }
 
-h1 {
-    color: #333;
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
 }
 
-h4, h5 {
-    color: #555;
-    margin-bottom: 15px;
+body {
+    font-family: var(--font);
+    color: var(--text-primary);
+    background: var(--bg);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+.chapter-form-container {
+    background: var(--fg);
+    border-radius: var(--radius-card);
+    box-shadow: 0 4px 24px var(--shadow);
+    padding: 48px 46px 46px 46px;
+    max-width: 900px;
+    margin: 64px auto 32px auto;
+    width: 96vw;
+}
+
+@media (max-width: 1000px) {
+    .chapter-form-container {
+        max-width: 99vw;
+        padding: 22px 2vw 22px 2vw;
+    }
+}
+
+@media (max-width: 600px) {
+    .chapter-form-container {
+        padding: 12px 2vw 10px 2vw;
+        margin: 18px auto 10px auto;
+        max-width: 100vw;
+    }
+}
+
+h1, h2, h4, h5 {
+    color: #fff;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.01em;
+}
+
+h1 {
+    font-size: 2.1rem;
+    margin-bottom: 23px;
+}
+
+h4 {
+    font-size: 1.18rem;
+    font-weight: 600;
+    margin-bottom: 22px;
+    color: var(--accent-blue-light);
+    text-align: center;
+}
+
+h5 {
+    font-size: 1.09rem;
+    color: var(--accent-blue-light);
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+form label,
+form label.control-label {
+    color: #a8a8b6;
+    font-size: 1.07em;
+    font-weight: 600;
+    margin-bottom: 7px;
+    display: block;
+    letter-spacing: 0.01em;
 }
 
 .form-group {
-    margin-bottom: 1.5rem; /* Consistent spacing */
+    margin-bottom: 18px;
 }
 
-.form-control {
-    border-radius: 0.25rem;
-    border: 1px solid #ced4da;
-    padding: 0.5rem 0.75rem;
-    font-size: 1rem;
-    line-height: 1.5;
-    background-color: #fff;
-    color: #495057;
+.form-control,
+textarea,
+select {
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border: 1.5px solid var(--border-base);
+    border-radius: var(--radius);
+    font-size: 1.07em;
+    padding: 13px 17px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    transition: border 0.18s, background 0.18s;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    display: block;
+    box-sizing: border-box;
 }
 
-textarea.form-control {
-    min-height: 200px; /* Good default height for content */
+    .form-control:focus,
+    textarea:focus,
+    select:focus {
+        outline: none;
+        border-color: var(--accent-blue);
+        background: #24243b;
+        color: #fff;
+    }
+
+textarea {
+    resize: vertical;
+    min-height: 180px;
 }
 
-label {
-    font-weight: bold;
-    margin-bottom: 0.5rem;
+.form-text {
+    color: var(--text-secondary);
+    font-size: 0.93em;
+    margin-top: 2px;
+}
+
+.text-danger,
+form span.text-danger {
+    color: var(--accent-pink) !important;
+    font-size: 0.98em;
+    margin-top: 2px;
     display: block;
 }
 
-.btn {
-    padding: 0.5rem 1rem;
-    font-size: 1rem;
-    border-radius: 0.25rem;
+form .btn,
+button,
+input[type="submit"] {
+    font-family: var(--font);
+    font-size: 1.13em;
+    font-weight: 600;
+    border-radius: var(--radius);
+    padding: 13px 24px;
+    border: none;
+    outline: none;
     cursor: pointer;
-    text-decoration: none; /* Ensure links styled as buttons don't have underlines */
+    margin-right: 10px;
+    margin-bottom: 8px;
+    box-shadow: 0 1.5px 8px rgba(36,40,60,0.12);
+    transition: background 0.18s, color 0.18s, box-shadow 0.16s;
 }
 
-.btn-primary {
-    color: #fff;
-    background-color: #007bff;
-    border-color: #007bff;
-}
-
-    .btn-primary:hover {
-        background-color: #0056b3;
-        border-color: #0056b3;
+    form .btn-primary,
+    input[type="submit"].btn-primary {
+        background: var(--accent-blue-light);
+        color: #fff;
     }
 
-.btn-secondary {
-    color: #fff;
-    background-color: #6c757d;
-    border-color: #6c757d;
+        form .btn-primary:hover,
+        input[type="submit"].btn-primary:hover {
+            background: var(--accent-blue);
+        }
+
+form .btn-secondary {
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    border: 1.5px solid var(--border-base);
 }
 
-    .btn-secondary:hover {
-        background-color: #545b62;
-        border-color: #545b62;
+    form .btn-secondary:hover {
+        background: #2b2b3c;
+        color: #fff;
     }
 
-.text-danger {
-    color: #dc3545 !important;
+.file-upload-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 7px;
 }
 
-/* Specific to file input if needed */
-#chapterTextFile, #clientSideFileLoader {
-    margin-top: 5px;
+.file-upload-input {
+    display: none;
+}
+
+.file-upload-btn {
+    background: var(--accent-blue-light);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 18px 10px 13px;
+    font-size: 1.07em;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background 0.18s;
+    box-shadow: 0 1.5px 8px rgba(36,40,60,0.12);
+}
+
+    .file-upload-btn:hover {
+        background: var(--accent-blue);
+    }
+
+    .file-upload-btn svg {
+        display: inline-block;
+    }
+
+.file-upload-filename {
+    color: var(--text-secondary);
+    font-size: 0.98em;
+    min-width: 80px;
+    max-width: 260px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    user-select: text;
+}
+
+.form-group.mb-3 {
+    margin-bottom: 22px !important;
+}
+
+.form-group.mt-4 {
+    margin-top: 26px !important;
+}
+
+input[readonly], .form-control[readonly] {
+    background: #23232a;
+    color: #a0a0b4;
+    opacity: 1;
 }
 
 #fileLoadStatus {
+    transition: color 0.2s;
     margin-top: 5px;
-    font-size: 0.875em;
+    display: block;
 }
 
-/* Container for the form for better centering/max-width */
-.chapter-form-container {
-    max-width: 800px;
-    margin: 0 auto; /* Center the form */
-    background-color: #ffffff;
-    padding: 30px;
-    border-radius: 8px;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+@media (max-width: 400px) {
+    h1 {
+        font-size: 1.14rem;
+    }
+
+    .chapter-form-container {
+        padding: 5px 2px 5px 2px;
+    }
 }
 
-/* Ensure Layout = null views still have some basic body styling if not covered by other CSS */
-html, body {
-    min-height: 100vh; /* Ensure body takes full height */
+::-webkit-scrollbar {
+    width: 8px;
+    background: #23232a;
 }
 
-/* Add a little more space for buttons */
-.form-group.mt-4 {
-    margin-top: 2rem !important;
+::-webkit-scrollbar-thumb {
+    background: #2b2b45;
+    border-radius: 6px;
 }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #363657;
+    }

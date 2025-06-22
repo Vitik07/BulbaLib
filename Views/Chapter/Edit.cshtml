@@ -1,7 +1,6 @@
 ﻿@model BulbaLib.Models.ChapterEditModel
 @{
     ViewData["Title"] = "Редактировать главу";
-
     Layout = null;
 }
 <!DOCTYPE html>
@@ -10,7 +9,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - BulbaLib</title>
-    @* <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" /> *@
     <link rel="stylesheet" href="~/css/Chapter_Form.css" asp-append-version="true" />
 </head>
 <body>
@@ -22,64 +20,77 @@
             <h5>Глава: @Model.Number - @Model.Title</h5>
         }
         <form asp-controller="Chapters" asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data">
-    @Html.AntiForgeryToken()
-    <input type="hidden" asp-for="Id" />
-    <input type="hidden" asp-for="NovelId" />
-    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="NovelId" />
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-    <div class="form-group mb-3">
-        <label asp-for="Number"></label>
-        <input asp-for="Number" class="form-control" />
-        <span asp-validation-for="Number" class="text-danger"></span>
+            <div class="form-group mb-3">
+                <label asp-for="Number"></label>
+                <input asp-for="Number" class="form-control" />
+                <span asp-validation-for="Number" class="text-danger"></span>
+            </div>
+            <div class="form-group mb-3">
+                <label asp-for="Title"></label>
+                <input asp-for="Title" class="form-control" />
+                <span asp-validation-for="Title" class="text-danger"></span>
+            </div>
+            <div class="form-group mb-3">
+                <label>Загрузить текстовый файл главы (.txt)</label>
+                <div class="file-upload-wrapper">
+                    <input type="file" id="chapterTextFile" accept=".txt" class="file-upload-input" />
+                    <button type="button" id="chapterFileBtn" class="btn file-upload-btn" tabindex="-1">
+                        <svg width="22" height="22" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 8px;">
+                            <path fill="#fff" d="M12 16.5a1 1 0 0 1-1-1v-7.086l-2.293 2.293a1 1 0 1 1-1.414-1.414l4-4a1 1 0 0 1 1.414 0l4 4a1 1 0 1 1-1.414 1.414L13 8.414V15.5a1 1 0 0 1-1 1Z"/>
+                            <rect fill="#fff" x="5" y="18" width="14" height="2" rx="1"/>
+                        </svg>
+                        Выбрать .txt файл
+                    </button>
+                    <span class="file-upload-filename" id="chapterFileName">Файл не выбран</span>
+                </div>
+                <small id="fileLoadStatus" class="form-text text-muted">
+                    Выберите текстовый файл, его содержимое будет скопировано в поле "Содержимое главы".
+                </small>
+            </div>
+            <div class="form-group mb-3">
+                <label asp-for="Content"></label>
+                <textarea asp-for="Content" id="Content" class="form-control" rows="15"></textarea>
+                <span asp-validation-for="Content" class="text-danger"></span>
+            </div>
+            <div class="form-group mt-4">
+                <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                <a asp-controller="NovelView" asp-action="Novel" asp-route-id="@Model.NovelId" class="btn btn-secondary">Отмена</a>
+            </div>
+        </form>
     </div>
-    <div class="form-group mb-3">
-        <label asp-for="Title"></label>
-        <input asp-for="Title" class="form-control" />
-        <span asp-validation-for="Title" class="text-danger"></span>
-    </div>
-    <div class="form-group mb-3">
-        <label for="clientSideFileLoader">Загрузить текст из файла (.txt)</label>
-        <input type="file" id="clientSideFileLoader" class="form-control" accept=".txt" />
-        <small id="fileLoadStatus" class="form-text text-muted">
-            Выберите текстовый файл, его содержимое будет скопировано в поле "Содержимое главы".
-        </small>
-    </div>
-    <div class="form-group mb-3">
-        <label asp-for="Content"></label>
-        <textarea asp-for="Content" id="Content" class="form-control" rows="15"></textarea>
-        <span asp-validation-for="Content" class="text-danger"></span>
-    </div>
-    <div class="form-group mt-4">
-        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
-        <a asp-controller="NovelView" asp-action="Novel" asp-route-id="@Model.NovelId" class="btn btn-secondary">Отмена</a>
-    </div>
-</form>
-</div> <!-- Close chapter-form-container -->
-
-    @* ASP.NET Core validation scripts are usually included in _ValidationScriptsPartial or Layout.
-       If Layout = null, and you need client-side validation, you might need to include them.
-       However, the new CSS is self-contained and doesn't rely on Bootstrap JS.
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
-    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
-    *@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const clientSideFileLoader = document.getElementById('clientSideFileLoader');
-            const contentTextArea = document.getElementById('Content'); // Убедимся, что у textarea есть ID="Content"
+            const chapterTextFileInput = document.getElementById('chapterTextFile');
+            const chapterFileBtn = document.getElementById('chapterFileBtn');
+            const fileNameSpan = document.getElementById('chapterFileName');
+            const contentTextArea = document.getElementById('Content');
             const fileLoadStatus = document.getElementById('fileLoadStatus');
 
-            if (clientSideFileLoader && contentTextArea) {
-                clientSideFileLoader.addEventListener('change', function (e) {
+            if (chapterFileBtn && chapterTextFileInput) {
+                chapterFileBtn.addEventListener('click', function () {
+                    chapterTextFileInput.click();
+                });
+            }
+
+            if (chapterTextFileInput && contentTextArea) {
+                chapterTextFileInput.addEventListener('change', function (e) {
                     const file = e.target.files[0];
                     if (!file) {
-                        if(fileLoadStatus) fileLoadStatus.textContent = 'Файл не выбран.';
+                        if (fileNameSpan) fileNameSpan.textContent = 'Файл не выбран';
+                        if (fileLoadStatus) fileLoadStatus.textContent = 'Файл не выбран.';
                         return;
                     }
+                    if (fileNameSpan) fileNameSpan.textContent = file.name;
                     if (file.type !== "text/plain" && !file.name.endsWith('.txt')) {
                         alert('Можно загрузить только .txt файл!');
-                        if(fileLoadStatus) fileLoadStatus.textContent = 'Выбран неверный тип файла.';
-                        clientSideFileLoader.value = ""; // Сбросить выбор файла
+                        if (fileLoadStatus) fileLoadStatus.textContent = 'Выбран неверный тип файла.';
+                        chapterTextFileInput.value = "";
+                        if (fileNameSpan) fileNameSpan.textContent = 'Файл не выбран';
                         return;
                     }
                     const reader = new FileReader();
@@ -90,23 +101,18 @@
                             fileLoadStatus.style.color = 'green';
                             setTimeout(() => {
                                 fileLoadStatus.textContent = 'Выберите текстовый файл, его содержимое будет скопировано в поле "Содержимое главы".';
-                                fileLoadStatus.style.color = ''; // Reset color
+                                fileLoadStatus.style.color = '';
                             }, 3000);
                         }
                     };
                     reader.onerror = function () {
                         alert('Ошибка при чтении файла!');
-                        if(fileLoadStatus) fileLoadStatus.textContent = 'Ошибка при чтении файла.';
+                        if (fileLoadStatus) fileLoadStatus.textContent = 'Ошибка при чтении файла.';
                     };
                     reader.readAsText(file, "utf-8");
                 });
             }
         });
     </script>
-@section Scripts {
-    @{
-        // await Html.RenderPartialAsync("_ValidationScriptsPartial"); // Already included above
-    }
-}
 </body>
 </html>
