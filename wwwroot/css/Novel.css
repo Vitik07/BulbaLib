@@ -742,42 +742,97 @@ body {
 .chapter-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px; /* Уменьшен gap для более плотного списка */
 }
 
 .chapter-card {
-    background: #222231;
-    border-radius: 8px;
-    padding: 10px 16px;
-    box-shadow: 0 1px 6px #0003;
+    background: var(--card-bg, #202026); /* Используем переменную, если есть, или чуть светлее фон */
+    border-radius: 10px; /* Немного увеличил радиус */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1); /* Мягкая тень */
     display: flex;
-    align-items: center;
-    gap: 14px;
-    transition: background 0.13s, box-shadow 0.13s;
+    align-items: center; /* Вертикальное выравнивание по центру для link и actions */
+    justify-content: space-between; /* Разносит chapter-link и chapter-item-actions */
+    transition: background 0.15s, box-shadow 0.15s;
+    border: 1px solid var(--border-base, #252538); /* Добавил границу */
 }
 
     .chapter-card:hover {
-        background: #24243b;
-        box-shadow: 0 2px 14px #2360d133, 0 1px 6px #0003;
+        background: var(--fg, #23232a); /* Фон при наведении чуть темнее */
+        box-shadow: 0 3px 12px rgba(0,0,0,0.15), 0 0 0 1px var(--accent-blue-light, #3a8bfd); /* Тень и акцентная рамка */
     }
 
-.chapter-title {
-    font-size: 1.08em;
-    color: #e1e1e6;
-    font-weight: 600;
+.chapter-link {
+    flex-grow: 1;
+    text-decoration: none;
+    color: inherit;
+    padding: 10px 14px; /* Отступы внутри ссылки */
+    display: flex;
+    align-items: center; /* Для выравнивания chapter-info если он сам flex */
+    min-width: 0;
+    border-radius: 10px 0 0 10px; /* Скругление левой части */
 }
 
-.chapter-number {
-    color: var(--accent-blue);
-    font-weight: 600;
-    margin-right: 10px;
+.chapter-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    flex-grow: 1;
+    overflow: hidden;
+    /* margin-right не нужен, т.к. justify-content: space-between на .chapter-card */
 }
 
-.chapter-date {
-    font-size: 0.93em;
-    color: #a8a8b6;
-    margin-left: auto;
+.chapter-display-text { /* Заменит .chapter-title и .chapter-number */
+    font-size: 1.02em; /* Немного скорректирован размер */
+    color: var(--text-primary, #e1e1e6);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4; /* Улучшение читаемости */
 }
+
+.chapter-item-date { /* Заменит .chapter-date */
+    font-size: 0.85em; /* Уменьшен для компактности */
+    color: var(--text-secondary, #8a8a8e);
+    margin-top: 3px;
+}
+
+.chapter-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 10px 14px; /* Отступы для кнопок, симметрично с chapter-link */
+}
+
+.chapter-bookmark-icon {
+    font-size: 1.1em; /* Размер иконки закладки */
+    color: var(--text-secondary);
+    padding: 5px; /* Увеличен паддинг для кликабельности (визуально) */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: color 0.15s, background-color 0.15s;
+}
+
+    .chapter-bookmark-icon:hover {
+        background-color: rgba(255,255,255,0.05); /* Легкий фон при наведении */
+    }
+
+    .chapter-bookmark-icon.bookmarked {
+        color: var(--accent-pink);
+    }
+
+        .chapter-bookmark-icon.bookmarked:hover {
+            color: #ff8a8a; /* Светлее при наведении на активную закладку */
+        }
+
+
+    .chapter-bookmark-icon .fa-bookmark {
+        vertical-align: middle;
+    }
+
 
 /* === 10. Адаптивность === */
 @media (max-width: 1024px) {
@@ -1075,16 +1130,14 @@ body {
         max-width: 210px;
     }
 }
-    */
 @media (max-width: 600px) {
     .request-info-banner {
         max-width: 100%;
-        padding: 12px 15px; /* Немного скорректирован padding для меньших экранов */
-}
+        padding: 12px 15px;
+    }
 
-.request-info-item {
-    font-size: 0.95em; /* Можно немного уменьшить шрифт на маленьких экранах */
+    .request-info-item {
+        font-size: 0.95em;
+    }
 }
-
-}
-*/
+    */

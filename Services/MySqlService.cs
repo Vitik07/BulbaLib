@@ -1034,6 +1034,23 @@ namespace BulbaLib.Services
             cmd.ExecuteNonQuery();
         }
 
+        public List<int> GetUserBookmarkedChapterIdsForNovel(int userId, int novelId)
+        {
+            using var conn = GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT ChapterId FROM Bookmarks WHERE UserId = @userId AND NovelId = @novelId";
+            cmd.Parameters.AddWithValue("@userId", userId);
+            cmd.Parameters.AddWithValue("@novelId", novelId);
+
+            var list = new List<int>();
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                list.Add(reader.GetInt32("ChapterId"));
+            }
+            return list;
+        }
+
         // ---------- FAVORITES / STATUS ----------
         public string GetUserNovelStatus(int userId, int novelId)
         {

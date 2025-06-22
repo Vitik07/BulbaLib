@@ -191,6 +191,7 @@ body {
     display: inline-flex; /* Use flex to center icon easily if needed */
     align-items: center;
     justify-content: center;
+    opacity: 1; /* Ensure it's visible by default, JS will handle transparency for auth state */
     color: var(--text-secondary); /* Default color for empty bookmark (visible) */
     font-size: 1.6em; /* Adjust size as needed, make it prominent */
     padding: 6px; /* Add some clickable area */

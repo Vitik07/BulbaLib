@@ -1,4 +1,4 @@
-﻿﻿@{
+﻿﻿﻿@{
     ViewData["Title"] = "Глава";
 
     Layout = null;
@@ -131,6 +131,7 @@
                 // ищем текущую главу в списке глав с bookmarked
                 const currentChapterInfo = chaptersList.find(ch => String(ch.id) === String(chapter.id));
                 let isBookmarked = !!(currentChapterInfo && currentChapterInfo.bookmarked);
+                console.log(currentChapterInfo, isBookmarked);
 
                 if (isAuth) {
                     const iconElement = bookmarkButton.querySelector('i');
@@ -148,19 +149,39 @@
                     bookmarkButton.style.opacity = "1";
 
                     bookmarkButton.onclick = async (e) => {
-                        e.preventDefault(); // Prevent default anchor action
-                        // Current logic only supports adding, not removing.
-                        // For a full toggle, we'd need a DELETE endpoint or similar.
-                        // For now, let's assume clicking always tries to add if not bookmarked.
-                        // If it's already bookmarked, perhaps do nothing or show a message.
+                        e.preventDefault();
+                        const iconElement = bookmarkButton.querySelector('i'); // Ensure iconElement is defined in this scope
 
-                        if (!bookmarkButton.classList.contains('bookmarked')) { // Only try to add if not already bookmarked client-side
+                        if (isBookmarked) { // Если закладка уже установлена (клиентское или серверное состояние)
+                            try {
+                                const response = await fetch(`${baseUrl}/api/users/bookmarks/chapter/${chapter.id}`, {
+                                    method: 'DELETE',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: "include"
+                                });
+
+                                if (response.ok) {
+                                    isBookmarked = false;
+                                    iconElement.classList.remove('fas');
+                                    iconElement.classList.add('far');
+                                    bookmarkButton.classList.remove('bookmarked');
+                                    bookmarkButton.title = "Добавить закладку";
+                                } else {
+                                    const result = await response.json().catch(() => null);
+                                    alert(result?.message || 'Не удалось удалить закладку. Статус: ' + response.status);
+                                    // Optionally, re-sync state if server failed but client thought it was bookmarked
+                                    // For now, we assume the client state was correct before the click.
+                                }
+                            } catch (err) {
+                                console.error("Ошибка при удалении закладки:", err);
+                                alert("Не удалось обновить закладку (catch)");
+                            }
+                        } else { // Если закладки нет, добавляем
                             try {
                                 const payload = {
                                     novelId: parseInt(chapter.novelId),
                                     chapterId: parseInt(chapter.id)
                                 };
-
                                 const response = await fetch(`${baseUrl}/api/users/bookmarks`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
@@ -168,34 +189,27 @@
                                     credentials: "include"
                                 });
 
-                                const result = await response.json();
-
                                 if (response.ok) {
-                                    isBookmarked = true; // Update state
+                                    isBookmarked = true;
                                     iconElement.classList.remove('far');
                                     iconElement.classList.add('fas');
                                     bookmarkButton.classList.add('bookmarked');
                                     bookmarkButton.title = "Закладка установлена";
-                                    // alert('Закладка добавлена'); // Optional: remove alert for smoother UX
-                                } else if (response.status === 409) { // Already bookmarked (according to server)
+                                } else if (response.status === 409) { // Already bookmarked (conflict)
                                     isBookmarked = true; // Sync client state
                                     iconElement.classList.remove('far');
                                     iconElement.classList.add('fas');
                                     bookmarkButton.classList.add('bookmarked');
                                     bookmarkButton.title = "Закладка установлена";
-                                    // alert('Эта глава уже в закладках');
+                                    // alert('Эта глава уже в закладках (409)');
                                 } else {
-                                    throw new Error(result.message || 'Неизвестная ошибка');
+                                    const result = await response.json().catch(() => null);
+                                    throw new Error(result?.message || 'Неизвестная ошибка при добавлении. Статус: ' + response.status);
                                 }
                             } catch (err) {
                                 console.error("Ошибка при добавлении закладки:", err);
-                                alert("Не удалось обновить закладку");
+                                alert("Не удалось добавить закладку: " + err.message);
                             }
-                        } else {
-                            // Logic to REMOVE bookmark would go here if supported
-                            // For now, if it's already bookmarked, clicking does nothing or could inform the user.
-                            // alert("Закладка уже установлена.");
-                            console.log("Bookmark already set. To remove, implement DELETE /api/users/bookmarks/:chapterId");
                         }
                     };
                 } else { // Not authenticated

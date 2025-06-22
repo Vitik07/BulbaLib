@@ -607,7 +607,7 @@
                 // If one chapter number is a prefix of another (e.g., "10" vs "10.1")
                 if (chapterAInfo.chapterNum.length < chapterBInfo.chapterNum.length) return -1;
                 if (chapterAInfo.chapterNum.length > chapterBInfo.chapterNum.length) return 1;
-                
+
                 // Fallback to original string comparison if all parts are equal (should be rare)
                 // or if one is purely numeric and other is not fully captured (e.g. "Глава" vs "Глава 1")
                 if (chapterAInfo.isNumeric && !chapterBInfo.isNumeric && chapterBInfo.original.toLowerCase().startsWith(chapterAInfo.original.toLowerCase())) return -1;
@@ -619,9 +619,38 @@
 
 
             for (const cvm of viewModels) {
+                console.log(cvm);
                 const chapter = cvm.Chapter;
+                // Создаем контейнер для карточки главы
                 const el = document.createElement('div');
                 el.className = 'chapter-card';
+
+                // Создаем ссылку для основной информации о главе
+                const link = document.createElement('a');
+                link.href = `/chapter/${chapter.Id}`;
+                link.className = 'chapter-link'; // Новый класс для стилизации ссылки
+
+                // Формируем текст главы (номер и название)
+                let chapterDisplayText = "";
+                // Используем chapter.number (который должен быть ChapterNumber из C# модели)
+                // и chapter.Title (который должен быть Title из C# модели)
+                if (chapter.number && chapter.number.trim() !== "") {
+                    chapterDisplayText = `${chapter.number} - ${chapter.Title || chapter.title || 'Без названия'}`;
+                } else {
+                    chapterDisplayText = `${chapter.Title || chapter.title || 'Без названия'}`;
+                }
+                
+                // HTML для информации внутри ссылки
+                link.innerHTML = `
+                    <div class="chapter-info">
+                        <span class="chapter-display-text">${chapterDisplayText}</span>
+                        ${chapter.date ? `<span class="chapter-item-date">${formatChapterDate(chapter.date)}</span>` : ''}
+                    </div>
+                `;
+
+                // Создаем div для кнопок действий
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'chapter-item-actions';
 
                 let actionsHtml = '';
                 if (cvm.CanEdit) {
@@ -643,29 +672,21 @@
                 // For now, let's assume `cvm.IsBookmarked` comes from the server in ChapterViewModel or we have a similar client-side check.
                 // If `ViewData["ChapterViewModels"]` is the source, `cvm.IsBookmarked` should be populated there.
                 // For demonstration, I'll use `cvm.IsBookmarked` if available, otherwise fallback to a placeholder check.
-                isBookmarked = cvm.IsBookmarked || (loadedNovel && loadedNovel.bookmarks && loadedNovel.bookmarks.includes(chapter.Id));
-
-
-                // Format chapter display as "{Number} - {Title}" or just "{Title}"
-                let chapterDisplayText = "";
-                if (chapter.number && chapter.number.trim() !== "") {
-                    chapterDisplayText = `${chapter.number} - ${chapter.Title || chapter.title || 'Без названия'}`;
-                } else {
-                    chapterDisplayText = `${chapter.Title || chapter.title || 'Без названия'}`;
+                // isBookmarked = cvm.IsBookmarked || (loadedNovel && loadedNovel.bookmarks && loadedNovel.bookmarks.includes(chapter.Id));
+                // const bookmarkIconHtml = isBookmarked ? '<span class="chapter-bookmark-icon bookmarked"><i class="fas fa-bookmark"></i></span>' : '<span class="chapter-bookmark-icon"><i class="far fa-bookmark"></i></span>';
+                
+                let bookmarkIconHtml = ''; // По умолчанию нет иконки
+                // Используем cvm.IsBookmarked, которое должно быть установлено сервером при загрузке ViewData["ChapterViewModels"]
+                if (cvm.IsBookmarked) { 
+                    bookmarkIconHtml = '<span class="chapter-bookmark-icon bookmarked"><i class="fas fa-bookmark"></i></span>'; // Заполненная иконка (красный цвет будет через CSS)
                 }
 
-                el.onclick = () => window.location.href = `/chapter/${chapter.Id}`; // Make entire card clickable
+                actionsDiv.innerHTML = bookmarkIconHtml + actionsHtml;
+                
+                // Добавляем ссылку и кнопки в карточку главы
+                el.appendChild(link);
+                el.appendChild(actionsDiv);
 
-                el.innerHTML = `
-                    <div class="chapter-info">
-                        <span class="chapter-display-text">${chapterDisplayText}</span>
-                        ${chapter.date ? `<span class="chapter-item-date">${formatChapterDate(chapter.date)}</span>` : ''}
-                    </div>
-                    <div class="chapter-item-actions">
-                        ${isBookmarked ? '<span class="chapter-bookmark-icon bookmarked"><i class="fas fa-bookmark"></i></span>' : '<span class="chapter-bookmark-icon"><i class="far fa-bookmark"></i></span>'}
-                        ${actionsHtml}
-                    </div>
-                `;
                 list.appendChild(el);
             }
             // Re-initialize Tippy for any new action buttons
