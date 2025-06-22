@@ -137,11 +137,14 @@ namespace BulbaLib.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(ChapterCreateModel model)
         {
+            _logger.LogInformation("Entering Create Chapter (POST) method. NovelId: {NovelId}, Chapter Number: {ChapterNumber}, Chapter Title: {ChapterTitle}", model.NovelId, model.Number, model.Title);
+
             var currentUser = _currentUserService.GetCurrentUser();
             var novel = _mySqlService.GetNovel(model.NovelId);
 
             if (novel == null)
             {
+                _logger.LogWarning("Novel with Id {NovelId} not found during chapter creation.", model.NovelId);
                 TempData["ErrorMessage"] = "Новелла не найдена.";
                 return RedirectToAction("Index", "CatalogView");
             }
@@ -150,11 +153,18 @@ namespace BulbaLib.Controllers
             bool canProceed = false;
             if (currentUser != null)
             {
+                _logger.LogInformation("Current User: Id {UserId}, Role {UserRole}", currentUser.Id, currentUser.Role);
                 if (currentUser.Role == UserRole.Admin)
                     canProceed = _permissionService.CanAddChapterDirectly(currentUser);
                 else if (currentUser.Role == UserRole.Translator)
                     canProceed = _permissionService.CanSubmitChapterForModeration(currentUser, novel);
             }
+            else
+            {
+                _logger.LogWarning("Current user is null. Cannot proceed with chapter creation for NovelId: {NovelId}", model.NovelId);
+            }
+
+            _logger.LogInformation("Permission check for chapter creation: User {UserId} canProceed: {CanProceed}", currentUser?.Id, canProceed);
 
             if (!canProceed)
             {
@@ -164,6 +174,7 @@ namespace BulbaLib.Controllers
 
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("ModelState is invalid for Create Chapter. Errors: {ModelStateErrors}, NovelId: {NovelId}", JsonSerializer.Serialize(ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)), model.NovelId);
                 model.NovelTitle = novel.Title; // обязательно для возврата View
                 return View("~/Views/Chapter/Create.cshtml", model);
             }
@@ -179,43 +190,65 @@ namespace BulbaLib.Controllers
 
             // Используем только текст, который пришел из textarea (model.Content)
             string chapterContent = model.Content ?? string.Empty;
+            _logger.LogInformation("Chapter content length: {ContentLength} for NovelId: {NovelId}, Chapter: {ChapterNumber} - {ChapterTitle}", chapterContent.Length, chapter.NovelId, chapter.Number, chapter.Title);
 
             if (currentUser.Role == UserRole.Admin)
             {
-                string filePath = await _fileService.SaveChapterContentAsync(
-                    chapter.NovelId, chapter.Number, chapter.Title, chapterContent);
-
-                if (string.IsNullOrEmpty(filePath))
+                _logger.LogInformation("Admin (Id: {AdminId}) creating chapter directly for NovelId: {NovelId}.", currentUser.Id, chapter.NovelId);
+                string filePath = null; // Initialize filePath
+                try
                 {
-                    ModelState.AddModelError(string.Empty, "Ошибка сохранения содержимого главы.");
+                    _logger.LogInformation("Attempting to save chapter content for NovelId: {NovelId}, Chapter: {ChapterNumber} - {ChapterTitle}", chapter.NovelId, chapter.Number, chapter.Title);
+                    filePath = await _fileService.SaveChapterContentAsync(
+                        chapter.NovelId, chapter.Number, chapter.Title, chapterContent);
+                    _logger.LogInformation("FileService.SaveChapterContentAsync result. FilePath: {FilePath}", filePath);
+
+                    if (string.IsNullOrEmpty(filePath))
+                    {
+                        _logger.LogError("FileService.SaveChapterContentAsync returned empty or null filePath for NovelId: {NovelId}, Chapter: {ChapterNumber} - {ChapterTitle}", chapter.NovelId, chapter.Number, chapter.Title);
+                        ModelState.AddModelError(string.Empty, "Ошибка сохранения содержимого главы.");
+                        model.NovelTitle = novel.Title;
+                        return View("~/Views/Chapter/Create.cshtml", model);
+                    }
+
+                    chapter.ContentFilePath = filePath;
+                    _logger.LogInformation("Attempting to create chapter entry in DB for NovelId: {NovelId}, Chapter: {ChapterNumber} - {ChapterTitle}, FilePath: {FilePath}", chapter.NovelId, chapter.Number, chapter.Title, chapter.ContentFilePath);
+                    _mySqlService.CreateChapter(chapter);
+                    _logger.LogInformation("Chapter created successfully in DB. Chapter Id (approx, from model): {ChapterId_placeholder}, NovelId: {NovelId}", chapter.Id, chapter.NovelId); // chapter.Id might not be set here if CreateChapter doesn't update it by ref
+
+                    var translators = _mySqlService.GetTranslatorsForNovel(novel.Id);
+                    if (!translators.Any(t => t.Id == currentUser.Id))
+                    {
+                        _logger.LogInformation("Adding current admin (Id: {AdminId}) as translator for NovelId: {NovelId}", currentUser.Id, novel.Id);
+                        _mySqlService.AddNovelTranslator(novel.Id, currentUser.Id);
+                    }
+
+                    TempData["SuccessMessage"] = "Глава успешно добавлена.";
+                    _logger.LogInformation("Admin successfully added chapter for NovelId: {NovelId}. Redirecting.", model.NovelId);
+                    return RedirectToAction("Novel", "NovelView", new { id = model.NovelId });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Exception occurred during Admin chapter creation for NovelId: {NovelId}, Chapter: {ChapterNumber} - {ChapterTitle}. FilePath attempted: {FilePath}", model.NovelId, model.Number, model.Title, filePath);
+                    ModelState.AddModelError(string.Empty, "Произошла внутренняя ошибка при создании главы.");
                     model.NovelTitle = novel.Title;
                     return View("~/Views/Chapter/Create.cshtml", model);
                 }
-
-                chapter.ContentFilePath = filePath;
-                _mySqlService.CreateChapter(chapter);
-
-                var translators = _mySqlService.GetTranslatorsForNovel(novel.Id);
-                if (!translators.Any(t => t.Id == currentUser.Id))
-                {
-                    _mySqlService.AddNovelTranslator(novel.Id, currentUser.Id);
-                }
-
-                TempData["SuccessMessage"] = "Глава успешно добавлена.";
-                return RedirectToAction("Novel", "NovelView", new { id = model.NovelId });
             }
             else // UserRole.Translator
             {
+                _logger.LogInformation("Translator (Id: {TranslatorId}) submitting chapter for moderation. NovelId: {NovelId}, Chapter: {ChapterNumber} - {ChapterTitle}", currentUser.Id, model.NovelId, model.Number, model.Title);
                 var chapterDataForModeration = new Chapter
                 {
                     NovelId = model.NovelId,
                     Number = model.Number,
                     Title = model.Title,
-                    Content = chapterContent,
+                    Content = chapterContent, // Content included for moderation review
                     Date = chapter.Date,
                     CreatorId = currentUser.Id
                 };
                 var requestDataJson = JsonSerializer.Serialize(chapterDataForModeration);
+                _logger.LogDebug("Chapter data for moderation (JSON): {RequestDataJson}", requestDataJson);
 
                 var moderationRequest = new ModerationRequest
                 {
@@ -228,8 +261,10 @@ namespace BulbaLib.Controllers
                     UpdatedAt = DateTime.UtcNow
                 };
                 _mySqlService.CreateModerationRequest(moderationRequest);
+                _logger.LogInformation("Moderation request for new chapter created. RequestId (approx, from model): {ModerationRequestId_placeholder}, NovelId: {NovelId}", moderationRequest.Id, model.NovelId); // moderationRequest.Id might not be set
 
                 TempData["SuccessMessage"] = "Запрос на добавление главы отправлен на модерацию.";
+                _logger.LogInformation("Translator successfully submitted chapter for moderation for NovelId: {NovelId}. Redirecting.", model.NovelId);
                 return RedirectToAction("Novel", "NovelView", new { id = model.NovelId });
             }
         }

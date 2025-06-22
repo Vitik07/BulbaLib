@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "jiC5VJ18R50Kx83beyiYs9o725YyP1KI1s1RNebS5CI=",
+  "Hash": "dXeoPdzHEjQUMuB6XCeNNUOZcgMuFq1T7NL1Vds197I=",
   "Source": "BulbaLib",
   "BasePath": "_content/BulbaLib",
   "Mode": "Default",
@@ -12061,6 +12061,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\uploads\\content\\1\\Том 9 Глава 380.1 - Эпилог 9-го Тома.txt"
+    },
+    {
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark11\\BulbaLib\\wwwroot\\uploads\\content\\22\\Том 1 Глава 1 - Пон.txt",
+      "SourceId": "BulbaLib",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark11\\BulbaLib\\wwwroot\\",
+      "BasePath": "_content/BulbaLib",
+      "RelativePath": "uploads/content/22/Том 1 Глава 1 - Пон.txt",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\content\\22\\Том 1 Глава 1 - Пон.txt"
     },
     {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark11\\BulbaLib\\wwwroot\\uploads\\content\\6\\Том 1 Глава 1 - Разве это не раздражает, когда ты проигрываешь в бесплатную гачу.txt",

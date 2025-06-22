@@ -107,14 +107,8 @@ namespace BulbaLib.Controllers
 
             if (ModelState.IsValid)
             {
-                string effectiveContent = model.Content;
-                if (model.ChapterTextFile != null && model.ChapterTextFile.Length > 0)
-                {
-                    using (var reader = new StreamReader(model.ChapterTextFile.OpenReadStream()))
-                    {
-                        effectiveContent = await reader.ReadToEndAsync();
-                    }
-                }
+                string effectiveContent = model.Content ?? string.Empty;
+                // Блок кода для ChapterTextFile удален
 
                 string filePath = await _fileService.SaveChapterContentAsync(novel.Id, model.Number, model.Title, effectiveContent);
                 if (string.IsNullOrEmpty(filePath))
