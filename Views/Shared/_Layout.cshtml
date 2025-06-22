@@ -1,4 +1,4 @@
-﻿﻿﻿
+﻿﻿﻿﻿
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -26,25 +26,45 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
+                    </ul>
+                </div>
+                <div class="navbar-collapse collapse d-sm-inline-flex">
+                    <ul class="navbar-nav">
                         @if (User.Identity.IsAuthenticated)
 
                         {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Notifications" asp-action="Index" id="notificationLink">
+                            <li class="nav-item me-2">
+                                <a class="nav-link text-dark no-underline" asp-controller="Notifications" asp-action="Index" id="notificationLink">
                                     🔔 <span class="badge bg-danger" id="notification-unread-count" style="display:none; vertical-align: top;">0</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Admin" asp-action="Index">Админ</a>
+                            <li class="nav-item me-2">
+                                <a class="nav-link text-dark no-underline" asp-controller="ProfileView" asp-action="Profile">
+                                    <img src="/Resource/default-avatar.jpg" alt="User Avatar" class="main-menu-avatar" />
+                                </a>
                             </li>
+                            <li class="nav-item ms-1 me-2">
+                                <!-- Added me-2 for spacing from potential next items -->
+                                <button class="nav-link text-dark no-underline btn btn-link" id="profilePanelToggle" aria-label="Toggle profile panel">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-three-dots-vertical" viewBox="0 0 16 16">
+                                        <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z" />
+                                    </svg>
+                                </button>
+                            </li>
+                            @* The Admin link will be moved into the panel *@
+                            @* <li class="nav-item">
+                        <a class="nav-link text-dark" asp-controller="Admin" asp-action="Index">Админ</a>
+                        </li> *@
                             <li class="nav-item">
                                 <form asp-controller="Auth" asp-action="Logout" method="post" class="form-inline">
-                                    <button type="submit" class="nav-link btn btn-link text-dark">Выход</button>
+                                    <button type="submit" class="nav-link btn btn-link text-dark no-underline">Выход</button>
                                 </form>
                             </li>
                         }
 
                         else
+
+
 
                         {
                             <li class="nav-item">
@@ -74,9 +94,24 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
 
+    <!-- Profile Panel/Modal HTML -->
     @if (User.Identity.IsAuthenticated)
 
     {
+        <div class="profile-panel-overlay" id="profilePanelOverlay" style="display: none;"></div>
+        <div class="profile-panel" id="profilePanelContainer" style="display: none;">
+            <button class="profile-panel-close" id="profilePanelClose" aria-label="Close profile panel">&times;</button>
+            <nav class="profile-panel-nav">
+                <a asp-controller="CatalogView" asp-action="Catalog" class="profile-panel-link">Каталог</a>
+                @if (User.IsInRole("Admin") || User.IsInRole("Moderator")) // Check roles for Admin Panel link
+
+                {
+                    <a asp-controller="Admin" asp-action="Index" class="profile-panel-link">Админ панель</a>
+                }
+                @* Add other links here if needed *@
+            </nav>
+        </div>
+
         <script>
             window.updateNotificationCount = function () {
                 $.get('@Url.Action("GetUnreadCount", "Notifications", new { area = "" })', function (data) {
@@ -94,6 +129,54 @@
                 // Optionally, set an interval to periodically update the count
                 // setInterval(window.updateNotificationCount, 60000); // Every 60 seconds
             });
+
+            // Profile Panel Toggle Logic
+            const profilePanelToggle = document.getElementById('profilePanelToggle');
+            const profilePanelContainer = document.getElementById('profilePanelContainer');
+            const profilePanelOverlay = document.getElementById('profilePanelOverlay');
+            const profilePanelClose = document.getElementById('profilePanelClose');
+
+            if (profilePanelToggle && profilePanelContainer && profilePanelOverlay && profilePanelClose) {
+                profilePanelToggle.addEventListener('click', function () {
+                    const isOpen = profilePanelContainer.classList.contains('open');
+                    if (isOpen) {
+                        profilePanelContainer.classList.remove('open');
+                        profilePanelOverlay.style.display = 'none';
+                        // Delay hiding to allow animation
+                        setTimeout(() => {
+                            if (!profilePanelContainer.classList.contains('open')) { // Check again in case it was quickly reopened
+                                profilePanelContainer.style.display = 'none';
+                            }
+                        }, 300); // Match CSS transition time
+                    } else {
+                        profilePanelContainer.style.display = 'flex'; // Set display before adding class to animate
+                        profilePanelOverlay.style.display = 'block';
+                        // Force reflow to ensure display:flex is applied before class for transition
+                        void profilePanelContainer.offsetWidth;
+                        profilePanelContainer.classList.add('open');
+                    }
+                });
+
+                profilePanelClose.addEventListener('click', function () {
+                    profilePanelContainer.classList.remove('open');
+                    profilePanelOverlay.style.display = 'none';
+                    setTimeout(() => {
+                        if (!profilePanelContainer.classList.contains('open')) {
+                            profilePanelContainer.style.display = 'none';
+                        }
+                    }, 300);
+                });
+
+                profilePanelOverlay.addEventListener('click', function () {
+                    profilePanelContainer.classList.remove('open');
+                    profilePanelOverlay.style.display = 'none';
+                    setTimeout(() => {
+                        if (!profilePanelContainer.classList.contains('open')) {
+                            profilePanelContainer.style.display = 'none';
+                        }
+                    }, 300);
+                });
+            }
         </script>
     }
 

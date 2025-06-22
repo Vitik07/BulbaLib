@@ -225,8 +225,8 @@ namespace BulbaLib.Controllers
 
                     TempData["SuccessMessage"] = "Глава успешно добавлена.";
                     _logger.LogInformation("Admin successfully added chapter. Chapter Id: {ChapterId}, NovelId: {NovelId}. Redirecting to chapter page.", chapter.Id, model.NovelId);
-                    // Редирект на страницу созданной главы для Admin
-                    return RedirectToAction("Read", "ChapterView", new { id = chapter.Id });
+                    // Redirect to the chapter page for Admin
+                    return RedirectToAction("Chapter", "ChapterView", new { id = chapter.Id });
                 }
                 catch (Exception ex)
                 {
@@ -266,7 +266,7 @@ namespace BulbaLib.Controllers
 
                 TempData["SuccessMessage"] = "Запрос на добавление главы отправлен на модерацию.";
                 _logger.LogInformation("Translator successfully submitted chapter for moderation for NovelId: {NovelId}. Redirecting to novel page.", model.NovelId);
-                // Редирект на страницу новеллы для Translator (текущее поведение сохраняется)
+                // Redirect to the novel page for Translator if moderation is required
                 return RedirectToAction("Novel", "NovelView", new { id = model.NovelId });
             }
         }
@@ -489,7 +489,8 @@ namespace BulbaLib.Controllers
                 }
 
                 TempData["SuccessMessage"] = "Глава успешно обновлена.";
-                return RedirectToAction("Novel", "NovelView", new { id = existingChapter.NovelId });
+                // Redirect to the chapter page for Admin after editing
+                return RedirectToAction("Chapter", "ChapterView", new { id = existingChapter.Id });
             }
             else // UserRole.Translator
             {
@@ -520,6 +521,7 @@ namespace BulbaLib.Controllers
                 _mySqlService.CreateModerationRequest(moderationRequest);
 
                 TempData["SuccessMessage"] = "Запрос на редактирование главы отправлен на модерацию.";
+                // Redirect to the novel page for Translator if moderation is required for edit
                 return RedirectToAction("Novel", "NovelView", new { id = existingChapter.NovelId });
             }
         }

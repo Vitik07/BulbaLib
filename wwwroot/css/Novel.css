@@ -364,7 +364,7 @@ body {
 /* === 5. Основной контент === */
 .novel-content-block {
     flex: 1;
-    background: var(--fg);
+    /*background: var(--fg);*/
     border-radius: var(--radius-card);
     box-shadow: 0 4px 24px var(--shadow);
     padding: 32px;
@@ -522,6 +522,37 @@ body {
     color: var(--accent-pink);
     margin-top: 2em;
 }
+
+/* Alternative Titles Expansion */
+.novel-alt-title {
+    /* Existing styles are fine, just ensure it can contain block elements if needed */
+    line-height: 1.5; /* Adjust if text wrapping looks odd */
+}
+
+.alt-titles-more-link {
+    color: var(--link);
+    cursor: pointer;
+    font-size: 0.9em;
+    margin-left: 5px;
+}
+
+    .alt-titles-more-link:hover {
+        text-decoration: underline;
+        color: var(--accent-blue-light);
+    }
+
+.full-alt-titles-container {
+    margin-top: 5px;
+    padding-left: 10px; /* Indent the full list slightly */
+    border-left: 2px solid var(--border-base);
+}
+
+    .full-alt-titles-container div {
+        margin-bottom: 3px; /* Space between each alternative title */
+        white-space: pre-wrap; /* Preserve line breaks if any within a single title string */
+    }
+
+
 /* === 6. Тултипы Font Awesome + Tippy.js === */
 .fa {
     vertical-align: middle;
@@ -892,12 +923,81 @@ body {
             color: #fff;
         }
 
+/* .chapter-actions class is replaced by .chapter-item-actions */
+/*
 .chapter-actions {
     display: flex;
     gap: 4px;
     align-items: center;
-    margin-left: 10px;
+    margin-left: 10px; 
 }
+*/
+
+.chapter-card {
+    /* Existing styles for .chapter-card: */
+    background: #222231;
+    border-radius: 8px;
+    padding: 10px 16px;
+    box-shadow: 0 1px 6px #0003;
+    display: flex; /* Use flexbox for layout */
+    align-items: center;
+    /* gap: 14px; -- Replaced by justify-content */
+    justify-content: space-between; /* Push info to left, actions to right */
+    transition: background 0.13s, box-shadow 0.13s;
+    cursor: pointer; /* Added because the whole card is clickable */
+}
+
+    .chapter-card:hover {
+        background: #24243b;
+        box-shadow: 0 2px 14px #2360d133, 0 1px 6px #0003;
+    }
+
+.chapter-info {
+    display: flex;
+    flex-direction: column; /* Stack title/date vertically */
+    align-items: flex-start;
+    flex-grow: 1; /* Allow info to take available space */
+    margin-right: 10px; /* Space between info and actions */
+    overflow: hidden; /* Prevent text overflow issues */
+}
+
+.chapter-display-text { /* Replaces .chapter-title and .chapter-number */
+    font-size: 1.08em;
+    color: #e1e1e6;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chapter-item-date { /* Replaces .chapter-date */
+    font-size: 0.9em; /* Slightly smaller */
+    color: #8a8a8e; /* More subtle color */
+    margin-top: 2px;
+}
+
+.chapter-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Space between bookmark and other action buttons */
+    flex-shrink: 0; /* Prevent actions from shrinking */
+}
+
+.chapter-bookmark-icon {
+    font-size: 1.2em; /* Adjust size as needed */
+    color: var(--text-secondary); /* Default color for empty bookmark */
+    cursor: pointer; /* Indicate it's clickable (though whole card is for navigation) */
+    padding: 4px; /* Add some padding to make it easier to see/click if it were standalone */
+}
+
+    .chapter-bookmark-icon.bookmarked {
+        color: var(--accent-pink); /* Color for filled bookmark */
+    }
+
+    .chapter-bookmark-icon .fa-bookmark { /* Specificity for FontAwesome icon */
+        vertical-align: middle;
+    }
+
 
 .novel-actions-under-status.novel-actions-panel {
     flex-direction: column;
@@ -975,7 +1075,7 @@ body {
         max-width: 210px;
     }
 }
-
+    */
 @media (max-width: 600px) {
     .request-info-banner {
         max-width: 100%;

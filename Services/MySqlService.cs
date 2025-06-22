@@ -814,9 +814,10 @@ namespace BulbaLib.Services
                 });
             }
             chapters = chapters
-                .OrderBy(ch => ParseVolume(ch.Number))
-                .ThenBy(ch => ParseChapterNumber(ch.Number))
-                .ThenBy(ch => ch.Id)
+                .OrderByDescending(ch => ExtractVolumeNumber(ch.Number).HasValue) // Главы с томом идут первыми
+                .ThenBy(ch => ExtractVolumeNumber(ch.Number) ?? decimal.MaxValue) // Сортировка по номеру тома (если есть)
+                .ThenBy(ch => ExtractChapterNumber(ch.Number) ?? decimal.MaxValue) // Сортировка по номеру главы
+                .ThenBy(ch => ch.Id) // Для стабильности при одинаковых номерах
                 .ToList();
 
             _logger.LogInformation("Found {ChapterCount} chapters for NovelId: {NovelId}", chapters.Count, novelId);
@@ -841,6 +842,59 @@ namespace BulbaLib.Services
             if (m.Success && decimal.TryParse(m.Groups[1].Value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v2))
                 return v2;
             return 9999;
+        }
+
+        // Новые методы для более точной сортировки
+        private static decimal? ExtractVolumeNumber(string numberString)
+        {
+            if (string.IsNullOrWhiteSpace(numberString)) return null;
+            var match = System.Text.RegularExpressions.Regex.Match(numberString, @"Том\s*([0-9.,]+)");
+            if (match.Success && decimal.TryParse(match.Groups[1].Value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var volume))
+            {
+                return volume;
+            }
+            return null;
+        }
+
+        private static decimal? ExtractChapterNumber(string numberString)
+        {
+            if (string.IsNullOrWhiteSpace(numberString)) return null;
+            // Сначала ищем "Глава X.Y" или "Глава X"
+            var chapterMatch = System.Text.RegularExpressions.Regex.Match(numberString, @"Глава\s*([0-9.,]+)");
+            if (chapterMatch.Success && decimal.TryParse(chapterMatch.Groups[1].Value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var chapterNum))
+            {
+                return chapterNum;
+            }
+
+            // Если "Глава X" не найдено, но есть "Том X", ищем число после "Том X Глава Y" или просто "Том X Y"
+            // Этот паттерн более сложный и может перекрываться с предыдущим, поэтому аккуратно.
+            // Если есть "Том", но нет "Глава", ищем число в конце строки или перед нечисловыми символами (кроме точки/запятой).
+            var volumeMatch = System.Text.RegularExpressions.Regex.Match(numberString, @"Том\s*[0-9.,]+\s*([0-9.,]+)");
+            if (volumeMatch.Success && decimal.TryParse(volumeMatch.Groups[1].Value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var chapterNumAfterVolume))
+            {
+                return chapterNumAfterVolume;
+            }
+
+            // Если нет ни "Том", ни "Глава", ищем просто число в строке.
+            // Это может быть просто "1", "2.5" и т.д.
+            // Ищем число, которое может быть в начале строки или после не-цифрового символа (чтобы не брать часть другого числа)
+            // и за которым может следовать не-цифровой символ или конец строки.
+            var plainNumberMatch = System.Text.RegularExpressions.Regex.Match(numberString, @"(?:^|\D)([0-9.,]+)(?:\D|$)");
+            if (plainNumberMatch.Success && plainNumberMatch.Groups[1].Value.Count(c => c == '.' || c == ',') <= 1) // Убедимся, что это похоже на число
+            {
+                if (decimal.TryParse(plainNumberMatch.Groups[1].Value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var plainNum))
+                    return plainNum;
+            }
+
+            // Если в строке есть только "Том X" без явного номера главы, то номер главы можно считать 0 или null.
+            // Для сортировки глав внутри одного тома, если номер главы не указан, они должны идти раньше глав с номером.
+            // Однако, если номер главы не указан ВООБЩЕ (не только после "Том"), то это другое.
+            // Текущая логика вернет null, если явный номер главы не найден.
+            // При сортировке `?? decimal.MaxValue` такие главы (без явного номера) окажутся в конце, что может быть нежелательно, если они должны быть в начале.
+            // Если главы типа "Том 1" без "Глава X" должны идти перед "Том 1 Глава 1", то нужно возвращать что-то вроде 0 или -1.
+            // Пока оставляю null, что означает "неопределенный номер главы", и они будут в конце своей группы томов или в общей массе.
+
+            return null; // Если номер главы не удалось извлечь
         }
 
         public void CreateChapter(Chapter chapter)

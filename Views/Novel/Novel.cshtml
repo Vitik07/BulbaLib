@@ -348,23 +348,68 @@
 
             // Заголовки и описание
             document.querySelector('.novel-page-title').textContent = novelFromApi.title || '';
-            // document.querySelector('.novel-alt-title').textContent = novelFromApi.altTitle || ''; // Old line
-            let altTitlesText = '';
+            
+            const altTitleContainer = document.querySelector('.novel-alt-title');
+            altTitleContainer.innerHTML = ''; // Clear previous content
+
+            let allAlternativeTitles = [];
             if (novelFromApi.alternativeTitles) {
                 try {
-                    const altTitlesArray = JSON.parse(novelFromApi.alternativeTitles);
-                    if (Array.isArray(altTitlesArray)) {
-                        altTitlesText = altTitlesArray.join(', ');
-                    } else {
-                        // If it's not a JSON array string but a plain string, use it directly
-                        altTitlesText = novelFromApi.alternativeTitles;
+                    // Try parsing as JSON array first
+                    allAlternativeTitles = JSON.parse(novelFromApi.alternativeTitles);
+                    if (!Array.isArray(allAlternativeTitles)) {
+                        // If not an array after parsing, it might be a single string that was JSON encoded
+                        // or some other JSON type. For simplicity, if it's not an array,
+                        // treat the original string as a single alternative title or comma/newline separated.
+                        throw new Error("Parsed JSON is not an array.");
                     }
                 } catch (e) {
-                    // If JSON.parse fails, assume it's a plain string
-                    altTitlesText = novelFromApi.alternativeTitles;
+                    // If JSON.parse fails, or it wasn't an array, split by common delimiters (newline or comma)
+                    allAlternativeTitles = novelFromApi.alternativeTitles.split(/[\n,]/)
+                                              .map(title => title.trim())
+                                              .filter(title => title.length > 0);
                 }
             }
-            document.querySelector('.novel-alt-title').textContent = altTitlesText;
+
+            if (allAlternativeTitles.length > 0) {
+                const firstAltTitleSpan = document.createElement('span');
+                firstAltTitleSpan.textContent = allAlternativeTitles[0];
+                altTitleContainer.appendChild(firstAltTitleSpan);
+
+                if (allAlternativeTitles.length > 1) {
+                    const moreLink = document.createElement('a');
+                    moreLink.href = '#';
+                    moreLink.textContent = ' (подробнее...)';
+                    moreLink.className = 'alt-titles-more-link';
+                    altTitleContainer.appendChild(moreLink);
+
+                    const fullAltTitlesContainer = document.createElement('div');
+                    fullAltTitlesContainer.className = 'full-alt-titles-container';
+                    fullAltTitlesContainer.style.display = 'none'; // Hidden by default
+                    // Preserve line breaks by creating a div for each title
+                    allAlternativeTitles.forEach(title => {
+                        const titleDiv = document.createElement('div');
+                        titleDiv.textContent = title;
+                        fullAltTitlesContainer.appendChild(titleDiv);
+                    });
+                    altTitleContainer.appendChild(fullAltTitlesContainer);
+
+                    moreLink.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        const isHidden = fullAltTitlesContainer.style.display === 'none';
+                        fullAltTitlesContainer.style.display = isHidden ? 'block' : 'none';
+                        moreLink.textContent = isHidden ? ' (скрыть)' : ' (подробнее...)';
+                        if (isHidden) {
+                            firstAltTitleSpan.style.display = 'none'; // Hide the first title when showing all
+                        } else {
+                            firstAltTitleSpan.style.display = ''; // Show first title when hiding all
+                        }
+                    });
+                }
+            } else {
+                altTitleContainer.textContent = ''; // No alternative titles
+            }
+
             const descBlock = document.getElementById('novel-description');
             const fullDescription = novelFromApi.description || '';
             const shortDesc = fullDescription.slice(0, 400);
@@ -485,6 +530,94 @@
                 return;
             }
 
+            // Helper function to parse chapter number string
+            function parseChapterNumber(numberStr) {
+                if (!numberStr) return { volume: null, chapterNum: [], isNumeric: false, original: "" };
+                numberStr = String(numberStr).trim();
+                let volume = null;
+                let chapterPart = numberStr;
+
+                const tomMatch = numberStr.match(/Том\s*(\d+)/i);
+                if (tomMatch) {
+                    volume = parseInt(tomMatch[1], 10);
+                    chapterPart = numberStr.substring(tomMatch[0].length).trim();
+                }
+
+                const glavaMatch = chapterPart.match(/(?:Глава\s*)?([\d\.\-\w]+)/i);
+                let chapterNumParts = [];
+                let isNumeric = true;
+                let originalChapterStr = "";
+
+                if (glavaMatch && glavaMatch[1]) {
+                    originalChapterStr = glavaMatch[1];
+                    chapterNumParts = originalChapterStr.split('.').map(part => {
+                        const num = parseFloat(part);
+                        if (isNaN(num)) isNumeric = false;
+                        return isNaN(num) ? part : num; // Keep non-numeric parts as strings for lexicographical comparison if needed
+                    });
+                } else {
+                     // If no "Глава" or number, treat the whole remaining part as non-numeric chapter identifier
+                    chapterNumParts = [chapterPart];
+                    isNumeric = false;
+                    originalChapterStr = chapterPart;
+                }
+                 if (chapterNumParts.length === 0 && chapterPart.trim() !== "") { // Handle cases like "Пролог" where no number is extracted
+                    chapterNumParts = [chapterPart.trim()];
+                    isNumeric = false;
+                    originalChapterStr = chapterPart.trim();
+                }
+
+
+                return { volume, chapterNum: chapterNumParts, isNumeric, original: originalChapterStr };
+            }
+
+            viewModels.sort((a, b) => {
+                const chapterAInfo = parseChapterNumber(a.Chapter.Number);
+                const chapterBInfo = parseChapterNumber(b.Chapter.Number);
+
+                // Sort by volume first (null volumes/no volume go last)
+                if (chapterAInfo.volume !== null && chapterBInfo.volume === null) return -1;
+                if (chapterAInfo.volume === null && chapterBInfo.volume !== null) return 1;
+                if (chapterAInfo.volume !== null && chapterBInfo.volume !== null) {
+                    if (chapterAInfo.volume < chapterBInfo.volume) return -1;
+                    if (chapterAInfo.volume > chapterBInfo.volume) return 1;
+                }
+
+                // If volumes are same (or both null), sort by chapter number parts
+                const len = Math.min(chapterAInfo.chapterNum.length, chapterBInfo.chapterNum.length);
+                for (let i = 0; i < len; i++) {
+                    const partA = chapterAInfo.chapterNum[i];
+                    const partB = chapterBInfo.chapterNum[i];
+
+                    const isPartANumeric = typeof partA === 'number';
+                    const isPartBNumeric = typeof partB === 'number';
+
+                    if (isPartANumeric && !isPartBNumeric) return -1; // Numeric parts come before non-numeric (e.g., "10" vs "10-extra")
+                    if (!isPartANumeric && isPartBNumeric) return 1;
+
+                    if (isPartANumeric && isPartBNumeric) {
+                        if (partA < partB) return -1;
+                        if (partA > partB) return 1;
+                    } else { // Both non-numeric or mixed, compare as strings
+                        const comparison = String(partA).localeCompare(String(partB), undefined, { numeric: true, sensitivity: 'base' });
+                        if (comparison !== 0) return comparison;
+                    }
+                }
+
+                // If one chapter number is a prefix of another (e.g., "10" vs "10.1")
+                if (chapterAInfo.chapterNum.length < chapterBInfo.chapterNum.length) return -1;
+                if (chapterAInfo.chapterNum.length > chapterBInfo.chapterNum.length) return 1;
+                
+                // Fallback to original string comparison if all parts are equal (should be rare)
+                // or if one is purely numeric and other is not fully captured (e.g. "Глава" vs "Глава 1")
+                if (chapterAInfo.isNumeric && !chapterBInfo.isNumeric && chapterBInfo.original.toLowerCase().startsWith(chapterAInfo.original.toLowerCase())) return -1;
+                if (!chapterAInfo.isNumeric && chapterBInfo.isNumeric && chapterAInfo.original.toLowerCase().startsWith(chapterBInfo.original.toLowerCase())) return 1;
+
+
+                return String(a.Chapter.Number).localeCompare(String(b.Chapter.Number), undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+
             for (const cvm of viewModels) {
                 const chapter = cvm.Chapter;
                 const el = document.createElement('div');
@@ -505,28 +638,43 @@
                 }
 
                 let isBookmarked = false;
-                if (loadedNovel && loadedNovel.chapters) {
-                    const apiChapter = loadedNovel.chapters.find(apiCh => apiCh.id === chapter.Id);
-                    if (apiChapter) {
-                        isBookmarked = apiChapter.bookmarked;
-                    }
+                // Assuming 'loadedNovel.bookmarks' is an array of chapter IDs that are bookmarked by the current user for this novel.
+                // This part needs to align with how bookmarks are actually fetched and stored on the client side for the novel.
+                // For now, let's assume `cvm.IsBookmarked` comes from the server in ChapterViewModel or we have a similar client-side check.
+                // If `ViewData["ChapterViewModels"]` is the source, `cvm.IsBookmarked` should be populated there.
+                // For demonstration, I'll use `cvm.IsBookmarked` if available, otherwise fallback to a placeholder check.
+                isBookmarked = cvm.IsBookmarked || (loadedNovel && loadedNovel.bookmarks && loadedNovel.bookmarks.includes(chapter.Id));
+
+
+                // Format chapter display as "{Number} - {Title}" or just "{Title}"
+                let chapterDisplayText = "";
+                if (chapter.number && chapter.number.trim() !== "") {
+                    chapterDisplayText = `${chapter.number} - ${chapter.Title || chapter.title || 'Без названия'}`;
+                } else {
+                    chapterDisplayText = `${chapter.Title || chapter.title || 'Без названия'}`;
                 }
 
+                el.onclick = () => window.location.href = `/chapter/${chapter.Id}`; // Make entire card clickable
+
                 el.innerHTML = `
-                                        <span class="chapter-number">${chapter.number ? chapter.number : ''}</span>
-                                        <span class="chapter-title">
-                                            <a href="/chapter/${chapter.Id}" style="color:inherit;text-decoration:none;">
-                                                ${chapter.Title || chapter.title || 'Без названия'}
-                                            </a>
-                                            ${isBookmarked ? '<i class="fa fa-bookmark" style="color:#fa6565;margin-left:6px;" title="Ваша закладка"></i>' : ''}
-                                        </span>
-                                        <span class="chapter-actions">
-                                            ${actionsHtml}
-                                        </span>
-                                        ${chapter.date ? `<span class="chapter-date">${formatChapterDate(chapter.date)}</span>` : ''}
-                                    `;
+                    <div class="chapter-info">
+                        <span class="chapter-display-text">${chapterDisplayText}</span>
+                        ${chapter.date ? `<span class="chapter-item-date">${formatChapterDate(chapter.date)}</span>` : ''}
+                    </div>
+                    <div class="chapter-item-actions">
+                        ${isBookmarked ? '<span class="chapter-bookmark-icon bookmarked"><i class="fas fa-bookmark"></i></span>' : '<span class="chapter-bookmark-icon"><i class="far fa-bookmark"></i></span>'}
+                        ${actionsHtml}
+                    </div>
+                `;
                 list.appendChild(el);
             }
+            // Re-initialize Tippy for any new action buttons
+            tippy('.chapter-action-icon-btn[data-tippy-content]', {
+                animation: 'shift-away',
+                theme: 'light',
+                arrow: true,
+                delay: [100, 100],
+            });
             console.log("Exiting renderChaptersWithBookmark");
         }
 

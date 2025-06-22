@@ -182,9 +182,42 @@ body {
     filter: drop-shadow(0 2px 6px #0007);
 }
 
-    .bookmark-icon:hover {
+    .bookmark-icon:hover { /* This class might be legacy if .chapter-page-bookmark-button is used exclusively */
         transform: scale(1.18);
     }
+
+/* New styles for the chapter page bookmark button */
+.chapter-page-bookmark-button {
+    display: inline-flex; /* Use flex to center icon easily if needed */
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary); /* Default color for empty bookmark (visible) */
+    font-size: 1.6em; /* Adjust size as needed, make it prominent */
+    padding: 6px; /* Add some clickable area */
+    margin-left: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: color 0.2s ease-in-out, transform 0.2s ease-in-out;
+    text-decoration: none; /* Remove underline from anchor */
+}
+
+    .chapter-page-bookmark-button:hover {
+        color: var(--accent-blue-light); /* Hover color for empty state */
+        transform: scale(1.1);
+    }
+
+    .chapter-page-bookmark-button.bookmarked {
+        color: var(--accent-pink); /* Color for filled bookmark */
+    }
+
+        .chapter-page-bookmark-button.bookmarked:hover {
+            color: #e04141; /* Slightly different hover for filled state if desired */
+        }
+
+    .chapter-page-bookmark-button i { /* Style for the Font Awesome icon itself */
+        vertical-align: middle;
+    }
+
 
 /* --- Content --- */
 .scroll-view {

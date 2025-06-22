@@ -240,50 +240,57 @@ body {
 
 .update-item {
     display: flex;
-    gap: 13px;
+    gap: 18px; /* Increased gap */
     align-items: flex-start;
     background: var(--card-bg);
-    border-radius: 8px;
-    padding: 8px 13px 8px 8px;
+    border-radius: 10px; /* Slightly larger radius */
+    padding: 12px 15px 12px 12px; /* Increased padding */
     cursor: pointer;
     transition: background 0.13s, box-shadow 0.13s;
     border: 1.2px solid #22222b;
-    box-shadow: 0 2px 8px #0004;
+    box-shadow: 0 3px 10px #0005; /* Slightly adjusted shadow */
 }
 
     .update-item:hover {
         background: #2c3140;
         border-color: var(--accent-blue-light);
-        box-shadow: 0 4px 22px #2360d199, 0 2px 8px #0004;
+        box-shadow: 0 5px 25px #2360d1a6, 0 2px 8px #0004; /* Enhanced hover shadow */
     }
 
 .update-cover {
-    width: 46px;
-    height: 65px;
+    width: 70px; /* Increased width */
+    height: 100px; /* Increased height */
     object-fit: cover;
-    border-radius: 7px;
+    border-radius: 8px; /* Larger radius for larger image */
     flex-shrink: 0;
-    box-shadow: 0 2px 8px #0008;
+    box-shadow: 0 3px 10px #0009; /* Adjusted shadow for larger image */
 }
 
 .update-info {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Better vertical alignment of text */
+    min-height: 100px; /* Ensure info area matches image height */
 }
 
 .update-title {
-    font-size: 1.07em;
+    font-size: 1.2em; /* Increased font size */
     font-weight: bold;
     color: #e1e1e6;
-    margin-bottom: 4px;
-    white-space: nowrap;
+    margin-bottom: 6px; /* Increased margin */
+    white-space: normal; /* Allow wrapping for longer titles */
     overflow: hidden;
     text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Limit to 2 lines */
+    -webkit-box-orient: vertical;
 }
 
 .update-chapter {
-    font-size: 0.99em;
+    font-size: 1.05em; /* Increased font size */
     color: var(--text-secondary);
-    margin-bottom: 2px;
+    margin-bottom: 5px; /* Increased margin */
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
@@ -291,9 +298,9 @@ body {
 }
 
 .update-date {
-    font-size: 0.93em;
+    font-size: 0.98em; /* Increased font size */
     color: #909090;
-    margin-top: 1px;
+    margin-top: auto; /* Push date to the bottom if space allows */
 }
 
 .novelties-list {

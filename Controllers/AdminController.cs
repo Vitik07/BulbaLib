@@ -686,12 +686,22 @@ namespace BulbaLib.Controllers
                         chapterData.CreatorId = request.UserId;
                         await _mySqlService.CreateChapterAsync(chapterData); // chapterData.Id will be updated by this call
                         await _mySqlService.AddNovelTranslatorIfNotExistsAsync(request.NovelId.Value, request.UserId);
-                        // Notification for chapter author handled below
+
                         // Notification for novel subscribers
-                        var novelForAdd = _mySqlService.GetNovel(request.NovelId.Value); // Sync call, consider async if performance is an issue
-                        var subscribersForAdd = _mySqlService.GetUserIdsSubscribedToNovel(request.NovelId.Value, new List<string> { "reading", "favorites" });
+                        var novelForAdd = _mySqlService.GetNovel(request.NovelId.Value);
+                        // Use string statuses as stored in the database and expected by GetUserIdsSubscribedToNovel
+                        var statusesForNotification = new List<string> { "reading", "read", "favorites" }; // "Читаю", "Прочитало", "Любимое"
+                        var subscribersForAdd = _mySqlService.GetUserIdsSubscribedToNovel(request.NovelId.Value, statusesForNotification);
                         var newChapterMsg = $"Новая глава '{chapterData.Number} - {chapterData.Title}' добавлена к новелле '{novelForAdd?.Title ?? "N/A"}'.";
-                        foreach (var subId in subscribersForAdd) { if (subId != request.UserId) { _notificationService.CreateNotification(subId, NotificationType.NewChapter, newChapterMsg, chapterData.Id, RelatedItemType.Chapter); } }
+                        foreach (var subId in subscribersForAdd)
+                        {
+                            // Do not notify the user who submitted the request if they are also a subscriber
+                            if (subId != request.UserId)
+                            {
+                                await _notificationService.CreateNotification(subId, NotificationType.NewChapter, newChapterMsg, chapterData.Id, RelatedItemType.Chapter);
+                            }
+                        }
+                        // Notification for chapter author (request submitter) is handled by the generic "RequestApproved" notification later.
                         break;
 
                     case ModerationRequestType.EditChapter:
@@ -761,7 +771,8 @@ namespace BulbaLib.Controllers
 
                 string novelTitleForNotification = novelForNotification?.Title ?? "N/A";
                 string actionDisplayName = GetActionDisplayName(request.RequestType);
-                _notificationService.CreateNotification(request.UserId, NotificationType.RequestApproved, $"Запрос на {actionDisplayName} главы '{itemTitle}' (новелла '{novelTitleForNotification}') одобрен.", request.ChapterId ?? request.NovelId, RelatedItemType.Chapter);
+                // Pass null for reason when request is approved.
+                await _notificationService.CreateNotification(request.UserId, NotificationType.RequestApproved, $"Запрос на {actionDisplayName} главы '{itemTitle}' (новелла '{novelTitleForNotification}') одобрен.", request.ChapterId ?? request.NovelId, RelatedItemType.Chapter, null);
 
                 return Json(new { success = true, message = "Запрос одобрен." });
             }
@@ -816,9 +827,8 @@ namespace BulbaLib.Controllers
                 string novelTitleForNotification = novelForNotification?.Title ?? "N/A";
                 string actionDisplayName = GetActionDisplayName(request.RequestType);
                 string notificationMsg = $"Запрос на {actionDisplayName} главы '{itemTitle}' (новелла '{novelTitleForNotification}') отклонен.";
-                // Причина (reason) теперь будет в отдельном поле в UI, если есть.
-                // Основное сообщение не включает причину, но уведомление будет ссылаться на ModerationRequest, где причина хранится.
-                _notificationService.CreateNotification(request.UserId, NotificationType.RequestRejected, notificationMsg, request.Id, RelatedItemType.ModerationRequest);
+                // Pass the rejection reason to the notification service.
+                await _notificationService.CreateNotification(request.UserId, NotificationType.RequestRejected, notificationMsg, request.Id, RelatedItemType.ModerationRequest, reason);
 
                 return Json(new { success = true, message = "Запрос отклонен." });
             }

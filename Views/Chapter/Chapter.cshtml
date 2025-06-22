@@ -1,5 +1,6 @@
-﻿@{
+﻿﻿@{
     ViewData["Title"] = "Глава";
+
     Layout = null;
 }
 <!DOCTYPE html>
@@ -18,9 +19,9 @@
             <div class="header-title" id="chapterFullTitle" title="">Загрузка...</div>
             <button class="next-chapter-btn chapter-nav-btn" id="nextChapterBtn" title="Следующая глава">›</button>
         </div>
-        <img class="bookmark-icon" id="bookmarkButton"
-             src="/Resource/bookmark-empty.png"
-             alt="Добавить закладку" />
+        <a href="#" role="button" class="chapter-page-bookmark-button" id="bookmarkButton" title="Добавить закладку">
+            <i class="far fa-bookmark"></i>
+        </a>
     </div>
 
     <div class="scroll-view" id="chapterContent">Содержание главы будет загружено сюда...</div>
@@ -132,17 +133,28 @@
                 let isBookmarked = !!(currentChapterInfo && currentChapterInfo.bookmarked);
 
                 if (isAuth) {
-                    bookmarkButton.src = isBookmarked
-                        ? '/Resource/bookmark-filled.png'
-                        : '/Resource/bookmark-empty.png';
-
+                    const iconElement = bookmarkButton.querySelector('i');
+                    if (isBookmarked) {
+                        iconElement.classList.remove('far');
+                        iconElement.classList.add('fas'); // Filled icon
+                        bookmarkButton.classList.add('bookmarked');
+                        bookmarkButton.title = "Закладка установлена";
+                    } else {
+                        iconElement.classList.remove('fas');
+                        iconElement.classList.add('far'); // Empty icon
+                        bookmarkButton.classList.remove('bookmarked');
+                        bookmarkButton.title = "Добавить закладку";
+                    }
                     bookmarkButton.style.opacity = "1";
-                    bookmarkButton.title = isBookmarked
-                        ? "Закладка установлена"
-                        : "Добавить закладку";
 
-                    bookmarkButton.onclick = async () => {
-                        if (!isBookmarked) {
+                    bookmarkButton.onclick = async (e) => {
+                        e.preventDefault(); // Prevent default anchor action
+                        // Current logic only supports adding, not removing.
+                        // For a full toggle, we'd need a DELETE endpoint or similar.
+                        // For now, let's assume clicking always tries to add if not bookmarked.
+                        // If it's already bookmarked, perhaps do nothing or show a message.
+
+                        if (!bookmarkButton.classList.contains('bookmarked')) { // Only try to add if not already bookmarked client-side
                             try {
                                 const payload = {
                                     novelId: parseInt(chapter.novelId),
@@ -159,12 +171,19 @@
                                 const result = await response.json();
 
                                 if (response.ok) {
-                                    isBookmarked = true;
-                                    bookmarkButton.src = '/Resource/bookmark-filled.png';
+                                    isBookmarked = true; // Update state
+                                    iconElement.classList.remove('far');
+                                    iconElement.classList.add('fas');
+                                    bookmarkButton.classList.add('bookmarked');
                                     bookmarkButton.title = "Закладка установлена";
-                                    alert('Закладка добавлена');
-                                } else if (response.status === 409) {
-                                    alert('Эта глава уже в закладках');
+                                    // alert('Закладка добавлена'); // Optional: remove alert for smoother UX
+                                } else if (response.status === 409) { // Already bookmarked (according to server)
+                                    isBookmarked = true; // Sync client state
+                                    iconElement.classList.remove('far');
+                                    iconElement.classList.add('fas');
+                                    bookmarkButton.classList.add('bookmarked');
+                                    bookmarkButton.title = "Закладка установлена";
+                                    // alert('Эта глава уже в закладках');
                                 } else {
                                     throw new Error(result.message || 'Неизвестная ошибка');
                                 }
@@ -172,13 +191,24 @@
                                 console.error("Ошибка при добавлении закладки:", err);
                                 alert("Не удалось обновить закладку");
                             }
+                        } else {
+                            // Logic to REMOVE bookmark would go here if supported
+                            // For now, if it's already bookmarked, clicking does nothing or could inform the user.
+                            // alert("Закладка уже установлена.");
+                            console.log("Bookmark already set. To remove, implement DELETE /api/users/bookmarks/:chapterId");
                         }
                     };
-                } else {
-                    bookmarkButton.src = '/Resource/bookmark-empty.png';
+                } else { // Not authenticated
+                    const iconElement = bookmarkButton.querySelector('i');
+                    iconElement.classList.remove('fas');
+                    iconElement.classList.add('far');
+                    bookmarkButton.classList.remove('bookmarked');
                     bookmarkButton.style.opacity = "0.5";
                     bookmarkButton.title = "Войдите, чтобы ставить закладки";
-                    bookmarkButton.onclick = () => alert("Войдите, чтобы ставить закладки!");
+                    bookmarkButton.onclick = (e) => {
+                        e.preventDefault();
+                        alert("Войдите, чтобы ставить закладки!");
+                    };
                 }
                 // ----------------------------
 
