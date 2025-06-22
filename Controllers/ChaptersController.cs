@@ -213,8 +213,8 @@ namespace BulbaLib.Controllers
 
                     chapter.ContentFilePath = filePath;
                     _logger.LogInformation("Attempting to create chapter entry in DB for NovelId: {NovelId}, Chapter: {ChapterNumber} - {ChapterTitle}, FilePath: {FilePath}", chapter.NovelId, chapter.Number, chapter.Title, chapter.ContentFilePath);
-                    _mySqlService.CreateChapter(chapter);
-                    _logger.LogInformation("Chapter created successfully in DB. Chapter Id (approx, from model): {ChapterId_placeholder}, NovelId: {NovelId}", chapter.Id, chapter.NovelId); // chapter.Id might not be set here if CreateChapter doesn't update it by ref
+                    _mySqlService.CreateChapter(chapter); // chapter.Id будет установлен здесь
+                    _logger.LogInformation("Chapter created successfully in DB. Chapter Id: {ChapterId}, NovelId: {NovelId}", chapter.Id, chapter.NovelId);
 
                     var translators = _mySqlService.GetTranslatorsForNovel(novel.Id);
                     if (!translators.Any(t => t.Id == currentUser.Id))
@@ -224,8 +224,9 @@ namespace BulbaLib.Controllers
                     }
 
                     TempData["SuccessMessage"] = "Глава успешно добавлена.";
-                    _logger.LogInformation("Admin successfully added chapter for NovelId: {NovelId}. Redirecting.", model.NovelId);
-                    return RedirectToAction("Novel", "NovelView", new { id = model.NovelId });
+                    _logger.LogInformation("Admin successfully added chapter. Chapter Id: {ChapterId}, NovelId: {NovelId}. Redirecting to chapter page.", chapter.Id, model.NovelId);
+                    // Редирект на страницу созданной главы для Admin
+                    return RedirectToAction("Read", "ChapterView", new { id = chapter.Id });
                 }
                 catch (Exception ex)
                 {
@@ -261,10 +262,11 @@ namespace BulbaLib.Controllers
                     UpdatedAt = DateTime.UtcNow
                 };
                 _mySqlService.CreateModerationRequest(moderationRequest);
-                _logger.LogInformation("Moderation request for new chapter created. RequestId (approx, from model): {ModerationRequestId_placeholder}, NovelId: {NovelId}", moderationRequest.Id, model.NovelId); // moderationRequest.Id might not be set
+                _logger.LogInformation("Moderation request for new chapter created. RequestId: {ModerationRequestId}, NovelId: {NovelId}", moderationRequest.Id, model.NovelId);
 
                 TempData["SuccessMessage"] = "Запрос на добавление главы отправлен на модерацию.";
-                _logger.LogInformation("Translator successfully submitted chapter for moderation for NovelId: {NovelId}. Redirecting.", model.NovelId);
+                _logger.LogInformation("Translator successfully submitted chapter for moderation for NovelId: {NovelId}. Redirecting to novel page.", model.NovelId);
+                // Редирект на страницу новеллы для Translator (текущее поведение сохраняется)
                 return RedirectToAction("Novel", "NovelView", new { id = model.NovelId });
             }
         }

@@ -130,23 +130,26 @@ namespace BulbaLib.Controllers
                 if (currentUser.Role == UserRole.Admin && _permissionService.CanAddChapterDirectly(currentUser))
                 {
                     chapterToSave.CreatorId = currentUser.Id;
-                    _mySqlService.CreateChapter(chapterToSave);
+                    _mySqlService.CreateChapter(chapterToSave); // chapterToSave.Id будет установлен здесь
                     TempData["SuccessMessage"] = "Глава успешно добавлена.";
 
                     // Notify subscribers if Admin adds directly
-                    // Note: Content comparison for finding the chapter might need adjustment if it now stores a path.
-                    // For simplicity, assuming Title and Number are sufficient for this example.
-                    var newChapterAdmin = _mySqlService.GetChaptersByNovel(novel.Id)
-                                             .FirstOrDefault(c => c.Title == chapterToSave.Title && c.Number == chapterToSave.Number);
-                    if (newChapterAdmin != null)
+                    // var newChapterAdmin = _mySqlService.GetChaptersByNovel(novel.Id) // chapterToSave.Id уже есть
+                    //                          .FirstOrDefault(c => c.Id == chapterToSave.Id); // Можно использовать ID для поиска
+                    // if (newChapterAdmin != null) // newChapterAdmin это chapterToSave
+                    // {
+                    var subscribers = _mySqlService.GetUserIdsSubscribedToNovel(novel.Id, new List<string> { "reading", "read", "favorites" });
+                    var newChapterMessage = $"Новая глава '{chapterToSave.Number} - {chapterToSave.Title}' добавлена к новелле '{novel.Title}'.";
+                    foreach (var subId in subscribers)
                     {
-                        var subscribers = _mySqlService.GetUserIdsSubscribedToNovel(novel.Id, new List<string> { "reading", "read", "favorites" });
-                        var newChapterMessage = $"Новая глава '{newChapterAdmin.Number} - {newChapterAdmin.Title}' добавлена к новелле '{novel.Title}'.";
-                        foreach (var subId in subscribers)
+                        if (subId != currentUser.Id) // Не уведомлять самого себя
                         {
-                            _notificationService.CreateNotification(subId, NotificationType.NewChapter, newChapterMessage, newChapterAdmin.Id, RelatedItemType.Chapter);
+                            _notificationService.CreateNotification(subId, NotificationType.NewChapter, newChapterMessage, chapterToSave.Id, RelatedItemType.Chapter);
                         }
                     }
+                    // }
+                    // Редирект на страницу созданной главы для Admin
+                    return RedirectToAction("Read", "ChapterView", new { id = chapterToSave.Id });
                 }
                 else if (currentUser.Role == UserRole.Translator && _permissionService.CanSubmitChapterForModeration(currentUser, novel))
                 {
@@ -163,13 +166,21 @@ namespace BulbaLib.Controllers
                     };
                     _mySqlService.CreateModerationRequest(moderationRequest);
                     TempData["SuccessMessage"] = "Запрос на добавление главы отправлен на модерацию.";
+                    // Редирект на страницу новеллы для Translator
+                    return RedirectToAction("Novel", "NovelView", new { id = model.NovelId });
                 }
                 else
                 {
                     TempData["ErrorMessage"] = "У вас нет прав для выполнения этого действия.";
                     return View("~/Views/Chapter/Create.cshtml", model);
                 }
-                return RedirectToAction("Details", "NovelView", new { id = model.NovelId });
+                // Этот return больше не будет достигнут из-за редиректов выше, но оставим на всякий случай, если логика изменится.
+                // Однако, правильнее было бы, чтобы все ветви if/else if имели свой return.
+                // В данном случае, если ни одно из условий не выполнено, будет ошибка, т.к. нет return.
+                // Но логика _permissionService должна покрывать все случаи.
+                // Для Translator редирект уже есть. Для Admin добавлен.
+                // Если ни Admin, ни Translator, то будет ошибка "нет прав" и возврат View.
+                // Поэтому этот RedirectToAction("Details", "NovelView", new { id = model.NovelId }); не нужен здесь.
             }
             ViewData["NovelTitle"] = novel.Title; // Ensure NovelTitle is available if ModelState is invalid
             return View("~/Views/Chapter/Create.cshtml", model);
