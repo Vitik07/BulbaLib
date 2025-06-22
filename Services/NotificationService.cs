@@ -48,7 +48,8 @@ namespace BulbaLib.Services
         public async Task CreateNotificationForSubscribedUsers(int novelId, int chapterId, string novelTitle, string chapterNumberOrTitle)
         {
             // Статусы, при которых пользователь считается подписанным на уведомления о новых главах
-            var subscribedStatuses = new List<string> { "Читаю", "Прочитано", "Любимое" }; // TODO: Использовать enum или константы
+            // Используем английские значения, так как они, вероятно, хранятся в БД (согласно AdminController)
+            var subscribedStatuses = new List<string> { "reading", "read", "favorites" };
 
             var userIds = _mySqlService.GetUserIdsSubscribedToNovel(novelId, subscribedStatuses);
 

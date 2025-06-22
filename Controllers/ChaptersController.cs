@@ -216,6 +216,19 @@ namespace BulbaLib.Controllers
                     _mySqlService.CreateChapter(chapter); // chapter.Id будет установлен здесь
                     _logger.LogInformation("Chapter created successfully in DB. Chapter Id: {ChapterId}, NovelId: {NovelId}", chapter.Id, chapter.NovelId);
 
+                    // Уведомление о новой главе
+                    try
+                    {
+                        _logger.LogInformation("Sending new chapter notifications for NovelId: {NovelId}, ChapterId: {ChapterId}", novel.Id, chapter.Id);
+                        await _notificationService.CreateNotificationForSubscribedUsers(novel.Id, chapter.Id, novel.Title, chapter.Number ?? chapter.Title);
+                        _logger.LogInformation("Successfully sent new chapter notifications for NovelId: {NovelId}, ChapterId: {ChapterId}", novel.Id, chapter.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error sending new chapter notifications for NovelId: {NovelId}, ChapterId: {ChapterId}", novel.Id, chapter.Id);
+                        // Не прерываем основной поток из-за ошибки уведомлений
+                    }
+
                     var translators = _mySqlService.GetTranslatorsForNovel(novel.Id);
                     if (!translators.Any(t => t.Id == currentUser.Id))
                     {

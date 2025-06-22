@@ -408,7 +408,8 @@ namespace BulbaLib.Controllers
                 var rejMsg = $"Запрос на {actionDisplayName} новеллы '{rejNT}' отклонен.";
                 // Причина (moderationComment) теперь будет в отдельном поле в UI, если есть.
                 // Основное сообщение не включает причину, но уведомление будет ссылаться на ModerationRequest, где причина хранится.
-                _notificationService.CreateNotification(request.UserId, NotificationType.RequestRejected, rejMsg, request.Id, RelatedItemType.ModerationRequest);
+                // Передаем moderationComment как причину в уведомление
+                _notificationService.CreateNotification(request.UserId, NotificationType.RequestRejected, rejMsg, request.Id, RelatedItemType.ModerationRequest, moderationComment);
                 return Json(new { success = true, message = $"Запрос ID {requestId} ({request.RequestType}) отклонен." });
             }
         }
