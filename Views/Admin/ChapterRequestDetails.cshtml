@@ -181,6 +181,7 @@
                     success: function (response) {
                         if (response.success) {
                             alert(response.message);
+                            // Always redirect to the chapter requests tab after any successful approval
                             window.location.href = '@Url.Action("Index", "Admin")#chapter-requests-tab';
                         } else {
                             alert('Ошибка: ' + response.message);

@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "7/SMt9kOGuX8XaxIgqDWZzUhPfCA19U7n3f2JuE3p0U=",
+  "Hash": "R4Za1Fkg3vBmgQU4ESI6S3vbb6VtpkFOeNDKpjy/wO4=",
   "Source": "BulbaLib",
   "BasePath": "_content/BulbaLib",
   "Mode": "Default",
@@ -12082,6 +12082,25 @@
       "OriginalItemSpec": "wwwroot\\uploads\\content\\1\\Том 9 Глава 380.1 - Эпилог 9-го Тома.txt"
     },
     {
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\content\\22\\Глава 1 - Хуй.txt",
+      "SourceId": "BulbaLib",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\",
+      "BasePath": "_content/BulbaLib",
+      "RelativePath": "uploads/content/22/Глава 1 - Хуй.txt",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\content\\22\\Глава 1 - Хуй.txt"
+    },
+    {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\content\\22\\Глава 3 - Биба.txt",
       "SourceId": "BulbaLib",
       "SourceType": "Discovered",
@@ -12156,6 +12175,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\uploads\\content\\22\\Том 1 Глава 1 - Пон.txt"
+    },
+    {
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\content\\22\\Том 1 Глава 5 - Пизда.txt",
+      "SourceId": "BulbaLib",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\",
+      "BasePath": "_content/BulbaLib",
+      "RelativePath": "uploads/content/22/Том 1 Глава 5 - Пизда.txt",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\content\\22\\Том 1 Глава 5 - Пизда.txt"
     },
     {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\content\\22\\Щас бы бахнуть - Хз.txt",

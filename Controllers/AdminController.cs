@@ -366,6 +366,7 @@ namespace BulbaLib.Controllers
                     string actionDisplayName = GetActionDisplayName(request.RequestType);
                     var finalNT = novelForNotification?.Title ?? originalNovelTitleForNotification ?? "?";
                     _notificationService.CreateNotification(request.UserId, NotificationType.RequestApproved, $"Запрос на {actionDisplayName} новеллы '{finalNT}' одобрен.", request.NovelId, RelatedItemType.Novel);
+
                     return Json(new { success = true, message = $"Запрос ID {requestId} ({request.RequestType}) одобрен." });
                 }
                 catch (Exception ex) { _logger.LogError(ex, "Error approving req ID {Rid}", requestId); return Json(new { success = false, message = "Ошибка одобрения запроса" }); }
