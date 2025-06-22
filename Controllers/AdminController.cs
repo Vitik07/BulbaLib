@@ -787,7 +787,7 @@ namespace BulbaLib.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RejectChapterRequest(int requestId, string reason) // 'reason' from form
+        public async Task<IActionResult> RejectChapterRequest(int requestId, string moderationComment) // 'reason' from form
         {
             var currentAdminUser = _currentUserService.GetCurrentUser();
             if (currentAdminUser == null || !_permissionService.CanModerateChapterRequests(currentAdminUser))
@@ -808,7 +808,7 @@ namespace BulbaLib.Controllers
             try
             {
                 // The 'reason' parameter from the form is now 'moderationComment' for consistency with model
-                await _mySqlService.UpdateModerationRequestStatusAsync(requestId, ModerationStatus.Rejected, currentAdminUser.Id, reason);
+                await _mySqlService.UpdateModerationRequestStatusAsync(requestId, ModerationStatus.Rejected, currentAdminUser.Id, moderationComment);
 
                 // Notification
                 var novelForNotification = request.NovelId.HasValue ? _mySqlService.GetNovel(request.NovelId.Value) : null;
@@ -830,7 +830,7 @@ namespace BulbaLib.Controllers
                 string actionDisplayName = GetActionDisplayName(request.RequestType);
                 string notificationMsg = $"Запрос на {actionDisplayName} главы '{itemTitle}' (новелла '{novelTitleForNotification}') отклонен.";
                 // Pass the rejection reason to the notification service.
-                await _notificationService.CreateNotification(request.UserId, NotificationType.RequestRejected, notificationMsg, request.Id, RelatedItemType.ModerationRequest, reason);
+                await _notificationService.CreateNotification(request.UserId, NotificationType.RequestRejected, notificationMsg, request.Id, RelatedItemType.ModerationRequest, moderationComment);
 
                 return Json(new { success = true, message = "Запрос отклонен." });
             }
