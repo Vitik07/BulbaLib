@@ -23,8 +23,6 @@ namespace BulbaLib.Models
         [DataType(DataType.MultilineText)]
         public string Content { get; set; }
 
-        public string NovelTitle { get; set; }
-
-        public IFormFile? ChapterTextFile { get; set; }
+        public string? NovelTitle { get; set; }
     }
 }

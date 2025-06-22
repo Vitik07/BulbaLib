@@ -433,26 +433,7 @@ namespace BulbaLib.Controllers
                 return View("~/Views/Chapter/Edit.cshtml", model);
             }
 
-            string chapterContent = model.Content; // Default to content from textarea
-
-            if (model.ChapterTextFile != null && model.ChapterTextFile.Length > 0)
-            {
-                _logger.LogInformation("ChapterTextFile provided in Edit, reading content from file.");
-                try
-                {
-                    using (var reader = new StreamReader(model.ChapterTextFile.OpenReadStream()))
-                    {
-                        chapterContent = await reader.ReadToEndAsync(); // Overwrite with file content
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error reading content from ChapterTextFile during Edit.");
-                    ModelState.AddModelError("ChapterTextFile", "Не удалось прочитать содержимое файла.");
-                    model.NovelTitle = novel.Title; // Repopulate NovelTitle
-                    return View("~/Views/Chapter/Edit.cshtml", model);
-                }
-            }
+            string chapterContent = model.Content ?? string.Empty; // Default to content from textarea, ensure not null
 
             // Logic for Admins: Direct edit
             if (currentUser.Role == UserRole.Admin)
@@ -460,14 +441,7 @@ namespace BulbaLib.Controllers
                 _logger.LogInformation("[Admin Edit POST] NovelId: {NovelId}, ChapterId: {ChapterId}, Submitted Model Number: '{ModelNumber}', Title: '{ModelTitle}'",
                     existingChapter.NovelId, model.Id, model.Number, model.Title);
 
-                if (model.ChapterTextFile != null && model.ChapterTextFile.Length > 0)
-                {
-                    _logger.LogInformation("[Admin Edit POST] Using content from uploaded ChapterTextFile: {FileName}", model.ChapterTextFile.FileName);
-                }
-                else
-                {
-                    _logger.LogInformation("[Admin Edit POST] Using content from Content textarea. Length: {ContentLength}", chapterContent?.Length ?? 0);
-                }
+                _logger.LogInformation("[Admin Edit POST] Using content from Content textarea. Length: {ContentLength}", chapterContent.Length);
 
                 string oldFilePath = existingChapter.ContentFilePath; // Get existing path BEFORE updating chapter details
                 _logger.LogInformation("[Admin Edit POST] Old ContentFilePath: '{OldFilePath}'", oldFilePath);

@@ -29,16 +29,15 @@
         <span asp-validation-for="Title" class="text-danger"></span>
     </div>
     <div class="form-group mb-3">
-        <label>Загрузить новый текстовый файл главы (.txt)</label>
-        <input type="file" asp-for="ChapterTextFile" id="chapterTextFile" class="form-control" accept=".txt" />
-        <span asp-validation-for="ChapterTextFile" class="text-danger"></span>
+        <label for="clientSideFileLoader">Загрузить текст из файла (.txt)</label>
+        <input type="file" id="clientSideFileLoader" class="form-control" accept=".txt" />
         <small id="fileLoadStatus" class="form-text text-muted">
-            Вы можете изменить текст вручную или загрузить .txt-файл — его содержимое будет скопировано в поле ниже.
+            Выберите текстовый файл, его содержимое будет скопировано в поле "Содержимое главы".
         </small>
     </div>
     <div class="form-group mb-3">
         <label asp-for="Content"></label>
-        <textarea asp-for="Content" class="form-control" rows="15"></textarea>
+        <textarea asp-for="Content" id="Content" class="form-control" rows="15"></textarea>
         <span asp-validation-for="Content" class="text-danger"></span>
     </div>
     <div class="form-group mt-4">
@@ -49,31 +48,38 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const chapterTextFileInput = document.getElementById('ChapterTextFile'); // Changed to 'ChapterTextFile'
-            const contentTextArea = document.getElementById('Content');
-            if (chapterTextFileInput && contentTextArea) {
-                chapterTextFileInput.addEventListener('change', function (e) {
+            const clientSideFileLoader = document.getElementById('clientSideFileLoader');
+            const contentTextArea = document.getElementById('Content'); // Убедимся, что у textarea есть ID="Content"
+            const fileLoadStatus = document.getElementById('fileLoadStatus');
+
+            if (clientSideFileLoader && contentTextArea) {
+                clientSideFileLoader.addEventListener('change', function (e) {
                     const file = e.target.files[0];
-                    if (!file) return;
+                    if (!file) {
+                        if(fileLoadStatus) fileLoadStatus.textContent = 'Файл не выбран.';
+                        return;
+                    }
                     if (file.type !== "text/plain" && !file.name.endsWith('.txt')) {
                         alert('Можно загрузить только .txt файл!');
+                        if(fileLoadStatus) fileLoadStatus.textContent = 'Выбран неверный тип файла.';
+                        clientSideFileLoader.value = ""; // Сбросить выбор файла
                         return;
                     }
                     const reader = new FileReader();
                     reader.onload = function (evt) {
                         contentTextArea.value = evt.target.result;
-                        const fileLoadStatus = document.getElementById('fileLoadStatus');
                         if (fileLoadStatus) {
                             fileLoadStatus.textContent = 'Содержимое файла загружено в текстовое поле.';
                             fileLoadStatus.style.color = 'green';
                             setTimeout(() => {
-                                fileLoadStatus.textContent = 'Вы можете изменить текст вручную или загрузить .txt-файл — его содержимое будет скопировано в поле ниже.';
-                                fileLoadStatus.style.color = '';
+                                fileLoadStatus.textContent = 'Выберите текстовый файл, его содержимое будет скопировано в поле "Содержимое главы".';
+                                fileLoadStatus.style.color = ''; // Reset color
                             }, 3000);
                         }
                     };
                     reader.onerror = function () {
                         alert('Ошибка при чтении файла!');
+                        if(fileLoadStatus) fileLoadStatus.textContent = 'Ошибка при чтении файла.';
                     };
                     reader.readAsText(file, "utf-8");
                 });

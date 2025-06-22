@@ -264,14 +264,7 @@ namespace BulbaLib.Controllers
 
             if (ModelState.IsValid)
             {
-                string effectiveContent = model.Content;
-                if (model.ChapterTextFile != null && model.ChapterTextFile.Length > 0)
-                {
-                    using (var reader = new StreamReader(model.ChapterTextFile.OpenReadStream()))
-                    {
-                        effectiveContent = await reader.ReadToEndAsync();
-                    }
-                }
+                string effectiveContent = model.Content ?? string.Empty;
 
                 // It's good practice to delete the old file if content is changing and it was a file path.
                 // However, current logic assumes originalChapter.Content might be actual text or a path.
