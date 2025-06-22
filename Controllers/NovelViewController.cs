@@ -88,9 +88,25 @@ namespace BulbaLib.Controllers
                         canEditChapter = _permissionService.CanEditChapter(currentUser, chapter, novel);
                         canDeleteChapter = _permissionService.CanDeleteChapter(currentUser, chapter, novel);
                     }
-                    chapterViewModels.Add(new ChapterViewModel { Chapter = chapter, CanEdit = canEditChapter, CanDelete = canDeleteChapter });
+                    chapterViewModels.Add(new ChapterViewModel { Chapter = chapter, CanEdit = canEditChapter, CanDelete = canDeleteChapter }); // IsBookmarked will be set below
                 }
             }
+
+            if (currentUser != null && chapterViewModels.Any())
+            {
+                List<int> bookmarkedChapterIds = _mySqlService.GetUserBookmarkedChapterIdsForNovel(currentUser.Id, id);
+                if (bookmarkedChapterIds != null && bookmarkedChapterIds.Any())
+                {
+                    foreach (var cvm in chapterViewModels)
+                    {
+                        if (bookmarkedChapterIds.Contains(cvm.Chapter.Id))
+                        {
+                            cvm.IsBookmarked = true;
+                        }
+                    }
+                }
+            }
+
             ViewData["ChapterViewModels"] = chapterViewModels;
             return View("~/Views/Novel/Novel.cshtml", novel);
         }

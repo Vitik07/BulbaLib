@@ -619,33 +619,40 @@
 
 
             for (const cvm of viewModels) {
-                console.log(cvm);
+                console.log("Processing CVM:", JSON.stringify(cvm)); // Log the whole ChapterViewModel
                 const chapter = cvm.Chapter;
+                console.log("Processing Chapter object:", JSON.stringify(chapter)); // Log the Chapter object itself
+
                 // Создаем контейнер для карточки главы
                 const el = document.createElement('div');
                 el.className = 'chapter-card';
+                el.style.cursor = 'pointer'; // Make it visually clickable
 
-                // Создаем ссылку для основной информации о главе
-                const link = document.createElement('a');
-                link.href = `/chapter/${chapter.Id}`;
-                link.className = 'chapter-link'; // Новый класс для стилизации ссылки
+                // The chapter.Id will be needed for navigation, store it on the element
+                el.dataset.chapterId = chapter.Id;
 
                 // Формируем текст главы (номер и название)
                 let chapterDisplayText = "";
-                // Используем chapter.number (который должен быть ChapterNumber из C# модели)
-                // и chapter.Title (который должен быть Title из C# модели)
-                if (chapter.number && chapter.number.trim() !== "") {
-                    chapterDisplayText = `${chapter.number} - ${chapter.Title || chapter.title || 'Без названия'}`;
+                // Accessing with PascalCase as it seems serialization doesn't change it to camelCase here.
+                const chapterNum = chapter.Number; 
+                const chapterTitle = chapter.Title;
+
+                // Ensure chapterNum is treated as a string for trim and display
+                const currentNumberStr = chapterNum ? String(chapterNum).trim() : "";
+                const currentTitleStr = chapterTitle || 'Без названия';
+
+                if (currentNumberStr !== "") {
+                    chapterDisplayText = `${currentNumberStr} - ${currentTitleStr}`;
                 } else {
-                    chapterDisplayText = `${chapter.Title || chapter.title || 'Без названия'}`;
+                    chapterDisplayText = currentTitleStr;
                 }
                 
-                // HTML для информации внутри ссылки
-                link.innerHTML = `
-                    <div class="chapter-info">
-                        <span class="chapter-display-text">${chapterDisplayText}</span>
-                        ${chapter.date ? `<span class="chapter-item-date">${formatChapterDate(chapter.date)}</span>` : ''}
-                    </div>
+                // HTML для информации, теперь будет直接 в el или в дочернем div без <a>
+                const chapterInfoDiv = document.createElement('div');
+                chapterInfoDiv.className = 'chapter-info'; // Maintain existing class if styles depend on it
+                chapterInfoDiv.innerHTML = `
+                    <span class="chapter-display-text">${chapterDisplayText}</span>
+                    ${chapter.date ? `<span class="chapter-item-date">${formatChapterDate(chapter.date)}</span>` : ''}
                 `;
 
                 // Создаем div для кнопок действий
@@ -684,9 +691,20 @@
 
                 actionsDiv.innerHTML = bookmarkIconHtml + actionsHtml;
                 
-                // Добавляем ссылку и кнопки в карточку главы
-                el.appendChild(link);
-                el.appendChild(actionsDiv);
+                // Добавляем chapterInfoDiv и actionsDiv в карточку главы (el)
+                el.appendChild(chapterInfoDiv); // Add the chapter info
+                el.appendChild(actionsDiv);    // Add the actions panel
+
+                // Add the click listener to the chapter card itself
+                el.addEventListener('click', function(event) {
+                    // Check if the click target or its parent is within the actions panel
+                    if (event.target.closest('.chapter-item-actions')) {
+                        // Click was on an action item, so do nothing and let the action proceed.
+                        return;
+                    }
+                    // Otherwise, navigate to the chapter
+                    window.location.href = `/chapter/${this.dataset.chapterId}`;
+                });
 
                 list.appendChild(el);
             }
