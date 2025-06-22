@@ -678,8 +678,9 @@
                 let bookmarkIconHtml = ''; // По умолчанию нет иконки
                 // Используем cvm.IsBookmarked, которое должно быть установлено сервером при загрузке ViewData["ChapterViewModels"]
                 if (cvm.IsBookmarked) { 
-                    bookmarkIconHtml = '<span class="chapter-bookmark-icon bookmarked"><i class="fas fa-bookmark"></i></span>'; // Заполненная иконка (красный цвет будет через CSS)
+                    bookmarkIconHtml = '<span class="chapter-bookmark-icon bookmarked" title="В закладках"><i class="fas fa-bookmark"></i></span>'; // Заполненная иконка
                 }
+                // Если cvm.IsBookmarked === false, bookmarkIconHtml остается '', и иконка не отображается.
 
                 actionsDiv.innerHTML = bookmarkIconHtml + actionsHtml;
                 

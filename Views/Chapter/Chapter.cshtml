@@ -1,4 +1,4 @@
-﻿﻿﻿@{
+﻿@{
     ViewData["Title"] = "Глава";
 
     Layout = null;
@@ -9,6 +9,7 @@
     <meta charset="UTF-8" />
     <title>Глава</title>
     <link rel="stylesheet" href="~/css/Chapter.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 </head>
 <body>
 
@@ -90,7 +91,11 @@
                 const responseNovel = await fetch(`${baseUrl}/api/novels/${chapter.novelId}`);
                 const novelData = await responseNovel.json();
 
+                // Добавляем лог для всего списка глав, чтобы проверить его содержимое
+                console.log("Novel data with chapters list:", novelData);
                 chaptersList = Array.isArray(novelData.chapters) ? novelData.chapters : [];
+                console.log("Parsed chaptersList:", chaptersList);
+
 
                 const idx = chaptersList.findIndex(ch => String(ch.id) === String(chapter.id));
                 let prevChapter = null;
