@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "29olGrZOKGR2806bcav+Tw+p4g/fTaACqTltShj8bX8=",
+  "Hash": "DrVwg05j9vbaBvk/Bq1eWGdZoM5GYBCjvl744ABhQo8=",
   "Source": "BulbaLib",
   "BasePath": "_content/BulbaLib",
   "Mode": "Default",
@@ -12082,6 +12082,25 @@
       "OriginalItemSpec": "wwwroot\\uploads\\content\\22\\Глава 3 - Биба.txt"
     },
     {
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark11\\BulbaLib\\wwwroot\\uploads\\content\\22\\Том 1 Глава 0 - Таракан.txt",
+      "SourceId": "BulbaLib",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark11\\BulbaLib\\wwwroot\\",
+      "BasePath": "_content/BulbaLib",
+      "RelativePath": "uploads/content/22/Том 1 Глава 0 - Таракан.txt",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\content\\22\\Том 1 Глава 0 - Таракан.txt"
+    },
+    {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark11\\BulbaLib\\wwwroot\\uploads\\content\\22\\Том 1 Глава 0.5 - Ясно.txt",
       "SourceId": "BulbaLib",
       "SourceType": "Discovered",
@@ -12118,6 +12137,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\uploads\\content\\22\\Том 1 Глава 1 - Пон.txt"
+    },
+    {
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark11\\BulbaLib\\wwwroot\\uploads\\content\\22\\Щас бы бахнуть - Хз.txt",
+      "SourceId": "BulbaLib",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark11\\BulbaLib\\wwwroot\\",
+      "BasePath": "_content/BulbaLib",
+      "RelativePath": "uploads/content/22/Щас бы бахнуть - Хз.txt",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\content\\22\\Щас бы бахнуть - Хз.txt"
     },
     {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark11\\BulbaLib\\wwwroot\\uploads\\content\\6\\Том 1 Глава 1 - Разве это не раздражает, когда ты проигрываешь в бесплатную гачу.txt",

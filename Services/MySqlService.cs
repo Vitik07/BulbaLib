@@ -869,13 +869,17 @@ namespace BulbaLib.Services
             using var cmd = conn.CreateCommand();
             // Added ContentFilePath to UPDATE
             cmd.CommandText = "UPDATE Chapters SET Number=@number, Title=@title, Date=@date, CreatorId=@creatorId, ContentFilePath=@contentFilePath WHERE Id=@id";
-            _logger.LogDebug("UpdateChapter parameters for Id={ChapterId}: Number={Number}, Title={Title}, CreatorId={CreatorId}", chapter.Id, chapter.Number, chapter.Title, chapter.CreatorId);
+
+            cmd.Parameters.AddWithValue("@id", chapter.Id);
             cmd.Parameters.AddWithValue("@number", chapter.Number ?? "");
             cmd.Parameters.AddWithValue("@title", chapter.Title);
             cmd.Parameters.AddWithValue("@date", chapter.Date);
             cmd.Parameters.AddWithValue("@creatorId", chapter.CreatorId.HasValue ? (object)chapter.CreatorId.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("@contentFilePath", (object)chapter.ContentFilePath ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@id", chapter.Id);
+
+            _logger.LogInformation("Executing UpdateChapter for Id: {ChapterId}. SQL: {SQLText}. Parameters: Id={@id}, Number='{Number}', Title='{Title}', Date={Date}, CreatorId={CreatorId}, ContentFilePath='{ContentFilePath}'",
+                chapter.Id, cmd.CommandText, chapter.Id, chapter.Number ?? "", chapter.Title, chapter.Date, chapter.CreatorId.HasValue ? chapter.CreatorId.Value.ToString() : "NULL", chapter.ContentFilePath ?? "NULL");
+
             int rowsAffected = cmd.ExecuteNonQuery();
             _logger.LogInformation("UpdateChapter for Id: {ChapterId} affected {RowsAffected} row(s).", chapter.Id, rowsAffected);
         }
@@ -2083,4 +2087,4 @@ namespace BulbaLib.Services
             return result;
         }
     }
-}   
+}

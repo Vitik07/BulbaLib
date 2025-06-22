@@ -30,7 +30,8 @@
     </div>
     <div class="form-group mb-3">
         <label>Загрузить новый текстовый файл главы (.txt)</label>
-        <input type="file" id="chapterTextFile" class="form-control" accept=".txt" />
+        <input type="file" asp-for="ChapterTextFile" id="chapterTextFile" class="form-control" accept=".txt" />
+        <span asp-validation-for="ChapterTextFile" class="text-danger"></span>
         <small id="fileLoadStatus" class="form-text text-muted">
             Вы можете изменить текст вручную или загрузить .txt-файл — его содержимое будет скопировано в поле ниже.
         </small>
@@ -48,7 +49,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const chapterTextFileInput = document.getElementById('chapterTextFile');
+            const chapterTextFileInput = document.getElementById('ChapterTextFile'); // Changed to 'ChapterTextFile'
             const contentTextArea = document.getElementById('Content');
             if (chapterTextFileInput && contentTextArea) {
                 chapterTextFileInput.addEventListener('change', function (e) {

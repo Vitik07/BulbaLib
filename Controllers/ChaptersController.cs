@@ -457,42 +457,61 @@ namespace BulbaLib.Controllers
             // Logic for Admins: Direct edit
             if (currentUser.Role == UserRole.Admin)
             {
-                // Construct the presumed old file path based on OLD details if Number/Title could change
-                // This is complex if FileService doesn't store/manage paths directly linked to chapter IDs.
-                // For simplicity, assume FileService.SaveChapterContentAsync can overwrite or handle this.
-                // A more robust solution would involve storing file paths or having FileService manage them by ID.
+                _logger.LogInformation("[Admin Edit POST] NovelId: {NovelId}, ChapterId: {ChapterId}, Submitted Model Number: '{ModelNumber}', Title: '{ModelTitle}'",
+                    existingChapter.NovelId, model.Id, model.Number, model.Title);
 
-                // If chapter number or title (which might form the filename) has changed,
-                // we might need to delete the old file. This is tricky without a stored ContentFilePath.
-                // Let's assume SaveChapterContentAsync handles overwriting correctly if the path is the same,
-                // or creates a new file if path components (number/title) change.
-                // Deleting the "old" file when its name components change is not straightforward here.
+                if (model.ChapterTextFile != null && model.ChapterTextFile.Length > 0)
+                {
+                    _logger.LogInformation("[Admin Edit POST] Using content from uploaded ChapterTextFile: {FileName}", model.ChapterTextFile.FileName);
+                }
+                else
+                {
+                    _logger.LogInformation("[Admin Edit POST] Using content from Content textarea. Length: {ContentLength}", chapterContent?.Length ?? 0);
+                }
 
                 string oldFilePath = existingChapter.ContentFilePath; // Get existing path BEFORE updating chapter details
+                _logger.LogInformation("[Admin Edit POST] Old ContentFilePath: '{OldFilePath}'", oldFilePath);
 
+                _logger.LogInformation("[Admin Edit POST] Calling SaveChapterContentAsync with NovelId: {NovelId}, Number: '{ChapterNumber}', Title: '{ChapterTitle}'",
+                    existingChapter.NovelId, model.Number, model.Title);
                 string newFilePath = await _fileService.SaveChapterContentAsync(existingChapter.NovelId, model.Number, model.Title, chapterContent);
+
                 if (string.IsNullOrEmpty(newFilePath))
                 {
+                    _logger.LogError("[Admin Edit POST] SaveChapterContentAsync returned null or empty. NovelId: {NovelId}, ChapterId: {ChapterId}",
+                        existingChapter.NovelId, model.Id);
                     ModelState.AddModelError(string.Empty, "Ошибка сохранения содержимого главы.");
-                    // Must repopulate NovelTitle for the view model if returning
-                    model.NovelTitle = novel.Title; // Or ViewData["NovelTitle"] = novel.Title;
+                    model.NovelTitle = novel.Title;
                     return View("~/Views/Chapter/Edit.cshtml", model);
                 }
+                _logger.LogInformation("[Admin Edit POST] SaveChapterContentAsync returned New ContentFilePath: '{NewFilePath}'", newFilePath);
 
                 existingChapter.Number = model.Number;
                 existingChapter.Title = model.Title;
-                existingChapter.ContentFilePath = newFilePath; // If storing path
-                // Content itself is not stored in existingChapter for DB
+                existingChapter.ContentFilePath = newFilePath;
+
+                _logger.LogInformation("[Admin Edit POST] Before UpdateChapter DB call - ChapterId: {ChapterId}, New Number: '{NewNumber}', New Title: '{NewTitle}', New ContentFilePath: '{NewContentFilePath}'",
+                    existingChapter.Id, existingChapter.Number, existingChapter.Title, existingChapter.ContentFilePath);
 
                 _mySqlService.UpdateChapter(existingChapter);
+                _logger.LogInformation("[Admin Edit POST] After UpdateChapter DB call for ChapterId: {ChapterId}", existingChapter.Id);
 
-                // Delete old file if path changed and old path existed
                 if (!string.IsNullOrEmpty(oldFilePath) && oldFilePath != newFilePath)
                 {
-                    // Ensure the path is relative to wwwroot or however FileService expects it.
-                    // FileService.DeleteChapterContentAsync should handle the actual deletion from the filesystem.
-                    // The path stored in ContentFilePath should be the same format that DeleteChapterContentAsync expects.
+                    _logger.LogInformation("[Admin Edit POST] FilePath changed. Old: '{OldFilePath}', New: '{NewFilePath}'. Attempting to delete old file.", oldFilePath, newFilePath);
                     await _fileService.DeleteChapterContentAsync(oldFilePath);
+                }
+                else if (string.IsNullOrEmpty(oldFilePath) && !string.IsNullOrEmpty(newFilePath))
+                {
+                    _logger.LogInformation("[Admin Edit POST] Old FilePath was empty, new FilePath is '{NewFilePath}'. No old file to delete.", newFilePath);
+                }
+                else if (!string.IsNullOrEmpty(oldFilePath) && oldFilePath == newFilePath)
+                {
+                    _logger.LogInformation("[Admin Edit POST] FilePath did not change from '{OldFilePath}'. No old file to delete (it was overwritten).", oldFilePath);
+                }
+                else // Both old and new are null/empty - should ideally not happen if save was successful
+                {
+                    _logger.LogInformation("[Admin Edit POST] Both old and new FilePaths are null or empty. No file operations for deletion needed.");
                 }
 
                 TempData["SuccessMessage"] = "Глава успешно обновлена.";

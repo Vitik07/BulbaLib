@@ -316,32 +316,37 @@ namespace BulbaLib.Services
 
             string filePath = Path.Combine(novelContentDir, fileName);
 
+            _logger.LogInformation("[SaveChapterContentAsync] Input - NovelId: {NovelId}, ChapterNumber: '{ChapterNumber}', ChapterTitle: '{ChapterTitle}'", novelId, chapterNumber, chapterTitle);
+            _logger.LogInformation("[SaveChapterContentAsync] Generated fileName: '{GeneratedFileName}', Full filePath: '{FullFilePath}'", fileName, filePath);
+
             // Save the textContent to the file
             try
             {
                 await File.WriteAllTextAsync(filePath, textContent);
-                _logger.LogInformation($"Chapter content saved to: {filePath}");
+                _logger.LogInformation("[SaveChapterContentAsync] Successfully wrote content to: {FilePath}", filePath);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error saving chapter content to file: {filePath}");
+                _logger.LogError(ex, "[SaveChapterContentAsync] Error writing chapter content to file: {FilePath}", filePath);
                 return null; // Or throw, depending on desired error handling
             }
 
             // Return the relative web path
-            return $"/{_uploadsBaseFolder}/content/{novelId}/{fileName}";
+            var relativeWebPath = $"/{_uploadsBaseFolder}/content/{novelId}/{fileName}";
+            _logger.LogInformation("[SaveChapterContentAsync] Returning relative web path: '{RelativeWebPath}'", relativeWebPath);
+            return relativeWebPath;
         }
 
         public async Task<string> ReadChapterContentAsync(string relativeFilePath)
         {
             if (string.IsNullOrEmpty(relativeFilePath))
             {
-                _logger.LogWarning("[ReadChapterContentAsync] Relative file path is null or empty.");
+                _logger.LogWarning("[ReadChapterContentAsync] Input relativeFilePath is null or empty.");
                 return null;
             }
 
             var fullPath = Path.Combine(_webHostEnvironment.WebRootPath, relativeFilePath.TrimStart('/'));
-            _logger.LogInformation("[ReadChapterContentAsync] Attempting to read content from: {FullPath}", fullPath);
+            _logger.LogInformation("[ReadChapterContentAsync] Attempting to read content from fullPath: {FullPath}", fullPath);
 
             if (!File.Exists(fullPath))
             {
@@ -351,7 +356,9 @@ namespace BulbaLib.Services
 
             try
             {
-                return await File.ReadAllTextAsync(fullPath);
+                var content = await File.ReadAllTextAsync(fullPath);
+                _logger.LogInformation("[ReadChapterContentAsync] Successfully read content from: {FullPath}. Content length: {ContentLength}", fullPath, content?.Length ?? 0);
+                return content;
             }
             catch (Exception ex)
             {
@@ -364,12 +371,12 @@ namespace BulbaLib.Services
         {
             if (string.IsNullOrEmpty(relativeFilePath))
             {
-                _logger.LogWarning("[DeleteChapterContentAsync] Relative file path is null or empty.");
+                _logger.LogWarning("[DeleteChapterContentAsync] Input relativeFilePath is null or empty.");
                 return false;
             }
 
             var fullPath = Path.Combine(_webHostEnvironment.WebRootPath, relativeFilePath.TrimStart('/'));
-            _logger.LogInformation("[DeleteChapterContentAsync] Attempting to delete file: {FullPath}", fullPath);
+            _logger.LogInformation("[DeleteChapterContentAsync] Attempting to delete file at fullPath: {FullPath}", fullPath);
 
             if (!File.Exists(fullPath))
             {
