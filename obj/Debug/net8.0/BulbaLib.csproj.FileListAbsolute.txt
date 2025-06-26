@@ -953,3 +953,6 @@ C:\Работы\РЕЗ КОПИЯ ПРОЕКТА\BulbaLibNew\BulbaLib mark12\Bul
 C:\Работы\РЕЗ КОПИЯ ПРОЕКТА\BulbaLibNew\BulbaLib mark12\BulbaLib\obj\Debug\net8.0\BulbaLib.pdb
 C:\Работы\РЕЗ КОПИЯ ПРОЕКТА\BulbaLibNew\BulbaLib mark12\BulbaLib\obj\Debug\net8.0\BulbaLib.genruntimeconfig.cache
 C:\Работы\РЕЗ КОПИЯ ПРОЕКТА\BulbaLibNew\BulbaLib mark12\BulbaLib\obj\Debug\net8.0\ref\BulbaLib.dll
+C:\Работы\РЕЗ КОПИЯ ПРОЕКТА\BulbaLibNew\BulbaLib mark12\BulbaLib\bin\Debug\net8.0\AngleSharp.dll
+C:\Работы\РЕЗ КОПИЯ ПРОЕКТА\BulbaLibNew\BulbaLib mark12\BulbaLib\bin\Debug\net8.0\AngleSharp.Css.dll
+C:\Работы\РЕЗ КОПИЯ ПРОЕКТА\BulbaLibNew\BulbaLib mark12\BulbaLib\bin\Debug\net8.0\HtmlSanitizer.dll

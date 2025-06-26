@@ -1,12 +1,15 @@
 {
   "version": 2,
-  "dgSpecHash": "7cN8oKuAFD4=",
+  "dgSpecHash": "W3w1fl1tm60=",
   "success": true,
   "projectFilePath": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\BulbaLib.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\Витя Рабадон\\.nuget\\packages\\anglesharp\\0.17.1\\anglesharp.0.17.1.nupkg.sha512",
+    "C:\\Users\\Витя Рабадон\\.nuget\\packages\\anglesharp.css\\0.17.0\\anglesharp.css.0.17.0.nupkg.sha512",
     "C:\\Users\\Витя Рабадон\\.nuget\\packages\\bouncycastle.cryptography\\2.5.1\\bouncycastle.cryptography.2.5.1.nupkg.sha512",
     "C:\\Users\\Витя Рабадон\\.nuget\\packages\\entityframework\\6.4.4\\entityframework.6.4.4.nupkg.sha512",
     "C:\\Users\\Витя Рабадон\\.nuget\\packages\\google.protobuf\\3.30.0\\google.protobuf.3.30.0.nupkg.sha512",
+    "C:\\Users\\Витя Рабадон\\.nuget\\packages\\htmlsanitizer\\9.0.886\\htmlsanitizer.9.0.886.nupkg.sha512",
     "C:\\Users\\Витя Рабадон\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\Витя Рабадон\\.nuget\\packages\\k4os.compression.lz4\\1.3.8\\k4os.compression.lz4.1.3.8.nupkg.sha512",
     "C:\\Users\\Витя Рабадон\\.nuget\\packages\\k4os.compression.lz4.streams\\1.3.8\\k4os.compression.lz4.streams.1.3.8.nupkg.sha512",
