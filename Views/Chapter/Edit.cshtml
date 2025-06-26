@@ -58,7 +58,8 @@
                     <button type="button" id="insertImageBtn" class="btn btn-sm btn-outline-secondary">Вставить изображение</button>
                     <input type="file" id="imageUploadInput" accept="image/*" style="display: none;" />
                 </div>
-                <textarea asp-for="Content" id="Content" class="form-control" rows="15"></textarea>
+                <textarea asp-for="Content" id="Content" class="form-control" rows="15" style="display: none;"></textarea>
+                <div id="editableContent" class="form-control" contenteditable="true" style="height: 300px; overflow-y: auto; border: 1px solid #ced4da; padding: .375rem .75rem;"></div>
                 <span asp-validation-for="Content" class="text-danger"></span>
             </div>
             <div class="form-group mt-4">
@@ -120,56 +121,148 @@
             // Image Upload Logic
             const insertImageBtn = document.getElementById('insertImageBtn');
             const imageUploadInput = document.getElementById('imageUploadInput');
-            // CSRF token for POST requests (important for security)
             const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            const chapterId = @Model.Id;
 
-            if (insertImageBtn && imageUploadInput && contentTextArea) {
+            const hiddenContentTextArea = document.getElementById('Content'); // Renamed
+            const editableDiv = document.getElementById('editableContent');
+
+            // Function to convert [img:URL] to <img> tags (same as in Create.cshtml)
+            function rawToHtml(rawText) {
+                if (rawText === null || rawText === undefined) return '';
+                let html = rawText.replace(/&/g, "&amp;")
+                                  .replace(/</g, "&lt;")
+                                  .replace(/>/g, "&gt;")
+                                  .replace(/"/g, "&quot;")
+                                  .replace(/'/g, "&#039;");
+                html = html.replace(/\[img:(.*?)\]/g, '<img src="$1" style="max-width: 100%; height: auto; display: block; margin-bottom: 5px;" alt="Изображение">')
+                           .replace(/\n/g, '<br>');
+                return html;
+            }
+
+            // Function to convert <img> tags to [img:URL] (same as in Create.cshtml)
+            function htmlToRaw(htmlContent) {
+                 // Simpler replacement for now, assuming images are direct children or wrapped in <p>
+                // And that text nodes / <br> are the main other content.
+                let raw = htmlContent.replace(/<img.*?src="(.*?)"[^>]*>/gi, '[img:$1]');
+                raw = raw.replace(/<br\s*\/?>/gi, '\n');
+                // Strip other HTML tags (basic)
+                raw = raw.replace(/<\/p>/gi, '\n').replace(/<p>/gi, ''); // Handle paragraphs by adding a newline
+                raw = raw.replace(/<[^>]+>/g, ''); // Strip any other tags
+                raw = raw.replace(/&amp;/g, "&")
+                         .replace(/&lt;/g, "<")
+                         .replace(/&gt;/g, ">")
+                         .replace(/&quot;/g, "\"")
+                         .replace(/&#039;/g, "'");
+                return raw.trim();
+            }
+
+            // Initial population for Edit page
+            if (hiddenContentTextArea && editableDiv) {
+                editableDiv.innerHTML = rawToHtml(hiddenContentTextArea.value);
+
+                // Sync from editableDiv to hiddenTextArea on input
+                editableDiv.addEventListener('input', function () {
+                    const rawText = htmlToRaw(editableDiv.innerHTML);
+                    hiddenContentTextArea.value = rawText;
+                });
+
+                // Also sync when the form is submitted
+                // Assuming the form's asp-action="Edit" means its parent form is the one to target.
+                // It's safer to give the form an ID, e.g., id="editChapterForm"
+                // For now, let's try to find it by its asp-action.
+                const form = editableDiv.closest('form'); // Find the parent form
+                 if (form) {
+                    form.addEventListener('submit', function() {
+                        const rawText = htmlToRaw(editableDiv.innerHTML);
+                        hiddenContentTextArea.value = rawText;
+                    });
+                }
+            }
+
+
+            if (insertImageBtn && imageUploadInput && editableDiv && hiddenContentTextArea) { // Check editableDiv
                 insertImageBtn.addEventListener('click', function () {
-                    imageUploadInput.click(); // Trigger file input
+                    imageUploadInput.click();
                 });
 
                 imageUploadInput.addEventListener('change', async function (e) {
                     const file = e.target.files[0];
                     if (!file) return;
 
-                    // Basic client-side validation for image type (optional, server validates too)
                     if (!file.type.startsWith('image/')) {
                         alert('Пожалуйста, выберите файл изображения.');
-                        imageUploadInput.value = ""; // Reset file input
+                        imageUploadInput.value = "";
                         return;
                     }
 
-                    const chapterId = @Model.Id; // Get chapterId from the Razor model
                     const formData = new FormData();
                     formData.append('image', file);
 
-                    // Show some loading indicator if desired
                     insertImageBtn.disabled = true;
                     insertImageBtn.textContent = 'Загрузка...';
 
                     try {
+                        // Use the correct chapterId for existing chapters
                         const response = await fetch(`/api/chapters/${chapterId}/upload-image`, {
                             method: 'POST',
                             body: formData,
                             headers: {
-                                'RequestVerificationToken': csrfToken // Add CSRF token to headers
+                                'RequestVerificationToken': csrfToken
                             }
                         });
 
                         if (response.ok) {
                             const result = await response.json();
                             const imageUrl = result.url;
-                            const imageTag = `[img:${imageUrl}]`;
 
-                            // Insert image tag at current cursor position in textarea
-                            const cursorPos = contentTextArea.selectionStart;
-                            const textBefore = contentTextArea.value.substring(0, cursorPos);
-                            const textAfter = contentTextArea.value.substring(cursorPos, contentTextArea.value.length);
-                            contentTextArea.value = textBefore + imageTag + textAfter;
+                            // Insert <img> tag into editableDiv (same logic as Create.cshtml)
+                            const imgElement = document.createElement('img');
+                            imgElement.src = imageUrl;
+                            imgElement.alt = "Изображение";
+                            imgElement.style.maxWidth = "100%";
+                            imgElement.style.height = "auto";
+                            imgElement.style.display = "block";
+                            imgElement.style.marginBottom = "5px";
 
-                            // Optionally, move cursor after inserted tag
-                            contentTextArea.selectionStart = contentTextArea.selectionEnd = cursorPos + imageTag.length;
-                            contentTextArea.focus();
+                            const selection = window.getSelection();
+                            if (selection.rangeCount > 0) {
+                                const range = selection.getRangeAt(0);
+                                range.deleteContents();
+                                let insertedNode;
+                                if (editableDiv.innerHTML.trim() === "" && range.commonAncestorContainer === editableDiv) {
+                                    insertedNode = imgElement.cloneNode(true);
+                                    editableDiv.appendChild(insertedNode);
+                                } else {
+                                     insertedNode = imgElement.cloneNode(true);
+                                     range.insertNode(insertedNode);
+                                }
+                                
+                                range.setStartAfter(insertedNode);
+                                range.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(range);
+
+                            } else {
+                                // Fallback
+                                let brBefore = document.createElement('br');
+                                if(editableDiv.innerHTML.trim() !== "" && !editableDiv.innerHTML.endsWith('<br>')) {
+                                     editableDiv.appendChild(brBefore);
+                                }
+                                editableDiv.appendChild(imgElement.cloneNode(true));
+                                let brAfter = document.createElement('br');
+                                editableDiv.appendChild(brAfter);
+                                const newRange = document.createRange();
+                                newRange.setStart(brAfter, 0);
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                            }
+                            editableDiv.focus();
+
+                            // Sync to hidden textarea
+                            const rawText = htmlToRaw(editableDiv.innerHTML);
+                            hiddenContentTextArea.value = rawText;
 
                         } else {
                             const errorResult = await response.json().catch(() => ({ message: 'Не удалось загрузить изображение. Статус: ' + response.status }));
@@ -179,7 +272,7 @@
                         console.error('Upload image error:', error);
                         alert('Произошла ошибка при загрузке изображения. Пожалуйста, проверьте консоль.');
                     } finally {
-                        imageUploadInput.value = ""; // Reset file input for next upload
+                        imageUploadInput.value = "";
                         insertImageBtn.disabled = false;
                         insertImageBtn.textContent = 'Вставить изображение';
                     }

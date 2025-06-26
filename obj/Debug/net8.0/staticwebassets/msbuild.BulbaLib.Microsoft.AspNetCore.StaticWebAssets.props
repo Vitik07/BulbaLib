@@ -10848,12 +10848,12 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <OriginalItemSpec>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\staticwebassets\uploads\images\22\594\d05b6a0c-a481-4132-abe1-abdb02aa3520.jpg))</OriginalItemSpec>
     </StaticWebAsset>
-    <StaticWebAsset Include="$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\staticwebassets\uploads\temp_covers\temp_e28222c5-d368-4925-b64e-eea064a46ba1.jpg))">
+    <StaticWebAsset Include="$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\staticwebassets\uploads\images\22\595\50e7e898-6312-476c-9712-a8cebcef07c7.jpg))">
       <SourceType>Package</SourceType>
       <SourceId>BulbaLib</SourceId>
       <ContentRoot>$(MSBuildThisFileDirectory)..\staticwebassets\</ContentRoot>
       <BasePath>_content/BulbaLib</BasePath>
-      <RelativePath>uploads/temp_covers/temp_e28222c5-d368-4925-b64e-eea064a46ba1.jpg</RelativePath>
+      <RelativePath>uploads/images/22/595/50e7e898-6312-476c-9712-a8cebcef07c7.jpg</RelativePath>
       <AssetKind>All</AssetKind>
       <AssetMode>All</AssetMode>
       <AssetRole>Primary</AssetRole>
@@ -10862,14 +10862,14 @@
       <AssetTraitValue></AssetTraitValue>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <OriginalItemSpec>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\staticwebassets\uploads\temp_covers\temp_e28222c5-d368-4925-b64e-eea064a46ba1.jpg))</OriginalItemSpec>
+      <OriginalItemSpec>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\staticwebassets\uploads\images\22\595\50e7e898-6312-476c-9712-a8cebcef07c7.jpg))</OriginalItemSpec>
     </StaticWebAsset>
-    <StaticWebAsset Include="$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\staticwebassets\uploads\temp_covers\temp_e5b4770b-ffb1-47c7-94ce-654d76d10657.jpg))">
+    <StaticWebAsset Include="$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\staticwebassets\uploads\images\22\596\9db19918-5d4e-4ef2-91a5-32d4ce700166.jpg))">
       <SourceType>Package</SourceType>
       <SourceId>BulbaLib</SourceId>
       <ContentRoot>$(MSBuildThisFileDirectory)..\staticwebassets\</ContentRoot>
       <BasePath>_content/BulbaLib</BasePath>
-      <RelativePath>uploads/temp_covers/temp_e5b4770b-ffb1-47c7-94ce-654d76d10657.jpg</RelativePath>
+      <RelativePath>uploads/images/22/596/9db19918-5d4e-4ef2-91a5-32d4ce700166.jpg</RelativePath>
       <AssetKind>All</AssetKind>
       <AssetMode>All</AssetMode>
       <AssetRole>Primary</AssetRole>
@@ -10878,7 +10878,7 @@
       <AssetTraitValue></AssetTraitValue>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <OriginalItemSpec>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\staticwebassets\uploads\temp_covers\temp_e5b4770b-ffb1-47c7-94ce-654d76d10657.jpg))</OriginalItemSpec>
+      <OriginalItemSpec>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)..\staticwebassets\uploads\images\22\596\9db19918-5d4e-4ef2-91a5-32d4ce700166.jpg))</OriginalItemSpec>
     </StaticWebAsset>
   </ItemGroup>
 </Project>

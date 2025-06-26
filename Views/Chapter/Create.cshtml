@@ -59,7 +59,8 @@
                     <button type="button" id="insertImageBtnCreate" class="btn btn-sm btn-outline-secondary">Вставить изображение</button>
                     <input type="file" id="imageUploadInputCreate" accept="image/*" style="display: none;" />
                 </div>
-                <textarea asp-for="Content" id="Content" class="form-control" rows="15"></textarea>
+                <textarea asp-for="Content" id="Content" class="form-control" rows="15" style="display: none;"></textarea>
+                <div id="editableContent" class="form-control" contenteditable="true" style="height: 300px; overflow-y: auto; border: 1px solid #ced4da; padding: .375rem .75rem;"></div>
                 <span asp-validation-for="Content" class="text-danger"></span>
             </div>
             <div class="form-group mt-4">
@@ -126,14 +127,127 @@
             const csrfTokenCreate = document.querySelector('input[name="__RequestVerificationToken"]').value;
             let currentDraftChapterId = null; // Хранит ID созданного черновика
 
+            const hiddenContentTextArea = document.getElementById('Content'); // Renamed from contentTextArea
+            const editableDiv = document.getElementById('editableContent');
+
+            // Function to convert [img:URL] to <img> tags for editable div
+            function rawToHtml(rawText) {
+                if (rawText === null || rawText === undefined) return '';
+                // Preserve line breaks by converting them to <br>
+                // Escape HTML special characters first, then replace [img] and newlines
+                let html = rawText.replace(/&/g, "&amp;")
+                                  .replace(/</g, "&lt;")
+                                  .replace(/>/g, "&gt;")
+                                  .replace(/"/g, "&quot;")
+                                  .replace(/'/g, "&#039;");
+                html = html.replace(/\[img:(.*?)\]/g, '<img src="$1" style="max-width: 100%; height: auto; display: block; margin-bottom: 5px;" alt="Изображение">')
+                           .replace(/\n/g, '<br>');
+                return html;
+            }
+
+            // Function to convert <img> tags from editable div to [img:URL]
+            function htmlToRaw(htmlContent) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = htmlContent;
+
+                // Convert <br> and <p> tags back to newlines
+                // Handle <p> tags: add two newlines for paragraph breaks, then remove the tags.
+                // Handle <br> tags: convert to single newline.
+                // This needs to be done carefully to avoid excessive newlines.
+
+                // First, replace <br> with a placeholder that won't be stripped
+                // Ensure it's not something that could be typed or part of an image URL.
+                const newlinePlaceholder = "[[NEW_LINE_PLACEHOLDER]]";
+                let raw = htmlContent.replace(/<br\s*\/?>/gi, newlinePlaceholder);
+
+
+                // Process images: replace <img> with [img:URL]
+                const images = tempDiv.getElementsByTagName('img');
+                for (let i = images.length - 1; i >= 0; i--) {
+                    const img = images[i];
+                    if (img.src) {
+                        const imgTagText = `[img:${img.src}]`;
+                         // Replace the img element in the innerHTML of tempDiv, not in the original htmlContent string directly
+                        // This is tricky because just replacing img.outerHTML might not work if it's inside other elements.
+                        // A simpler approach for now: build raw text by iterating child nodes.
+                    }
+                }
+                // A more robust way to convert HTML to raw:
+                // Iterate through child nodes of the tempDiv. If it's a text node, append its content.
+                // If it's an <img>, append [img:URL]. If it's <br>, append \n.
+                // For paragraphs, append their inner text/HTML (recursively processed) followed by \n\n.
+
+                let resultText = "";
+                constchildNodes = Array.from(tempDiv.childNodes);
+
+                childNodes.forEach(node => {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        resultText += node.textContent;
+                    } else if (node.nodeName === 'IMG' && node.src) {
+                        resultText += `[img:${node.src}]`;
+                    } else if (node.nodeName === 'BR') {
+                        resultText += '\n';
+                    } else if (node.nodeName === 'DIV' || node.nodeName === 'P') { // Handle content within divs/paragraphs
+                        // Recursively convert content of block elements and add newlines
+                        // For simplicity, this example will just take their innerHTML and re-process
+                        // A proper solution would traverse deeper.
+                        resultText += htmlToRaw(node.innerHTML) + '\n'; // Simpler: just add one newline after block
+                    } else {
+                        // For other HTML elements, try to get their text content.
+                        // This might strip out formatting you want to keep if it's not just images and line breaks.
+                        resultText += node.textContent || '';
+                    }
+                });
+                // After processing nodes, replace the placeholder with actual newlines
+                // And clean up: remove leading/trailing whitespace from each line, and remove multiple blank lines.
+                // This is a simplified version. A full HTML to text conversion is complex.
+
+                // Simpler replacement for now, assuming images are direct children or wrapped in <p>
+                // And that text nodes / <br> are the main other content.
+                raw = htmlContent.replace(/<img.*?src="(.*?)"[^>]*>/gi, '[img:$1]');
+                raw = raw.replace(/<br\s*\/?>/gi, '\n');
+                // Strip other HTML tags (basic)
+                raw = raw.replace(/<\/p>/gi, '\n').replace(/<p>/gi, ''); // Handle paragraphs by adding a newline
+                raw = raw.replace(/<[^>]+>/g, ''); // Strip any other tags
+                raw = raw.replace(/&amp;/g, "&")
+                         .replace(/&lt;/g, "<")
+                         .replace(/&gt;/g, ">")
+                         .replace(/&quot;/g, "\"")
+                         .replace(/&#039;/g, "'");
+
+                return raw.trim();
+            }
+
+
+            // Initial population
+            if (hiddenContentTextArea && editableDiv) {
+                editableDiv.innerHTML = rawToHtml(hiddenContentTextArea.value);
+
+                // Sync from editableDiv to hiddenTextArea on input
+                editableDiv.addEventListener('input', function () {
+                    const rawText = htmlToRaw(editableDiv.innerHTML);
+                    hiddenContentTextArea.value = rawText;
+                });
+
+                // Also sync when the form is submitted, just in case
+                const form = document.getElementById('createChapterForm'); // Ensure your form has this ID
+                if (form) {
+                    form.addEventListener('submit', function() {
+                        const rawText = htmlToRaw(editableDiv.innerHTML);
+                        hiddenContentTextArea.value = rawText;
+                    });
+                }
+            }
+
+
             if (draftChapterIdField.value) {
                 currentDraftChapterId = parseInt(draftChapterIdField.value);
             }
 
-            if (insertImageBtnCreate && imageUploadInputCreate && contentTextArea) {
+            if (insertImageBtnCreate && imageUploadInputCreate && editableDiv && hiddenContentTextArea) { // Check editableDiv
                 insertImageBtnCreate.addEventListener('click', async function () {
                     if (!currentDraftChapterId) {
-                        // Черновик еще не создан, создаем его
+                        // Create draft logic (unchanged)
                         insertImageBtnCreate.disabled = true;
                         insertImageBtnCreate.textContent = 'Создание черновика...';
                         try {
@@ -149,34 +263,34 @@
                             if (draftResponse.ok) {
                                 const draftResult = await draftResponse.json();
                                 currentDraftChapterId = draftResult.chapterId;
-                                draftChapterIdField.value = currentDraftChapterId; // Сохраняем в скрытое поле
+                                draftChapterIdField.value = currentDraftChapterId;
                                 insertImageBtnCreate.textContent = 'Вставить изображение';
                                 insertImageBtnCreate.disabled = false;
-                                // Теперь, когда черновик создан, инициируем выбор файла
                                 imageUploadInputCreate.click();
                             } else {
+                                // Error handling (unchanged)
                                 const errorResult = await draftResponse.json().catch(() => ({ message: 'Не удалось создать черновик. Статус: ' + draftResponse.status }));
                                 alert(`Ошибка создания черновика: ${errorResult.message || 'Неизвестная ошибка сервера'}`);
                                 insertImageBtnCreate.textContent = 'Вставить изображение';
                                 insertImageBtnCreate.disabled = false;
-                                return; // Прерываем, если черновик не создан
+                                return;
                             }
                         } catch (error) {
+                            // Error handling (unchanged)
                             console.error('Create draft error:', error);
                             alert('Произошла ошибка при создании черновика. Пожалуйста, проверьте консоль.');
                             insertImageBtnCreate.textContent = 'Вставить изображение';
                             insertImageBtnCreate.disabled = false;
-                            return; // Прерываем
+                            return;
                         }
                     } else {
-                        // Черновик уже существует, просто открываем диалог выбора файла
                         imageUploadInputCreate.click();
                     }
                 });
 
                 imageUploadInputCreate.addEventListener('change', async function (e) {
                     const file = e.target.files[0];
-                    if (!file || !currentDraftChapterId) { // Добавлена проверка currentDraftChapterId
+                    if (!file || !currentDraftChapterId) {
                         imageUploadInputCreate.value = "";
                         return;
                     }
@@ -205,14 +319,99 @@
                         if (response.ok) {
                             const result = await response.json();
                             const imageUrl = result.url;
-                            const imageTag = `[img:${imageUrl}]`;
+                            
+                            // Insert <img> tag into editableDiv
+                            const imgElement = document.createElement('img');
+                            imgElement.src = imageUrl;
+                            imgElement.alt = "Изображение";
+                            imgElement.style.maxWidth = "100%";
+                            imgElement.style.height = "auto";
+                            imgElement.style.display = "block"; // Make it a block element for easier handling with newlines
+                            imgElement.style.marginBottom = "5px";
 
-                            const cursorPos = contentTextArea.selectionStart;
-                            const textBefore = contentTextArea.value.substring(0, cursorPos);
-                            const textAfter = contentTextArea.value.substring(cursorPos, contentTextArea.value.length);
-                            contentTextArea.value = textBefore + imageTag + textAfter;
-                            contentTextArea.selectionStart = contentTextArea.selectionEnd = cursorPos + imageTag.length;
-                            contentTextArea.focus();
+                            // Insert image at cursor position
+                            const selection = window.getSelection();
+                            if (selection.rangeCount > 0) {
+                                const range = selection.getRangeAt(0);
+                                range.deleteContents(); // Delete selected content if any
+                                
+                                // Insert a newline (as a <br>) before and after the image if the cursor is at the start/end of a line or to separate from text
+                                // This is a simplified approach. Proper cursor management is complex.
+                                const needsBrBefore = range.startOffset === 0 || (range.startContainer.nodeType === Node.TEXT_NODE && range.startContainer.textContent.charAt(range.startOffset -1) === '\n');
+                                
+                                // If the editableDiv is empty or the cursor is at the very beginning, don't add <br> before.
+                                // Also, check if the previous element is already a <br> or an <img> to avoid double <br>.
+                                let insertBrBefore = true;
+                                if (editableDiv.innerHTML === "" || (range.startContainer === editableDiv && range.startOffset === 0)) {
+                                    insertBrBefore = false;
+                                } else {
+                                    const clonedRange = range.cloneRange();
+                                    clonedRange.collapse(true); // to the start
+                                    clonedRange.setStart(editableDiv, 0);
+                                    const contentBeforeCursor = clonedRange.toString();
+                                    if (contentBeforeCursor.endsWith('\n') || contentBeforeCursor.endsWith('>') ) { // crude check for ending with BR or IMG
+                                        // insertBrBefore = false; // This logic is getting complex, simplify for now
+                                    }
+                                }
+
+
+                                // Always add a <br> after the image to ensure the cursor can move to a new line.
+                                // Or, better, ensure the image is wrapped in a block element or followed by one.
+                                // For simplicity, just adding the image. The user can press Enter.
+                                // A more robust solution might wrap images in <p> or <div>.
+
+                                // If editableDiv is empty, just add the image.
+                                // Otherwise, try to insert at cursor.
+                                let insertedNode;
+                                if (editableDiv.innerHTML.trim() === "" && range.commonAncestorContainer === editableDiv) {
+                                    // If div is empty or selection is directly in the div (not in a child p for example)
+                                    insertedNode = imgElement.cloneNode(true);
+                                    editableDiv.appendChild(insertedNode);
+                                } else {
+                                     insertedNode = imgElement.cloneNode(true);
+                                     range.insertNode(insertedNode);
+                                }
+                                
+                                // Move cursor after the inserted image
+                                range.setStartAfter(insertedNode);
+                                range.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(range);
+                                
+                                // Optionally, insert a <br> or space after the image to make it easier to type
+                                // This can be tricky as it might add unwanted breaks if user continues an existing line.
+                                // A simple space might be less intrusive.
+                                // const spaceNode = document.createTextNode(' ');
+                                // range.insertNode(spaceNode);
+                                // range.setStartAfter(spaceNode);
+                                // range.collapse(true);
+                                // selection.removeAllRanges();
+                                // selection.addRange(range);
+
+                            } else {
+                                // Fallback if no selection or range is not usable: append to end
+                                let brBefore = document.createElement('br');
+                                if(editableDiv.innerHTML.trim() !== "" && !editableDiv.innerHTML.endsWith('<br>')) {
+                                     editableDiv.appendChild(brBefore);
+                                }
+                                editableDiv.appendChild(imgElement.cloneNode(true));
+                                // Ensure there's a way to type after the appended image
+                                let brAfter = document.createElement('br');
+                                editableDiv.appendChild(brAfter); 
+                                // Focus and try to set cursor after the last br
+                                const newRange = document.createRange();
+                                newRange.setStart(brAfter, 0); // Start of the text node inside br, or br itself
+                                newRange.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(newRange);
+                            }
+                            editableDiv.focus();
+
+
+                            // Sync to hidden textarea
+                            const rawText = htmlToRaw(editableDiv.innerHTML);
+                            hiddenContentTextArea.value = rawText;
+
                         } else {
                             const errorResult = await response.json().catch(() => ({ message: 'Не удалось загрузить изображение. Статус: ' + response.status }));
                             alert(`Ошибка загрузки изображения: ${errorResult.message || errorResult.error || 'Неизвестная ошибка сервера'}`);

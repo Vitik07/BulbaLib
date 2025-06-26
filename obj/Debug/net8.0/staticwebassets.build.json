@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "eN3DQOQ400UNIRFW5d229smF2LkThI/lR0bA6lO8qRg=",
+  "Hash": "JcTGicVUimhDsgxtsEIXvzQlPNSvlC9sya+ZxQtpu2g=",
   "Source": "BulbaLib",
   "BasePath": "_content/BulbaLib",
   "Mode": "Default",
@@ -12918,12 +12918,12 @@
       "OriginalItemSpec": "wwwroot\\uploads\\images\\22\\594\\d05b6a0c-a481-4132-abe1-abdb02aa3520.jpg"
     },
     {
-      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\temp_covers\\temp_e28222c5-d368-4925-b64e-eea064a46ba1.jpg",
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\595\\50e7e898-6312-476c-9712-a8cebcef07c7.jpg",
       "SourceId": "BulbaLib",
       "SourceType": "Discovered",
       "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\",
       "BasePath": "_content/BulbaLib",
-      "RelativePath": "uploads/temp_covers/temp_e28222c5-d368-4925-b64e-eea064a46ba1.jpg",
+      "RelativePath": "uploads/images/22/595/50e7e898-6312-476c-9712-a8cebcef07c7.jpg",
       "AssetKind": "All",
       "AssetMode": "All",
       "AssetRole": "Primary",
@@ -12934,15 +12934,15 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\uploads\\temp_covers\\temp_e28222c5-d368-4925-b64e-eea064a46ba1.jpg"
+      "OriginalItemSpec": "wwwroot\\uploads\\images\\22\\595\\50e7e898-6312-476c-9712-a8cebcef07c7.jpg"
     },
     {
-      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\temp_covers\\temp_e5b4770b-ffb1-47c7-94ce-654d76d10657.jpg",
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\596\\9db19918-5d4e-4ef2-91a5-32d4ce700166.jpg",
       "SourceId": "BulbaLib",
       "SourceType": "Discovered",
       "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\",
       "BasePath": "_content/BulbaLib",
-      "RelativePath": "uploads/temp_covers/temp_e5b4770b-ffb1-47c7-94ce-654d76d10657.jpg",
+      "RelativePath": "uploads/images/22/596/9db19918-5d4e-4ef2-91a5-32d4ce700166.jpg",
       "AssetKind": "All",
       "AssetMode": "All",
       "AssetRole": "Primary",
@@ -12953,7 +12953,7 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\uploads\\temp_covers\\temp_e5b4770b-ffb1-47c7-94ce-654d76d10657.jpg"
+      "OriginalItemSpec": "wwwroot\\uploads\\images\\22\\596\\9db19918-5d4e-4ef2-91a5-32d4ce700166.jpg"
     }
   ]
 }
