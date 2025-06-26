@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "Jh1O2tufG4/KzsewO7KQuGcbqQIpfNdaNZ5pwCFHcFo=",
+  "Hash": "AyMXVsrjOOoNfkhkFA/VZp5z2IdaILzybn4IqbZqSB8=",
   "Source": "BulbaLib",
   "BasePath": "_content/BulbaLib",
   "Mode": "Default",
@@ -12859,6 +12859,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\uploads\\covers\\3\\1.jpg"
+    },
+    {
+      "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\586\\caa7ae10-01c5-4f30-8b5a-52eff1932387.jpg",
+      "SourceId": "BulbaLib",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\",
+      "BasePath": "_content/BulbaLib",
+      "RelativePath": "uploads/images/22/586/caa7ae10-01c5-4f30-8b5a-52eff1932387.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\images\\22\\586\\caa7ae10-01c5-4f30-8b5a-52eff1932387.jpg"
     },
     {
       "Identity": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\tokidoki-bosotto-roshia-go-de-dereru-tonari-no-arya-san\\Том 1 Глава 1\\image.jpg",

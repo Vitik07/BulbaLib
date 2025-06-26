@@ -54,6 +54,10 @@
             </div>
             <div class="form-group mb-3">
                 <label asp-for="Content"></label>
+                <div class="content-toolbar mb-1">
+                    <button type="button" id="insertImageBtn" class="btn btn-sm btn-outline-secondary">Вставить изображение</button>
+                    <input type="file" id="imageUploadInput" accept="image/*" style="display: none;" />
+                </div>
                 <textarea asp-for="Content" id="Content" class="form-control" rows="15"></textarea>
                 <span asp-validation-for="Content" class="text-danger"></span>
             </div>
@@ -110,6 +114,75 @@
                         if (fileLoadStatus) fileLoadStatus.textContent = 'Ошибка при чтении файла.';
                     };
                     reader.readAsText(file, "utf-8");
+                });
+            }
+
+            // Image Upload Logic
+            const insertImageBtn = document.getElementById('insertImageBtn');
+            const imageUploadInput = document.getElementById('imageUploadInput');
+            // CSRF token for POST requests (important for security)
+            const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+            if (insertImageBtn && imageUploadInput && contentTextArea) {
+                insertImageBtn.addEventListener('click', function () {
+                    imageUploadInput.click(); // Trigger file input
+                });
+
+                imageUploadInput.addEventListener('change', async function (e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    // Basic client-side validation for image type (optional, server validates too)
+                    if (!file.type.startsWith('image/')) {
+                        alert('Пожалуйста, выберите файл изображения.');
+                        imageUploadInput.value = ""; // Reset file input
+                        return;
+                    }
+
+                    const chapterId = @Model.Id; // Get chapterId from the Razor model
+                    const formData = new FormData();
+                    formData.append('image', file);
+
+                    // Show some loading indicator if desired
+                    insertImageBtn.disabled = true;
+                    insertImageBtn.textContent = 'Загрузка...';
+
+                    try {
+                        const response = await fetch(`/api/chapters/${chapterId}/upload-image`, {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'RequestVerificationToken': csrfToken // Add CSRF token to headers
+                            }
+                        });
+
+                        if (response.ok) {
+                            const result = await response.json();
+                            const imageUrl = result.url;
+                            const imageTag = `[img:${imageUrl}]`;
+
+                            // Insert image tag at current cursor position in textarea
+                            const cursorPos = contentTextArea.selectionStart;
+                            const textBefore = contentTextArea.value.substring(0, cursorPos);
+                            const textAfter = contentTextArea.value.substring(cursorPos, contentTextArea.value.length);
+                            contentTextArea.value = textBefore + imageTag + textAfter;
+
+                            // Optionally, move cursor after inserted tag
+                            contentTextArea.selectionStart = contentTextArea.selectionEnd = cursorPos + imageTag.length;
+                            contentTextArea.focus();
+
+                        } else {
+                            const errorResult = await response.json().catch(() => ({ message: 'Не удалось загрузить изображение. Статус: ' + response.status }));
+                            alert(`Ошибка: ${errorResult.message || errorResult.error || 'Неизвестная ошибка сервера'}`);
+                        }
+                    } catch (error) {
+                        console.error('Upload image error:', error);
+                        alert('Произошла ошибка при загрузке изображения. Пожалуйста, проверьте консоль.');
+                    } finally {
+                        imageUploadInput.value = ""; // Reset file input for next upload
+                        insertImageBtn.disabled = false;
+                        insertImageBtn.textContent = 'Вставить изображение';
+                    }
                 });
             }
         });

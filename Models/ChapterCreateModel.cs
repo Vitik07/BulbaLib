@@ -24,5 +24,8 @@ namespace BulbaLib.Models
 
         // ChapterTextFile НЕ обязателен, нужен только для клиента
         //public IFormFile? ChapterTextFile { get; set; }
+
+        // Используется для передачи ID созданного черновика главы, если он был создан до основного сохранения
+        public int? DraftChapterId { get; set; }
     }
 }
