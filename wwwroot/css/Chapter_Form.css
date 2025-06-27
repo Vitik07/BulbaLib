@@ -281,3 +281,71 @@ input[readonly], .form-control[readonly] {
     ::-webkit-scrollbar-thumb:hover {
         background: #363657;
     }
+
+/* Styles for images in editable content */
+.image-container-editable {
+    position: relative;
+    display: block; /* Or 'inline-block' if you prefer, but block is easier for centering */
+    margin: 10px auto; /* Centers the block and adds some vertical space */
+    width: fit-content; /* Adjusts to image width but allows margin auto to work */
+    max-width: 80%; /* Or a fixed px value e.g. 600px, adjust as needed */
+    border: 1px dashed var(--border-base); /* Optional: to see the container bounds */
+    padding: 4px; /* Optional: spacing around image if border is used */
+    box-sizing: border-box;
+}
+
+    .image-container-editable img.image-in-editor {
+        display: block; /* Ensures it behaves as a block inside the container */
+        max-width: 100%; /* Image will scale down to fit container */
+        height: auto; /* Maintain aspect ratio */
+        -webkit-user-select: none; /* Safari */
+        -moz-user-select: none; /* Firefox */
+        -ms-user-select: none; /* IE10+/Edge */
+        user-select: none; /* Standard */
+        cursor: default; /* Indicate it's not text */
+    }
+
+/* Delete button for images in editor - initial styling, can be improved */
+.delete-image-btn {
+    position: absolute;
+    top: -5px; /* Adjust to position nicely relative to container padding/border */
+    right: -5px; /* Adjust as well */
+    width: 24px;
+    height: 24px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: 1px solid white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    z-index: 10;
+    line-height: 1; /* Ensure 'X' is centered vertically */
+}
+
+    .delete-image-btn:hover {
+        background-color: rgba(255, 0, 0, 0.8);
+        transform: scale(1.1);
+    }
+
+/* Ensure contenteditable div itself allows these to be centered */
+#editableContent {
+    text-align: left; /* Default text alignment */
+    line-height: 1.4; /* Adjust for tighter text line spacing */
+    overflow-wrap: break-word; /* Standard property for word wrapping */
+    word-wrap: break-word; /* Older alias for compatibility */
+}
+
+    #editableContent p { /* Apply to paragraphs inside editableContent if they are used */
+        line-height: 1.4; /* Ensure paragraphs also get this line height */
+        margin-bottom: 0.5em; /* Add a little space after paragraphs, adjust as needed */
+    }
+
+    #editableContent .image-container-editable {
+        margin-left: auto;
+        margin-right: auto;
+    }

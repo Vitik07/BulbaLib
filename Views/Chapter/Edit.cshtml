@@ -59,7 +59,7 @@
                     <input type="file" id="imageUploadInput" accept="image/*" style="display: none;" />
                 </div>
                 <textarea asp-for="Content" id="Content" class="form-control" rows="15" style="display: none;"></textarea>
-                <div id="editableContent" class="form-control" contenteditable="true" style="height: 300px; overflow-y: auto; border: 1px solid #ced4da; padding: .375rem .75rem;"></div>
+                <div id="editableContent" class="form-control" contenteditable="true" style="height: 450px; overflow-y: auto; border: 1px solid #ced4da; padding: .375rem .75rem;"></div>
                 <span asp-validation-for="Content" class="text-danger"></span>
             </div>
             <div class="form-group mt-4">
@@ -140,21 +140,50 @@
                 return html;
             }
 
-            // Function to convert <img> tags to [img:URL] (same as in Create.cshtml)
-            function htmlToRaw(htmlContent) {
-                 // Simpler replacement for now, assuming images are direct children or wrapped in <p>
-                // And that text nodes / <br> are the main other content.
-                let raw = htmlContent.replace(/<img.*?src="(.*?)"[^>]*>/gi, '[img:$1]');
-                raw = raw.replace(/<br\s*\/?>/gi, '\n');
-                // Strip other HTML tags (basic)
-                raw = raw.replace(/<\/p>/gi, '\n').replace(/<p>/gi, ''); // Handle paragraphs by adding a newline
-                raw = raw.replace(/<[^>]+>/g, ''); // Strip any other tags
-                raw = raw.replace(/&amp;/g, "&")
-                         .replace(/&lt;/g, "<")
-                         .replace(/&gt;/g, ">")
-                         .replace(/&quot;/g, "\"")
-                         .replace(/&#039;/g, "'");
-                return raw.trim();
+            // Function to convert [img:URL] to <img> tags (same as in Create.cshtml)
+            function rawToHtml(rawText) { // Copied from Create.cshtml
+                if (rawText === null || rawText === undefined) return '';
+                let html = rawText.replace(/&/g, "&amp;")
+                                  .replace(/</g, "&lt;")
+                                  .replace(/>/g, "&gt;")
+                                  .replace(/"/g, "&quot;")
+                                  .replace(/'/g, "&#039;");
+                html = html.replace(/\[img:(.*?)\]/g, '<img src="$1" style="max-width: 100%; height: auto; display: block; margin-bottom: 5px;" alt="Изображение">')
+                           .replace(/\n/g, '<br>');
+                return html;
+            }
+
+            // Function to convert <img> tags from editable div to [img:URL] (Copied from Create.cshtml)
+            function htmlToRaw(element) {
+                let rawText = '';
+                const childNodes = element.childNodes;
+
+                childNodes.forEach(node => {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        rawText += node.textContent;
+                    } else if (node.nodeName === 'IMG' && node.classList && node.classList.contains('image-in-editor')) {
+                        rawText += `[img:${node.getAttribute('src')}]`;
+                    } else if (node.nodeName === 'BR') {
+                        rawText += '\n';
+                    } else if (node.nodeName === 'DIV') {
+                        if (node.classList && node.classList.contains('image-container-editable')) {
+                            const imgInside = node.querySelector('img.image-in-editor');
+                            if (imgInside && imgInside.src) {
+                                rawText += `[img:${imgInside.getAttribute('src')}]`;
+                                if (node.nextSibling) { 
+                                    rawText += '\n';
+                                }
+                            }
+                        } else {
+                            rawText += htmlToRaw(node) + '\n';
+                        }
+                    } else if (node.nodeName === 'P') {
+                        rawText += htmlToRaw(node) + '\n';
+                    } else if (node.childNodes && node.childNodes.length > 0) {
+                        rawText += htmlToRaw(node);
+                    }
+                });
+                return rawText.trim();
             }
 
             // Initial population for Edit page
@@ -163,18 +192,15 @@
 
                 // Sync from editableDiv to hiddenTextArea on input
                 editableDiv.addEventListener('input', function () {
-                    const rawText = htmlToRaw(editableDiv.innerHTML);
+                    const rawText = htmlToRaw(editableDiv); // Pass element
                     hiddenContentTextArea.value = rawText;
                 });
 
                 // Also sync when the form is submitted
-                // Assuming the form's asp-action="Edit" means its parent form is the one to target.
-                // It's safer to give the form an ID, e.g., id="editChapterForm"
-                // For now, let's try to find it by its asp-action.
                 const form = editableDiv.closest('form'); // Find the parent form
                  if (form) {
                     form.addEventListener('submit', function() {
-                        const rawText = htmlToRaw(editableDiv.innerHTML);
+                        const rawText = htmlToRaw(editableDiv); // Pass element
                         hiddenContentTextArea.value = rawText;
                     });
                 }
@@ -216,52 +242,67 @@
                             const result = await response.json();
                             const imageUrl = result.url;
 
-                            // Insert <img> tag into editableDiv (same logic as Create.cshtml)
+                            // Create image container
+                            const imageContainer = document.createElement('div');
+                            imageContainer.className = 'image-container-editable';
+
+                            // Create <img> tag
                             const imgElement = document.createElement('img');
+                            imgElement.className = 'image-in-editor';
                             imgElement.src = imageUrl;
                             imgElement.alt = "Изображение";
-                            imgElement.style.maxWidth = "100%";
-                            imgElement.style.height = "auto";
-                            imgElement.style.display = "block";
-                            imgElement.style.marginBottom = "5px";
+
+                            imageContainer.appendChild(imgElement); // Append image to container
+
+                            // Add delete button
+                            const deleteBtn = document.createElement('span');
+                            deleteBtn.className = 'delete-image-btn';
+                            deleteBtn.innerHTML = '&times;'; // 'X' character
+                            deleteBtn.title = 'Удалить изображение';
+                            deleteBtn.addEventListener('click', function(event) {
+                                event.stopPropagation();
+                                imageContainer.remove();
+                                hiddenContentTextArea.value = htmlToRaw(editableDiv);
+                                editableDiv.focus();
+                            });
+                            imageContainer.appendChild(deleteBtn);
 
                             const selection = window.getSelection();
+                            let finalNodeToInsert = imageContainer;
+
+                            let insertAtCursor = false;
                             if (selection.rangeCount > 0) {
                                 const range = selection.getRangeAt(0);
-                                range.deleteContents();
-                                let insertedNode;
-                                if (editableDiv.innerHTML.trim() === "" && range.commonAncestorContainer === editableDiv) {
-                                    insertedNode = imgElement.cloneNode(true);
-                                    editableDiv.appendChild(insertedNode);
-                                } else {
-                                     insertedNode = imgElement.cloneNode(true);
-                                     range.insertNode(insertedNode);
+                                if (editableDiv.contains(range.commonAncestorContainer)) {
+                                    insertAtCursor = true;
+                                    range.deleteContents();
+                                    range.insertNode(finalNodeToInsert);
+                                    range.setStartAfter(finalNodeToInsert);
+                                    range.collapse(true);
+                                    selection.removeAllRanges();
+                                    selection.addRange(range);
                                 }
-                                
-                                range.setStartAfter(insertedNode);
-                                range.collapse(true);
-                                selection.removeAllRanges();
-                                selection.addRange(range);
+                            }
 
-                            } else {
-                                // Fallback
-                                let brBefore = document.createElement('br');
-                                if(editableDiv.innerHTML.trim() !== "" && !editableDiv.innerHTML.endsWith('<br>')) {
-                                     editableDiv.appendChild(brBefore);
+                            if (!insertAtCursor) {
+                                // Fallback: append to end
+                                if (editableDiv.innerHTML.trim() !== "") {
+                                    const lastChild = editableDiv.lastChild;
+                                     if (lastChild && lastChild.nodeName !== 'BR' && !(lastChild.classList && lastChild.classList.contains('image-container-editable'))) {
+                                        editableDiv.appendChild(document.createElement('br'));
+                                    }
                                 }
-                                editableDiv.appendChild(imgElement.cloneNode(true));
-                                let brAfter = document.createElement('br');
-                                editableDiv.appendChild(brAfter);
+                                editableDiv.appendChild(finalNodeToInsert);
                                 const newRange = document.createRange();
-                                newRange.setStart(brAfter, 0);
+                                newRange.setStartAfter(finalNodeToInsert);
                                 newRange.collapse(true);
                                 selection.removeAllRanges();
                                 selection.addRange(newRange);
                             }
-                            editableDiv.focus();
+                            editableDiv.focus(); // Focus the editor
 
                             // Sync to hidden textarea
-                            const rawText = htmlToRaw(editableDiv.innerHTML);
+                            const rawText = htmlToRaw(editableDiv); // Pass element
                             hiddenContentTextArea.value = rawText;
 
                         } else {

@@ -60,7 +60,7 @@
                     <input type="file" id="imageUploadInputCreate" accept="image/*" style="display: none;" />
                 </div>
                 <textarea asp-for="Content" id="Content" class="form-control" rows="15" style="display: none;"></textarea>
-                <div id="editableContent" class="form-control" contenteditable="true" style="height: 300px; overflow-y: auto; border: 1px solid #ced4da; padding: .375rem .75rem;"></div>
+                <div id="editableContent" class="form-control" contenteditable="true" style="height: 450px; overflow-y: auto; border: 1px solid #ced4da; padding: .375rem .75rem;"></div>
                 <span asp-validation-for="Content" class="text-danger"></span>
             </div>
             <div class="form-group mt-4">
@@ -146,78 +146,52 @@
             }
 
             // Function to convert <img> tags from editable div to [img:URL]
-            function htmlToRaw(htmlContent) {
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = htmlContent;
-
-                // Convert <br> and <p> tags back to newlines
-                // Handle <p> tags: add two newlines for paragraph breaks, then remove the tags.
-                // Handle <br> tags: convert to single newline.
-                // This needs to be done carefully to avoid excessive newlines.
-
-                // First, replace <br> with a placeholder that won't be stripped
-                // Ensure it's not something that could be typed or part of an image URL.
-                const newlinePlaceholder = "[[NEW_LINE_PLACEHOLDER]]";
-                let raw = htmlContent.replace(/<br\s*\/?>/gi, newlinePlaceholder);
-
-
-                // Process images: replace <img> with [img:URL]
-                const images = tempDiv.getElementsByTagName('img');
-                for (let i = images.length - 1; i >= 0; i--) {
-                    const img = images[i];
-                    if (img.src) {
-                        const imgTagText = `[img:${img.src}]`;
-                         // Replace the img element in the innerHTML of tempDiv, not in the original htmlContent string directly
-                        // This is tricky because just replacing img.outerHTML might not work if it's inside other elements.
-                        // A simpler approach for now: build raw text by iterating child nodes.
-                    }
-                }
-                // A more robust way to convert HTML to raw:
-                // Iterate through child nodes of the tempDiv. If it's a text node, append its content.
-                // If it's an <img>, append [img:URL]. If it's <br>, append \n.
-                // For paragraphs, append their inner text/HTML (recursively processed) followed by \n\n.
-
-                let resultText = "";
-                constchildNodes = Array.from(tempDiv.childNodes);
+            function htmlToRaw(element) {
+                let rawText = '';
+                const childNodes = element.childNodes;
 
                 childNodes.forEach(node => {
                     if (node.nodeType === Node.TEXT_NODE) {
-                        resultText += node.textContent;
-                    } else if (node.nodeName === 'IMG' && node.src) {
-                        resultText += `[img:${node.src}]`;
+                        rawText += node.textContent;
+                    } else if (node.nodeName === 'IMG' && node.classList && node.classList.contains('image-in-editor')) {
+                        // This case handles images that might not be in a container (fallback or older content)
+                        rawText += `[img:${node.getAttribute('src')}]`;
                     } else if (node.nodeName === 'BR') {
-                        resultText += '\n';
-                    } else if (node.nodeName === 'DIV' || node.nodeName === 'P') { // Handle content within divs/paragraphs
-                        // Recursively convert content of block elements and add newlines
-                        // For simplicity, this example will just take their innerHTML and re-process
-                        // A proper solution would traverse deeper.
-                        resultText += htmlToRaw(node.innerHTML) + '\n'; // Simpler: just add one newline after block
-                    } else {
-                        // For other HTML elements, try to get their text content.
-                        // This might strip out formatting you want to keep if it's not just images and line breaks.
-                        resultText += node.textContent || '';
+                        rawText += '\n';
+                    } else if (node.nodeName === 'DIV') {
+                        if (node.classList && node.classList.contains('image-container-editable')) {
+                            // This is our image container
+                            const imgInside = node.querySelector('img.image-in-editor');
+                            if (imgInside && imgInside.src) {
+                                rawText += `[img:${imgInside.getAttribute('src')}]`;
+                                // Potentially add a newline after image container if it's not the last element?
+                                // For now, let's assume block display handles visual separation and raw text is more about content.
+                                // If the image container is followed by text, a newline might be needed in raw.
+                                // This depends on how rawToHtml reconstructs it.
+                                // Current rawToHtml adds <br> for \n. If an image is block, then text, a \n is good.
+                                if (node.nextSibling) { // If there's something after this image container
+                                    rawText += '\n';
+                                }
+                            }
+                        } else {
+                            // Regular DIV, treat as paragraph (add newline after)
+                            rawText += htmlToRaw(node) + '\n';
+                        }
+                    } else if (node.nodeName === 'P') {
+                        // Paragraph, add newline after
+                        rawText += htmlToRaw(node) + '\n';
+                    } else if (node.childNodes && node.childNodes.length > 0) {
+                        // Recursively process other wrapper elements (like <span>, <b>, <i> etc.)
+                        rawText += htmlToRaw(node);
                     }
                 });
-                // After processing nodes, replace the placeholder with actual newlines
-                // And clean up: remove leading/trailing whitespace from each line, and remove multiple blank lines.
-                // This is a simplified version. A full HTML to text conversion is complex.
-
-                // Simpler replacement for now, assuming images are direct children or wrapped in <p>
-                // And that text nodes / <br> are the main other content.
-                raw = htmlContent.replace(/<img.*?src="(.*?)"[^>]*>/gi, '[img:$1]');
-                raw = raw.replace(/<br\s*\/?>/gi, '\n');
-                // Strip other HTML tags (basic)
-                raw = raw.replace(/<\/p>/gi, '\n').replace(/<p>/gi, ''); // Handle paragraphs by adding a newline
-                raw = raw.replace(/<[^>]+>/g, ''); // Strip any other tags
-                raw = raw.replace(/&amp;/g, "&")
-                         .replace(/&lt;/g, "<")
-                         .replace(/&gt;/g, ">")
-                         .replace(/&quot;/g, "\"")
-                         .replace(/&#039;/g, "'");
-
-                return raw.trim();
+                
+                // Basic cleanup:
+                // 1. Replace multiple consecutive newlines with a single one (or two for paragraphs, but that's harder here)
+                // rawText = rawText.replace(/\n\s*\n/g, '\n'); // Consolidate multiple newlines, need care
+                // 2. Trim leading/trailing whitespace from the whole string
+                return rawText.trim();
             }
-
 
             // Initial population
             if (hiddenContentTextArea && editableDiv) {
@@ -225,7 +199,7 @@
 
                 // Sync from editableDiv to hiddenTextArea on input
                 editableDiv.addEventListener('input', function () {
-                    const rawText = htmlToRaw(editableDiv.innerHTML);
+                    const rawText = htmlToRaw(editableDiv);
                     hiddenContentTextArea.value = rawText;
                 });
 
@@ -233,7 +207,7 @@
                 const form = document.getElementById('createChapterForm'); // Ensure your form has this ID
                 if (form) {
                     form.addEventListener('submit', function() {
-                        const rawText = htmlToRaw(editableDiv.innerHTML);
+                        const rawText = htmlToRaw(editableDiv);
                         hiddenContentTextArea.value = rawText;
                     });
                 }
@@ -320,96 +294,78 @@
                             const result = await response.json();
                             const imageUrl = result.url;
                             
-                            // Insert <img> tag into editableDiv
+                            // Create image container
+                            const imageContainer = document.createElement('div');
+                            imageContainer.className = 'image-container-editable';
+                            // imageContainer.contentEditable = false; // Make container itself not editable, image is not by default
+
+                            // Create <img> tag
                             const imgElement = document.createElement('img');
+                            imgElement.className = 'image-in-editor'; // Apply class for styling
                             imgElement.src = imageUrl;
                             imgElement.alt = "Изображение";
-                            imgElement.style.maxWidth = "100%";
-                            imgElement.style.height = "auto";
-                            imgElement.style.display = "block"; // Make it a block element for easier handling with newlines
-                            imgElement.style.marginBottom = "5px";
+                            // Styles like max-width, display block are now handled by CSS for .image-in-editor
+                            imageContainer.appendChild(imgElement); // Append image to container
 
-                            // Insert image at cursor position
+                            // Add delete button
+                            const deleteBtn = document.createElement('span');
+                            deleteBtn.className = 'delete-image-btn';
+                            deleteBtn.innerHTML = '&times;'; // 'X' character
+                            deleteBtn.title = 'Удалить изображение';
+                            deleteBtn.addEventListener('click', function(event) {
+                                event.stopPropagation(); // Prevent any other click events
+                                imageContainer.remove();
+                                // Update the hidden textarea after removing the image
+                                hiddenContentTextArea.value = htmlToRaw(editableDiv);
+                                editableDiv.focus(); // Refocus editor
+                            });
+                            imageContainer.appendChild(deleteBtn);
+
                             const selection = window.getSelection();
+                            let finalNodeToInsert = imageContainer; // We are inserting the container
+
+                            // Check if the selection is effectively within editableDiv
+                            let insertAtCursor = false;
                             if (selection.rangeCount > 0) {
                                 const range = selection.getRangeAt(0);
-                                range.deleteContents(); // Delete selected content if any
-                                
-                                // Insert a newline (as a <br>) before and after the image if the cursor is at the start/end of a line or to separate from text
-                                // This is a simplified approach. Proper cursor management is complex.
-                                const needsBrBefore = range.startOffset === 0 || (range.startContainer.nodeType === Node.TEXT_NODE && range.startContainer.textContent.charAt(range.startOffset -1) === '\n');
-                                
-                                // If the editableDiv is empty or the cursor is at the very beginning, don't add <br> before.
-                                // Also, check if the previous element is already a <br> or an <img> to avoid double <br>.
-                                let insertBrBefore = true;
-                                if (editableDiv.innerHTML === "" || (range.startContainer === editableDiv && range.startOffset === 0)) {
-                                    insertBrBefore = false;
-                                } else {
-                                    const clonedRange = range.cloneRange();
-                                    clonedRange.collapse(true); // to the start
-                                    clonedRange.setStart(editableDiv, 0);
-                                    const contentBeforeCursor = clonedRange.toString();
-                                    if (contentBeforeCursor.endsWith('\n') || contentBeforeCursor.endsWith('>') ) { // crude check for ending with BR or IMG
-                                        // insertBrBefore = false; // This logic is getting complex, simplify for now
+                                if (editableDiv.contains(range.commonAncestorContainer)) {
+                                    insertAtCursor = true;
+                                    range.deleteContents(); // Delete selected content if any
+                                    range.insertNode(finalNodeToInsert);
+
+                                    // Move cursor after the inserted image container
+                                    range.setStartAfter(finalNodeToInsert);
+                                    range.collapse(true);
+                                    selection.removeAllRanges();
+                                    selection.addRange(range);
+                                }
+                            }
+
+                            if (!insertAtCursor) {
+                                // Fallback: append to end
+                                if (editableDiv.innerHTML.trim() !== "" ) {
+                                    const lastChild = editableDiv.lastChild;
+                                    if (lastChild && lastChild.nodeName !== 'BR' && !(lastChild.classList && lastChild.classList.contains('image-container-editable'))) {
+                                         editableDiv.appendChild(document.createElement('br'));
                                     }
                                 }
-
-
-                                // Always add a <br> after the image to ensure the cursor can move to a new line.
-                                // Or, better, ensure the image is wrapped in a block element or followed by one.
-                                // For simplicity, just adding the image. The user can press Enter.
-                                // A more robust solution might wrap images in <p> or <div>.
-
-                                // If editableDiv is empty, just add the image.
-                                // Otherwise, try to insert at cursor.
-                                let insertedNode;
-                                if (editableDiv.innerHTML.trim() === "" && range.commonAncestorContainer === editableDiv) {
-                                    // If div is empty or selection is directly in the div (not in a child p for example)
-                                    insertedNode = imgElement.cloneNode(true);
-                                    editableDiv.appendChild(insertedNode);
-                                } else {
-                                     insertedNode = imgElement.cloneNode(true);
-                                     range.insertNode(insertedNode);
-                                }
+                                editableDiv.appendChild(finalNodeToInsert);
                                 
-                                // Move cursor after the inserted image
-                                range.setStartAfter(insertedNode);
-                                range.collapse(true);
-                                selection.removeAllRanges();
-                                selection.addRange(range);
-                                
-                                // Optionally, insert a <br> or space after the image to make it easier to type
-                                // This can be tricky as it might add unwanted breaks if user continues an existing line.
-                                // A simple space might be less intrusive.
-                                // const spaceNode = document.createTextNode(' ');
-                                // range.insertNode(spaceNode);
-                                // range.setStartAfter(spaceNode);
-                                // range.collapse(true);
-                                // selection.removeAllRanges();
-                                // selection.addRange(range);
-
-                            } else {
-                                // Fallback if no selection or range is not usable: append to end
-                                let brBefore = document.createElement('br');
-                                if(editableDiv.innerHTML.trim() !== "" && !editableDiv.innerHTML.endsWith('<br>')) {
-                                     editableDiv.appendChild(brBefore);
-                                }
-                                editableDiv.appendChild(imgElement.cloneNode(true));
-                                // Ensure there's a way to type after the appended image
-                                let brAfter = document.createElement('br');
-                                editableDiv.appendChild(brAfter); 
-                                // Focus and try to set cursor after the last br
+                                // Create a new range to place cursor after the container
                                 const newRange = document.createRange();
-                                newRange.setStart(brAfter, 0); // Start of the text node inside br, or br itself
+                                newRange.setStartAfter(finalNodeToInsert);
                                 newRange.collapse(true);
                                 selection.removeAllRanges();
                                 selection.addRange(newRange);
-                            }
-                            editableDiv.focus();
 
+                                // Optionally, add a <br> after the container to ensure easy typing,
+                                // but only if it's the last element.
+                                // editableDiv.appendChild(document.createElement('br'));
+                            }
+                            editableDiv.focus(); // Focus the editor
 
                             // Sync to hidden textarea
-                            const rawText = htmlToRaw(editableDiv.innerHTML);
+                            const rawText = htmlToRaw(editableDiv);
                             hiddenContentTextArea.value = rawText;
 
                         } else {

@@ -2585,6 +2585,10 @@
       "PackagePath": "staticwebassets\\uploads\\content\\22\\Щас бы бахнуть - Хз.txt"
     },
     {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\content\\22\\аыв - авы.txt",
+      "PackagePath": "staticwebassets\\uploads\\content\\22\\аыв - авы.txt"
+    },
+    {
       "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\content\\6\\Том 1 Глава 1 - Разве это не раздражает, когда ты проигрываешь в бесплатную гачу.txt",
       "PackagePath": "staticwebassets\\uploads\\content\\6\\Том 1 Глава 1 - Разве это не раздражает, когда ты проигрываешь в бесплатную гачу.txt"
     },
@@ -2719,6 +2723,42 @@
     {
       "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\596\\9db19918-5d4e-4ef2-91a5-32d4ce700166.jpg",
       "PackagePath": "staticwebassets\\uploads\\images\\22\\596\\9db19918-5d4e-4ef2-91a5-32d4ce700166.jpg"
+    },
+    {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\597\\15e62ac3-ab7c-4ccb-9901-6c9d31c6e602.jpg",
+      "PackagePath": "staticwebassets\\uploads\\images\\22\\597\\15e62ac3-ab7c-4ccb-9901-6c9d31c6e602.jpg"
+    },
+    {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\597\\76991f9d-7005-494b-9e60-10490088fbab.jpg",
+      "PackagePath": "staticwebassets\\uploads\\images\\22\\597\\76991f9d-7005-494b-9e60-10490088fbab.jpg"
+    },
+    {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\597\\87fcc4b9-6588-4a53-a923-66dedd9116e5.jpg",
+      "PackagePath": "staticwebassets\\uploads\\images\\22\\597\\87fcc4b9-6588-4a53-a923-66dedd9116e5.jpg"
+    },
+    {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\597\\c421db8c-1407-4127-a115-a84a5f65f2eb.jpg",
+      "PackagePath": "staticwebassets\\uploads\\images\\22\\597\\c421db8c-1407-4127-a115-a84a5f65f2eb.jpg"
+    },
+    {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\597\\ffc882cf-dc14-4eff-b6dd-89331c4f67b9.jpg",
+      "PackagePath": "staticwebassets\\uploads\\images\\22\\597\\ffc882cf-dc14-4eff-b6dd-89331c4f67b9.jpg"
+    },
+    {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\598\\2e012ae5-2a43-4ca4-9542-2d7e905ec07e.jpg",
+      "PackagePath": "staticwebassets\\uploads\\images\\22\\598\\2e012ae5-2a43-4ca4-9542-2d7e905ec07e.jpg"
+    },
+    {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\598\\4141750d-c909-4ad2-9a51-d440c17d25de.jpg",
+      "PackagePath": "staticwebassets\\uploads\\images\\22\\598\\4141750d-c909-4ad2-9a51-d440c17d25de.jpg"
+    },
+    {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\599\\942ad062-1e96-4a9e-93fb-a74ee185d1f1.jpg",
+      "PackagePath": "staticwebassets\\uploads\\images\\22\\599\\942ad062-1e96-4a9e-93fb-a74ee185d1f1.jpg"
+    },
+    {
+      "Id": "C:\\Работы\\РЕЗ КОПИЯ ПРОЕКТА\\BulbaLibNew\\BulbaLib mark12\\BulbaLib\\wwwroot\\uploads\\images\\22\\599\\ce4ec4d7-21d6-41b4-8a62-46a4471f1d88.jpg",
+      "PackagePath": "staticwebassets\\uploads\\images\\22\\599\\ce4ec4d7-21d6-41b4-8a62-46a4471f1d88.jpg"
     },
     {
       "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.BulbaLib.Microsoft.AspNetCore.StaticWebAssets.props",
